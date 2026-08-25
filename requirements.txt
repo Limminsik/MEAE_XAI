@@ -1,0 +1,17 @@
+# meae_xai — RESEARCH_DESIGN.md §1
+# torch/torchvision는 별도 설치:
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+wfdb
+neurokit2==0.2.10   # 0.2.12는 py3.10+ 문법 사용, 3.9 미지원
+PyWavelets
+scipy
+numpy
+pandas
+matplotlib
+seaborn
+statsmodels
+pyyaml
+tqdm
+ipykernel
+pyarrow
+pytest

@@ -1,0 +1,21 @@
+# 환경
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# 원본·중간 데이터 (시드 고정으로 비트 단위 재생성됨)
+/data/
+
+# 선행 저장소 클론 (커밋 해시는 decision_log.md에 기록)
+/external/
+
+# 실행 산출물
+/checkpoints/
+/logs/
+/figures/
+
+# results/ 는 추적한다 (data_notes.md). 대용량 산출물만 제외
+/results/*.csv
+/results/*.parquet
+/results/*.png
