@@ -1,5 +1,6 @@
 #!/bin/sh
-# T6 본 학습 6회 — K {4,8} x 시드 {42,202,2026}, config 동결값 사용 (λ=1e-2)
+# 본 학습 6회 — K {8,4} x 시드 {42,202,2026}. config 동결값 사용.
+# 산출물: runs/K<k>_seed<seed>/  (가중치 · history.csv · checkpoints.json · plots/)
 set -e
 for K in 8 4; do
   for S in 42 202 2026; do
@@ -7,4 +8,4 @@ for K in 8 4; do
     PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe -m src.train --k $K --seed $S --plot-every 20
   done
 done
-echo "=== T6 전체 완료 $(date +%H:%M:%S) ==="
+echo "=== 전체 완료 $(date +%H:%M:%S) ==="

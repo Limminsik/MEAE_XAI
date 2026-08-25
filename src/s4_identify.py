@@ -35,8 +35,12 @@ NOISE_REFS = ("bw", "ma", "em")
 
 
 def load_ckpt(cfg, run):
-    ck = torch.load(os.path.join("checkpoints", f"{run}.pt"), map_location="cpu",
-                    weights_only=False)
+    name = os.path.basename(run)
+    cand = [os.path.join("runs", run, f"{name}.pt"),          # 표준 위치
+            os.path.join("archive", run, f"{name}.pt"),        # 폐기된 실행
+            os.path.join("runs", f"{run}.pt")]
+    path = next((c for c in cand if os.path.exists(c)), cand[0])
+    ck = torch.load(path, map_location="cpu", weights_only=False)
     model = meae.build(cfg, ck["n_encoders"])
     model.load_state_dict(ck["model"])
     return model.eval(), ck
@@ -180,7 +184,7 @@ def fig_hist(cm, k, out):
 
 
 def main(config="configs/default.yaml", run="K8_seed42_lam0.01", split="val",
-         outdir="results/s4_pilot", figdir="figures/s4_pilot"):
+         outdir="analysis/s4", figdir="analysis/s4/figures"):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"

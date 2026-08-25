@@ -39,19 +39,23 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 
 ```
 meae_xai/
-├── RESEARCH_DESIGN.md / CLAUDE.md
-├── configs/
-│   ├── default.yaml              # 모든 설정. 코드 하드코딩 금지
-│   └── noise_encoders.yaml       # S4 산출물 (S5·S6가 읽는 유일한 판별 결과)
-├── data/raw/ data/processed/     # git 제외
+├── README.md                 # 연구 현황판 (유일한 모니터링 문서)
+├── RESEARCH_DESIGN.md        # 이 문서
+├── CLAUDE.md                 # 작업 규칙
+├── configs/default.yaml      # 모든 설정. 코드 하드코딩 금지
+├── data/raw/ data/processed/ # git 제외
 ├── src/
-│   ├── data/{download.py, build.py, external.py}
-│   ├── model/{meae.py, losses.py}
-│   ├── train.py
-│   ├── s4_identify.py  s5_restore.py  s6_external.py
-│   ├── metrics.py  stats.py  viz.py            # 비교군 baselines.py 없음 (S5 재정의)
-├── tests/  results/  figures/  checkpoints/  logs/
+│   ├── data/{download,split,build,dataset}.py
+│   ├── model/{meae,losses,_vendor_*}.py
+│   ├── train.py  fidelity.py
+│   ├── s4_identify.py  s5_restore.py  rehearsal.py
+│   ├── metrics.py  stats.py  viz.py     # 비교군 baselines.py 없음 (S5 재정의)
+├── tests/
+├── runs/<run_id>/            # 학습 1회 = 폴더 1개
+├── analysis/<이름>/          # 분석 1종 = 폴더 1개
+└── archive/                  # 폐기된 실행·구버전
 ```
+
 
 ## 3. configs/default.yaml (현행값)
 

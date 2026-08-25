@@ -226,8 +226,8 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
                            weight_decay=tr_cfg["weight_decay"])
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=tr_cfg["lr_step_size"], gamma=0.1)
 
-    ckpt_dir, log_dir = "checkpoints", os.path.join("logs", run)
-    os.makedirs(ckpt_dir, exist_ok=True)
+    # 학습 1회 = 폴더 1개. 가중치·이력·그림이 한곳에 모인다.
+    ckpt_dir = log_dir = os.path.join("runs", run)
     os.makedirs(log_dir, exist_ok=True)
     print(f"[{run}] device={device} train={len(train_set)} val={len(val_set)} "
           f"K={n_encoders} max_epoch={max_epoch}")

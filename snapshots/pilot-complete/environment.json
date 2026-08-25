@@ -1,8 +1,0 @@
-{
-  "python": "3.9.21",
-  "torch": "2.8.0+cu129",
-  "cuda": "12.9",
-  "cudnn": 91002,
-  "gpu": "NVIDIA GeForce RTX 5060 Ti",
-  "platform": "Windows-10-10.0.26200-SP0"
-}

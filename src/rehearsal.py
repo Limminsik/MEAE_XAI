@@ -308,7 +308,7 @@ def summarise_conditions(df):
 
 
 def main(config="configs/default.yaml", split="val", n=1000,
-         outdir="results/validation", figdir="figures/validation", run_prefix=""):
+         outdir="analysis/validation", figdir="analysis/validation/figures", run_prefix=""):
     cfg = load_cfg(config)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(outdir, exist_ok=True)
@@ -328,7 +328,7 @@ def main(config="configs/default.yaml", split="val", n=1000,
     # ================= 메인 결과 (D38–D46) =================
     # 대표 모델 = T6.5 충실도 관문 통과 모델 중 검증 분리 품질 최고 (D43)
     # 위계 일관성: 재구성이 미달인 모델의 성분은 해석 대상이 아니다 (D26·D30).
-    fid = pd.read_csv("results/t6_5_fidelity_final.csv")
+    fid = pd.read_csv("analysis/fidelity/fidelity.csv")
     passed = set(fid.loc[fid.PASS.astype(str).str.lower() == "true", "run"])
     pool = {r: v for r, v in res.items() if os.path.basename(r) in passed}
     if not pool:
@@ -336,7 +336,7 @@ def main(config="configs/default.yaml", split="val", n=1000,
         pool = res
     rep_run = max(pool, key=lambda r: pool[r]["val_sep"])
     fid_row = fid[fid.run == os.path.basename(rep_run)].iloc[0]
-    diag = pd.read_csv("results/t6_5_diagnostics_final.csv")
+    diag = pd.read_csv("analysis/fidelity/diagnostics.csv")
     diag_row = diag[diag.run == os.path.basename(rep_run)].iloc[0]
     R = res[rep_run]
     order = role_order(R["cm"].mean(0))

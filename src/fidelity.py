@@ -160,7 +160,7 @@ DIAG_COLS = ["run", "dx_resid_clean", "dx_resid_bw", "dx_resid_ma", "dx_resid_em
 
 
 def main(config="configs/default.yaml", runs=None, split="val", n=300,
-         outdir="results", figdir="figures/fidelity"):
+         outdir="analysis/fidelity", figdir="analysis/fidelity/figures"):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -180,8 +180,8 @@ def main(config="configs/default.yaml", runs=None, split="val", n=300,
         fig_spectrum(inp, rec, f"{figdir}/{run}_spectrum.png", fs)
 
     out = pd.DataFrame(rows)
-    out[PASS_COLS].to_csv(f"{outdir}/t6_5_fidelity.csv", index=False, encoding="utf-8-sig")
-    out[DIAG_COLS].to_csv(f"{outdir}/t6_5_diagnostics.csv", index=False, encoding="utf-8-sig")
+    out[PASS_COLS].to_csv(f"{outdir}/fidelity.csv", index=False, encoding="utf-8-sig")
+    out[DIAG_COLS].to_csv(f"{outdir}/diagnostics.csv", index=False, encoding="utf-8-sig")
     pd.set_option("display.width", 220)
     print(f"=== T6.5 재구성 충실도 ({split} {n}분절) ===")
     print(f"합격 기준: 전대역·15–40 Hz 보존율 모두 ≥ {PASS_RATIO}  AND  "
