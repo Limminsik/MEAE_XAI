@@ -67,16 +67,19 @@ T1–T5 완료. **본 학습 진입 전 정리 단계(T5.5).**
 | `lambda_comparison.csv` | **λ=1e-3 vs 1e-2 비교표** |
 | `corr_matrix_lam1e-3.csv` / `corr_matrix_lam1e-2.csv` | 각 조건 최고 체크포인트의 인코더×참조 \|r\| 행렬 |
 | `history_lam1e-3.csv` / `history_lam1e-2.csv` | 에폭별 전체 로그(4개 손실 항, 분리 품질, tops, 붕괴 지표) |
+| `figures/corr_heatmap.png` | 대응 행렬 히트맵 |
+| `figures/loss_terms.png` | 4개 손실 항 곡선 (원값 / 가중치 적용 후) |
+| `figures/components_lam1e-3_ep005_ckpt.png` | 성분 파형 — 초판 지표가 고른 붕괴 체크포인트 |
+| `figures/components_lam1e-3_ep060.png` | 성분 파형 — 정상 학습 구간 (enc0이 심장 성분) |
+| `figures/boundary.png` | 경계 120샘플 아티팩트 확인 |
 
 git에서 제외되는 산출물의 위치:
 
 | 산출물 | 경로 |
 |---|---|
-| 파일럿 손실 곡선 | `figures/pilot/loss_terms.png` |
-| 대응 행렬 히트맵 | `figures/pilot/corr_heatmap.png` |
-| 성분 파형 적층 | `figures/pilot/components.png`, `logs/<run>/plots/ep*.png` |
-| 경계 아티팩트 | `figures/pilot/boundary.png` |
+| 에폭별 성분 파형 전량 | `logs/<run>/plots/ep*.png` |
 | 데이터 스팟체크 | `figures/spotcheck/*.png` |
+| 파일럿 그림 원본 | `figures/pilot/*.png` (핵심 4종은 스냅샷에 포함됨) |
 | 체크포인트 | `checkpoints/K8_seed42.pt`, `checkpoints/K8_seed42_lam0.01.pt` |
 
 재현 절차: 태그 체크아웃 → `requirements.freeze.txt`로 환경 복원 →

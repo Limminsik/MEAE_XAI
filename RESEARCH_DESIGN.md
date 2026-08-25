@@ -23,14 +23,16 @@
 ## 1. 환경 설정
 
 ```bash
-uv venv --python 3.9.21   # 프로젝트 루트: meae_xai/
+uv init                                   # 프로젝트 루트: meae_xai/
+uv venv --python 3.9.21
 source .venv/bin/activate                 # Windows: .venv\Scripts\activate
 uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
-uv pip install wfdb neurokit2 pywavelets scipy numpy pandas matplotlib seaborn statsmodels pyyaml tqdm ipykernel pyarrow
-python -m ipykernel install --user --name="meae_xai" --display-name="Python 3.9.21 (meae_xai)"
+uv pip install -r requirements.txt        # 나머지 의존성은 requirements.txt에만 적는다
 python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 ```
-- GPU: NVIDIA RTX 5060i / CUDA 12.9
+- 실측 환경: Python 3.9.21 / torch 2.8.0+cu129 / cuDNN 91002 / **NVIDIA RTX 5060 Ti** / CUDA 12.9
+- **`neurokit2==0.2.10` 고정.** 0.2.12는 `float | None` 문법이라 py3.9에서 import 실패한다. `pytest` 포함.
+- 동결본: `snapshots/pilot-complete/{requirements.freeze.txt, environment.json}`
 - Python 3.9와 휠 호환 문제 발생 시 **버전을 임의 변경하지 말고 보고**한다.
 
 ## 2. 저장소 구조
@@ -51,34 +53,87 @@ meae_xai/
 ├── tests/  results/  figures/  checkpoints/  logs/
 ```
 
-## 3. configs/default.yaml (초기값)
+## 3. configs/default.yaml (현행값)
+
+동결본: `snapshots/pilot-complete/default.yaml`. **코드 하드코딩 금지 (§13).**
+`loss.lambda_mixing`은 파일럿 스윕 중이라 잠정값이다 → `OPEN_ITEMS.md` OPEN-01.
 
 ```yaml
+# meae_xai — 전역 설정 (RESEARCH_DESIGN.md §3)
+# 코드 하드코딩 금지. 모든 실험 파라미터는 이 파일에서만 바꾼다.
+
 seeds: [42, 202, 2026]
+
+paths:
+  mitdb: "data/raw/mit-bih-arrhythmia-database-1.0.0"
+  nstdb: "data/mit-bih-noise-stress-test-database-1.0.0"
+  galaxyppg: "data/GalaxyPPG/GalaxyPPG/Dataset"
+  mimic3: "data/raw/mimic3wdb"
+  processed: "data/processed"
+
 data:
   fs: 360
   seg_sec: 10                        # 3600 샘플
   mitdb_exclude: ["102", "104"]      # MLII 없음 → 46개 기록
   lead: "MLII"
+  noise_channel: 0                   # NSTDB 잡음 레코드는 2채널(noise1/noise2).
+                                     # nst 도구가 채널 번호끼리 짝지어 섞는 관례에 따라,
+                                     # MLII가 0번 채널이므로 잡음도 0번(noise1)을 쓴다.
   noise_split_ratio: 0.7             # 잡음 레코드 앞 70% = 학습용, 뒤 30% = 검증·평가용
-  noise_snr_range_db: [0, 12]        # 잡음별 독립 추첨 (파일럿 후 조정)
-  split: {train: 0.7, val: 0.1, test: 0.2, unit: "record"}
+  noise_snr_range_db: [0, 12]        # 잡음별 독립 추첨 (확정)
+  # 선행 인코더 깊이가 8(MaxPool 2배 x 8 = 256배)이라 입력 길이가 256의 배수여야 한다.
+  # 3600 -> 3840 = 256 x 15. 선행 후속 저장소도 6000 -> 6144(=256x24)로 대칭 제로 패딩했다.
+  pad_to: 3840                       # 모델 입력 길이
+  pad_each: 120                      # 양쪽 대칭 제로 패딩 (3840-3600)/2
+  # 모든 상관·지표는 패딩을 제외한 중앙 3600 구간을 크롭한 뒤 계산한다.
+  # R-피크 인덱스는 크롭 좌표(0~3599) 기준을 유지한다.
+  split:
+    unit: "record"                   # 기록(환자) 단위 분할만. 분절 단위는 누수 (§0 원칙 5)
+    counts: {train: 32, val: 5, test: 9}   # 46 x (0.7/0.1/0.2) = 32.2/4.6/9.2 -> 정수 배정
+    stratify: false                  # 층화 없음. 완전 무작위
+    split_seed: 42                   # 분할 전용 고정 시드. 학습 시드(seeds)와 무관하며
+                                     # split.json은 1회 생성 후 모든 K/시드 실험이 공유한다
+
 model:
-  n_encoders: [4, 8]                 # 실험 변수. 8이 선행 기준선 (K=6은 GroupNorm 제약으로 불가, T3 확인)
-  # 나머지 구조 파라미터는 선행 공개 구현 대조 후 확정 (T3에서 보고)
+  # 선행 mesa_ecg_bss 설정 차용 (T3 확인 완료).
+  # K=6은 GroupNorm(num_groups=K)이 채널 32/64/128/256을 나누지 못해 실행 불가 -> {4, 8}로 확정.
+  n_encoders: [4, 8]                 # 실험 변수. 8이 선행 기준선. 총 학습 2 x 3시드 = 6회
+  channels: [32, 32, 64, 64, 128, 128, 256, 256]   # 인코더당 채널은 c // K 로 분배 (총 용량 K 불변)
+  hidden: 64                         # 인코딩 채널은 hidden // K
+  norm_type: group_norm
+  use_weight_norm: true
+  input_channels: 1
+
 loss:
-  lambda_mixing: null                # 선행 구현값 확인 후 기입
-  lambda_zero_recon: null
-  lambda_z_l2: null
+  # 재구성만 BCE -> MSE 교체 (정규화 없음, ECG는 음수). zero_recon도 같은 손실이라 함께 MSE가 된다.
+  recon: mse
+  sep_impl: alternative              # separation_loss.py의 두 구현 중 mesa_ecg_bss가 쓴 쪽
+  sep_norm: L1
+  lambda_mixing: 1.0e-3              # 선행 sep_lr (ECG 설정)
+  lambda_zero_recon: 1.0e-2          # 선행 zero_lr
+  lambda_z_l2: 1.0e-2                # 선행 코드에 하드코딩된 값
+
 train:
   batch: 256
   lr: 1.0e-3
-  max_epoch: 100
+  weight_decay: 1.0e-6               # 선행 값
+  lr_step_size: 50                   # StepLR, gamma 0.1 (선행 값)
+  gradient_clip_val: 0.5             # 선행 값
+  max_epoch: 100                     # 선행은 25지만 설계 §6 유지
   early_stop_patience: 10            # 검증 재구성 손실 기준
+  # 체크포인트는 검증 '분리 품질' 최고 에폭 (설계 §6). 선행의 monitor: recon_loss/train 은 따르지 않는다.
+  checkpoint_metric: val_separation_quality
+  # 분리 품질 = (잡음별 최대 |r| 평균) - penalty x (잡음 간 최고 인코더 중복 수)
+  # 중복 수 = 3 - (bw/ma/em의 최고 인코더 중 서로 다른 것의 개수)
+  # 소급 검증: penalty 0.05~0.30 전 구간에서 같은 에폭을 고른다(중복=2인 붕괴 에폭만 걸러냄).
+  separation_duplicate_penalty: 0.15
+  log_loss_terms: true               # 4개 손실 항을 에폭별로 기록 (MSE 전환 후 항 간 균형 확인)
+
 s4:
   margin_delta: 0.1                  # 1위–2위 격차 임계 (검증셋에서 확정)
   inactive_eps: 0.1                  # 비활성 판정 임계
   min_consistency: 0.8
+
 external:
   mimic3: {fs_src: 125, lead: "II", n_segments: 500}
   galaxyppg: {source: "Polar H10 ECG", fs_src: 130, n_segments: 500}
@@ -115,7 +170,7 @@ for t in ["bw", "ma", "em"]:
     comp[t] = a_t * n_t
 x_noisy = x_clean + comp["bw"] + comp["ma"] + comp["em"]
 ```
-5. **정규화·패딩·품질 필터 없음.** wfdb의 physical units(mV)로 읽기만 한다. (MIT-BIH는 게인 200 adu/mV, 기저선 1024가 전 기록 공통이라 별도 정규화가 불필요하며, 잡음 강도가 신호 전력 기준이므로 환자 간 진폭 차이는 자동 보정된다.)
+5. **정규화·품질 필터 없음. 데이터 단계에서는 패딩도 하지 않는다** (모델 입력용 3840 패딩은 §5에서 별도 적용하며 저장 배열은 3600 그대로다). wfdb의 physical units(mV)로 읽기만 한다. (MIT-BIH는 게인 200 adu/mV, 기저선 1024가 전 기록 공통이라 별도 정규화가 불필요하며, 잡음 강도가 신호 전력 기준이므로 환자 간 진폭 차이는 자동 보정된다.)
 6. 분할: 기록 단위 70/10/20. `data/processed/split.json`에 기록 목록 고정.
 7. **생성 시드 고정** — 재실행 시 동일 데이터가 나와야 한다.
 
@@ -156,23 +211,37 @@ MIT 라이선스이므로 코드 활용·수정이 자유롭다. 단 원 저작�
 - zero reconstruction: 전영(全零) 인코딩 Z_zero를 디코더에 넣어 출력이 0이 되도록 강제 → 마스킹된 인코딩이 소스 추정에 기여하지 못하게 함
 
 **★★ 반드시 확인할 것 — 입력 길이와 다운샘플링 깊이**
-선행은 MESA를 **200 Hz 리샘플, 세그먼트 길이 12288**(= 2^12 × 3, 약 61초)로 썼다. 2의 거듭제곱 인수가 12개라 깊은 다운샘플링이 가능한 길이다. **우리 3600(= 2^4 × 225)은 stride-2 다운샘플이 4회까지만 가능**하다. 저장소의 실제 인코더 깊이를 확인한 뒤:
-- 깊이 ≤ 4 → 3600 그대로 사용
-- 깊이 > 4 → **4096 제로 패딩** (사용자 사전 확정 규칙, 아래 참조)
+**확인 완료 (T3).** 선행 `EncoderBlock` 8개가 각각 `MaxPool1d(2, 2)`를 가진다 → **인코더 깊이 8,
+다운샘플 배수 256(= 2⁸)**. 따라서 **필요 조건은 2의 거듭제곱이 아니라 256의 배수**다.
+(초판은 "3600 = 2⁴×225이므로 stride-2가 4회까지만 가능"으로 적었으나 잘못된 전제였다.)
 
-**★ 깊이 결정 규칙 (사용자 사전 확정)**
-깊이가 4를 넘으면 **4096 제로 패딩을 기본**으로 한다. **깊이 축소는 선택지가 아니다.**
+| 입력 길이 | 출력 길이 | 인코딩 길이 | 판정 |
+|---|---|---|---|
+| 3600 | 3584 | 14 | **불일치** |
+| **3840** | 3840 | 15 | **채택** (= 256×15) |
+| 4096 | 4096 | 16 | 가능하나 패딩이 두 배 |
+| 12288 (선행 MESA) | 12288 | 48 | OK |
+
+**★ 깊이 결정 규칙 (확정)**
+**3600 → 3840 대칭 제로 패딩 (양쪽 120샘플).** **깊이 축소는 선택하지 않았다.**
 원칙의 위계 때문이다 — 깊이 축소는 선행 구조 자체를 바꾸는 것이라 §0 원칙 2(구조 차용) 위반이며
 수용 영역(receptive field)이 달라져 비교 근거가 무너진다. 패딩은 데이터를 구조에 맞추는 쪽이라
-구조를 보존한다. 선행도 MESA 세그먼트를 2의 거듭제곱으로 맞춰 쓴 전례가 있어 방법적으로도 정합하다.
+구조를 보존한다.
 
-패딩을 적용할 경우 아래 두 가지를 **반드시 함께** 구현한다.
-1. **모든 상관·지표는 패딩 제외 중앙 3600 구간에서만 계산한다.** 인코더 성분 출력이 4096으로
-   나오므로, S4의 참조 상관과 S5의 전 지표를 내기 전에 원 구간으로 잘라낸다.
+**4096이 아니라 3840인 이유**: 선행 후속 저장소가 같은 문제를 이렇게 처리했다 —
+`signal_duration: 48  # 48s (6000 samples) + 144 padding is divisible by 2^8`, `padding: 144`
+(6000 → 6144 = 256×24). **2의 거듭제곱이 아니라 256의 다음 배수**를 골랐다. 같은 규칙이면
+3600 → 3840이고, 패딩 240샘플로 4096(496샘플)의 절반이라 경계 왜곡 구간이 작다.
+
+패딩과 **반드시 함께** 구현할 두 가지.
+1. **모든 상관·지표는 패딩 제외 중앙 3600 구간에서만 계산한다.** 성분 출력이 3840으로
+   나오므로, S4의 참조 상관과 S5의 전 지표를 내기 전에 `crop()`으로 원 구간을 잘라낸다.
    빠뜨리면 양끝 0 구간이 상관을 희석해 판별 결과가 왜곡된다.
+   R-피크 인덱스는 크롭 좌표(0–3599) 기준을 유지한다. `metrics.score()`는 3840 입력을
+   `ValueError`로 막는다.
 2. **경계 왜곡 확인** — 선행 논문도 그림에서 가장자리를 잘라냈을 만큼 경계 아티팩트가 있다.
-   T5 파일럿 성분 그림에서 **양끝 248샘플**(4096−3600=496을 양쪽에 248씩)의 이상 여부를
-   확인 항목에 포함한다.
+   T5 파일럿에서 **양끝 120샘플**을 확인했고 아티팩트는 없었다
+   (경계 |진폭| 평균 0.2501 vs 중앙 0.2554, 비 0.98배).
 
 **★ 학습 불안정성 — 선행이 README에 명시한 경고**
 "마지막 체크포인트가 최선이 아닐 수 있으며, 안정성을 개선했음에도 학습 중 어느 시점에서든 불안정으로 결과가 나빠질 수 있다. 가능한 한 많은 체크포인트를 평가해 최선을 찾으라"고 권고한다. 또한 학습 중 일정 간격으로 소스 예측 샘플 그림을 `plots/` 폴더에 저장해 이를 돕는다.
@@ -181,12 +250,12 @@ MIT 라이선스이므로 코드 활용·수정이 자유롭다. 단 원 저작�
 
 **★ 인코더 수 과대추정은 허용된다 — K 설계의 근거**
 선행은 소스가 2개인 데이터에 **인코더 3개**를 써서, 여분 인코더가 있어도 2개만 소스를 담당하는 해로 수렴함을 보였다. 즉 **K를 실제 소스 수보다 크게 잡아도 무방**하며, 남는 인코더는 비활성이 된다.
-→ 우리 K ∈ {4,6,8} 설계와 §7의 **비활성 인코더 범주**가 이 성질에 정확히 대응한다. K 선택 근거로 원고에 인용 가능.
+→ 우리 K ∈ {4, 8} 설계와 §7의 **비활성 인코더 범주**가 이 성질에 정확히 대응한다. K 선택 근거로 원고에 인용 가능.
 
 **★ 선행의 인코더 선택 방식 = 우리 novelty의 대조군**
 후속 저장소 README: "학습 후 어느 인코더가 원하는 심혈관 관련 소스를 만드는지 **수동 검사(manual inspection)** 가 필요하다." → 우리의 참조 잡음 기반 자동·정량 판별(S4)이 대체하는 지점. 원고 서론의 novelty 문장 근거.
 
-**T3에서 보고할 항목 (아래를 확인 후 사용자에게 요약 보고)**
+**T3 확인 항목 — 전부 완료.** 결과 상세는 `results/data_notes.md` §8–12 참조.
 1. `mesa_ecg_bss` / `mesa_ppg_bss` config의 인코더 수, 채널 폭, 깊이, 손실 가중치 실제 값
 2. `models/separation_loss.py`의 두 sparse mixing 구현 차이와 선택안
 3. 인코더 깊이 → 3600 사용 가능 여부 (패딩 필요 여부)
@@ -207,15 +276,21 @@ class MEAE(nn.Module):
     def component(self, x, k) -> Tensor                 # k번째 인코딩만 유지, 나머지 0
     def masked_reconstruct(self, x, mask_idx) -> Tensor # mask_idx의 인코딩을 0으로 치환
 ```
-입력 `(B,1,3600)` → 출력 `(B,1,3600)`. 3600 = 2⁴×225이므로 stride-2 다운샘플 4회까지만 가능. **선행 인코더 깊이가 4를 넘으면 4096 제로 패딩 또는 깊이 축소 필요 — §5A 참조, 사용자 보고 후 결정.**
+입력 `(B,1,3840)` → 출력 `(B,1,3840)`. 원 분절 3600을 양쪽 120샘플씩 대칭 제로 패딩한 값이다.
+선행 인코더 깊이가 **8**(다운샘플 배수 256)이라 입력이 **256의 배수**여야 하고, 3600을 그대로
+넣으면 재구성이 3584로 어긋난다 (§5A 실측). **결정 완료 — 깊이 축소는 하지 않는다.**
+`meae.pad()` / `meae.crop()`이 변환을 담당하며 **모든 상관·지표는 crop 후 중앙 3600에서 계산**한다.
 
 **손실 (선행 4항 차용, 재구성만 교체)**
-| 항 | 내용 | 비고 |
-|---|---|---|
-| 재구성 | `MSE(x̂, x_noisy)` | 선행은 BCE지만 우리는 정규화를 안 하고 ECG는 음수를 가지므로 **MSE로 교체** |
-| sparse mixing | 디코더 가중치의 비대각 블록 L1 | 성분 분리의 핵심. 선행 그대로 |
-| zero reconstruction | 영벡터 입력 시 디코더 출력을 0으로 (MSE) | 마스킹 타당성의 근거. 선행 그대로 |
-| 인코딩 L2 | 각 z의 L2 노름 | 선행 그대로 |
+| 항 | 내용 | 가중치 | 비고 |
+|---|---|---|---|
+| 재구성 | `MSE(x̂, x_noisy)` | 1.0 | 선행은 BCE지만 우리는 정규화를 안 하고 ECG는 음수를 가지므로 **MSE로 교체** |
+| sparse mixing | 디코더 가중치(출력층 제외)의 비대각 L1 | `lambda_mixing` **1e-3 (잠정 — OPEN-01)** | 구현은 `WeightSeparationLossAlternative` (선행 ECG 설정과 동일) |
+| zero reconstruction | 전영 인코딩 입력 시 디코더 출력을 0으로 (MSE) | `lambda_zero_recon` 1e-2 | 선행 값 그대로 |
+| 인코딩 L2 | 각 z의 **평균 제곱** `mean(z²)` — L2 노름이 아니다 | `lambda_z_l2` 1e-2 | 선행 코드에 하드코딩된 값 |
+
+파일럿에서 λ_mixing 1e-3은 mixing 항을 8.3%밖에 줄이지 못했고(디코더 그래디언트 비 0.0002),
+1e-2에서 59.8% 감소했다. 최종값은 λ=1e-1 결과 후 확정한다 (OPEN-01).
 
 **K 실험 변수**: {4, 8}. 8이 선행 기준선. K=6은 디코더 `GroupNorm(num_groups=K)`이 채널 32/64/128/256을 나누지 못해 실행 불가 (T3 실측 확인).
 
@@ -223,7 +298,8 @@ class MEAE(nn.Module):
 
 **실행 순서**
 1. **파일럿 1회**: K=8, seed 42. 성분 파형 적층 그림 1장 → **사용자 보고 후 진행 판단**.
-2. **본 학습 5회**: 나머지 (K, seed) 조합. K {4,8} x 시드 3개 = 총 6회.
+2. **본 학습 6회**: K {4, 8} × 시드 {42, 202, 2026}. **전부 새로 실행한다** —
+   파일럿은 λ_mixing 값이 달라 본 결과에 포함하지 않는다. 에폭당 4.5초 × 약 60에폭 × 6회 ≈ 30분.
 
 **매 에폭 로깅 (3층위)**
 | 층위 | 항목 | 잡아내는 실패 |
@@ -243,7 +319,13 @@ class MEAE(nn.Module):
 > 한 곳으로 몰린다. 중복 페널티가 이 상태를 걸러낸다.
 > **헝가리안 1:1 강제 배정은 쓰지 않는다** — 분리 실패를 강제로 가려버리기 때문이다.
 > 중복 수와 최고 인코더 조합(`tops`)은 매 에폭 함께 기록한다.
-> 페널티 0.15는 0.05–0.30 전 구간에서 동일한 에폭을 고르는 것을 소급 확인한 값이다. 선행 논문이 "에폭마다 소스가 달라져 수동으로 골랐다"고 밝힌 한계를 자동화한 것. 정답 잡음은 이 선택에만 쓰이고 손실에는 관여하지 않는다(원칙 4). 갱신 시에만 덮어쓰기 저장 + 이력 CSV.
+> 페널티 0.15는 0.05–0.30 전 구간에서 동일한 에폭을 고르는 것을 소급 확인한 값이다.
+
+이 선택은 선행 논문이 "에폭마다 소스가 달라져 수동으로 골랐다"고 밝힌 한계를 자동화한 것이다.
+정답 잡음은 이 선택에만 쓰이고 손실에는 관여하지 않는다(§0 원칙 4).
+갱신 시에만 덮어쓰기 저장 + 이력 CSV(`logs/<run>/history.csv`).
+
+**같은 지표를 §7의 K 비교에도 그대로 쓴다** — 에폭도 K도 같은 잣대로 골라야 일관된다.
 
 **붕괴 규칙 (경고만, 자동 중단 없음)**
 - 인코더 사망: 성분 에너지 < 전체의 1%가 5에폭 지속 → 기록. K 비교 해석에 활용.
@@ -251,7 +333,10 @@ class MEAE(nn.Module):
 
 **학습 중 성분 그림**: 일정 에폭 간격으로 성분 예측 파형을 `logs/plots/`에 저장 (선행 저장소 방식. 불안정성 디버깅에 필수).
 
-**재현성**: Python/NumPy/PyTorch/CUDA 시드 + DataLoader worker 시드 + cudnn deterministic.
+**재현성**: Python/NumPy/PyTorch/CUDA 시드 + cudnn deterministic.
+**DataLoader를 쓰지 않는다** — 분절 전량을 램에 올리고(train 5,760 × 3,600 float32 ≈ 83 MB)
+시드 고정 인덱스 셔플만 한다. 워커 시드 문제가 원천적으로 사라진다.
+학습셋에는 `x_clean`/`bw`/`ma`/`em`을 아예 적재하지 않아 §0 원칙 3을 코드 수준에서 강제한다.
 
 ---
 
@@ -259,11 +344,12 @@ class MEAE(nn.Module):
 
 ```python
 for seg in test_set:
+    x = meae.pad(seg.x_noisy, PAD_EACH)                  # 3600 -> 3840
     for k in range(K):
-        xk = model.component(seg.x_noisy, k)
-        for ref in ["clean", "bw", "ma", "em"]:
-            r[k][ref] = abs(pearsonr(xk, seg[ref]))   # 필터링 없이 원신호 그대로
-        top1, top2 = 상위 2개 참조
+        xk = meae.crop(model.component(x, k), PAD_EACH)  # ★ 3840 -> 3600. 크롭 필수
+        for ref in ["clean", "bw", "ma", "em"]:          #   참조는 3600이고, 패딩 0 구간이
+            r[k][ref] = abs(pearsonr(xk, seg[ref]))      #   들어가면 상관이 희석된다
+        top1, top2 = 상위 2개 참조                        # 필터링 없이 원신호 그대로
 ```
 **대역 제한 후 상관을 재지 않는다.** bw=저주파/ma=고주파라는 사전지식을 주입하면 판별이 모델의 분리 능력이 아니라 필터 설계 결과가 된다. 부호는 인코더-디코더 가중치의 임의 부호에 따라 뒤집히므로 절대값을 쓴다.
 
@@ -285,9 +371,24 @@ for seg in test_set:
 
 **시드 간 집계 — 주의**: 인코더 번호는 시드마다 의미가 다르다(순열 불변성). **번호가 아니라 역할("bw 인코더")로 정렬한 뒤** 집계할 것. 놓치면 평균이 뭉개진다.
 
-**K 비교**: 분리 점수 = 세 잡음 각각의 최대 상관 평균 − 혼재 인코더 비율 페널티. K별 대응 행렬과 성분 파형을 나란히 제시.
+**K 비교**: **§6의 분리 품질 정의를 그대로 쓴다** — 별도 지표를 두지 않는다.
+
+```
+분리 품질 = mean_{t∈{bw,ma,em}} max_k |r(x̂_k, t)|  −  0.15 × (3 − |서로 다른 최고 인코더 수|)
+```
+
+체크포인트 선택(§6)과 K 선택에 **같은 잣대**를 쓴다. 초판은 K 비교에만 "혼재 인코더 비율
+페널티"라는 다른 정의를 뒀는데, 이름이 비슷한 두 지표가 공존하면 해석이 엇갈린다.
+K별 대응 행렬과 성분 파형을 나란히 제시한다.
 
 **Gate G1 (전부 충족해야 S5 진행)**
+
+> ⚠️ **개정 예정 — `OPEN_ITEMS.md` OPEN-03 (판별 단위 확정 대기).**
+> T5 파일럿에서 λ 1e-3·1e-2 모두 **bw와 ma가 같은 인코더를 공유**했고(1e-2에서는 63/63 에폭),
+> 조건1을 충족하지 못한다. 선등록 기준(`results/data_notes.md` §18)에 따라 λ=1e-1 결과를 본 뒤
+> 판별 단위를 **심장 / em / bw+ma군** 3분류로 조정할지 결정하며, 그때 아래 조항을 개정한다.
+> **확정 전에는 조건1을 근거로 중단하거나 진행하지 않는다.**
+
 1. bw·ma·em 각각에 잡음 인코더가 1개 이상 존재
 2. 잡음 상관 > clean 상관 (Wilcoxon, Holm p < .05)
 3. 1위 참조 일관성 ≥ 80%
@@ -407,9 +508,11 @@ SNR 정의는 §4-4 주입과 동일하게 **신호는 분산, 잡음(잔차)은
 - `test_injection`: 잡음별 실측 SNR = 추첨값 ±0.1 dB (분산 기준, §4-4와 동일 정의) / `x_noisy == x_clean + bw + ma + em`
 - `test_noise_time_split`: train과 val·test의 잡음 원본 구간이 겹치지 않음
 - `test_split_leakage`: 기록 교집합 0
-- `test_shapes`: component·masked_reconstruct 출력 (B,1,3600)
+- `test_shapes`: component·masked_reconstruct 출력 (B,1,3840), `crop()` 후 (B,1,3600)
 - `test_mask_effect`: mask_idx에 해당하는 인코딩이 실제로 0으로 치환됨 (인코더 가중치는 불변)
-- `test_metrics`: clean vs clean → RMSE 0, F1 1.0
+- `test_metrics`: clean vs clean → RMSE 0, SNR 무한대.
+  **F1 1.0은 동일한 피크 집합끼리 비교할 때만 성립**한다 — `score(clean, clean, 주석)`의 F1은
+  검출기와 사람 주석이 어긋나 상한이 **0.981**이다 (test 300분절 실측, `data_notes` §13)
 - `test_resample`: 125→360, 130→360 후 길이 정합
 
 ## 12. 태스크 순서
@@ -420,7 +523,9 @@ T2  S1 데이터 구축 → 단위 테스트 → ★분절 수·스팟체크 보
 T3  §5A 저장소 확인 → ★5개 항목 보고 → mesa_ecg_bss 기반으로 S2 모델·손실 이식
 T4  metrics 구현 + 단일 채점 진입점 → 단위 테스트 (비교군 없음)
 T5  S3 파일럿 (K=8, seed42) → ★성분 파형 그림 보고
-T6  S3 본 학습 8회
+T5.1 λ_mixing 스윕 (1e-3 / 1e-2 / 1e-1) → ★선등록 기준 판정
+T5.5 정리 — 설계서 감사, decision_log, OPEN_ITEMS, 재현성 스냅샷
+T6  S3 본 학습 6회 (K {4,8} × 시드 3개)
 T7  S4 판별 → ★Gate G1 판정 보고 (미달 시 중단)
 T8  S5 마스킹 전후 평가 + 아블레이션(주 실험)
 T9  S6 외부 시연
