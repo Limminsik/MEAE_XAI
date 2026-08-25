@@ -48,7 +48,7 @@ loss:
   recon: mse
   sep_impl: alternative              # separation_loss.py의 두 구현 중 mesa_ecg_bss가 쓴 쪽
   sep_norm: L1
-  lambda_mixing: 1.0e-3              # 선행 sep_lr (ECG 설정)
+  lambda_mixing: 1.0e-2              # T5 λ 스윕 확정. 선행 ECG 설정은 1e-3이나 MSE 전환 후 부족
   lambda_zero_recon: 1.0e-2          # 선행 zero_lr
   lambda_z_l2: 1.0e-2                # 선행 코드에 하드코딩된 값
 
@@ -67,11 +67,12 @@ train:
   # 소급 검증: penalty 0.05~0.30 전 구간에서 같은 에폭을 고른다(중복=2인 붕괴 에폭만 걸러냄).
   separation_duplicate_penalty: 0.15
   log_loss_terms: true               # 4개 손실 항을 에폭별로 기록 (MSE 전환 후 항 간 균형 확인)
+  pair_corr_alert: 0.75              # 성분 중복 경보. λ 3조건 실측 95%분위 0.549/0.587/0.659
 
 s4:
-  margin_delta: 0.1                  # 1위–2위 격차 임계 (검증셋에서 확정)
-  inactive_eps: 0.1                  # 비활성 판정 임계
-  min_consistency: 0.8
+  # 범주 판별(4분류)과 임계 δ·ε는 폐기했다 (T5). 대응 관계를 행렬로 그대로 보고한다.
+  min_consistency: 0.8               # 1위 참조 일관성 — 판정이 아니라 서술용
+  alpha: 0.05                        # Wilcoxon + Holm
 
 external:
   mimic3: {fs_src: 125, lead: "II", n_segments: 500}
