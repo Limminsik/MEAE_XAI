@@ -50,7 +50,10 @@ loss:
   sep_norm: L1
   lambda_mixing: 1.0e-2              # T5 λ 스윕 확정. 선행 ECG 설정은 1e-3이나 MSE 전환 후 부족
   lambda_zero_recon: 1.0e-2          # 선행 zero_lr
-  lambda_z_l2: 1.0e-2                # 선행 코드에 하드코딩된 값
+  lambda_z_l2: 1.0e-3                # T6.5 선등록 처방: 1e-2에서 15-40Hz 보존율 0.31~0.68로
+                                     # 전 실행 미달(<0.7). 인코딩 크기를 누르는 항이 고주파
+                                     # 표현 여력을 제한한다는 진단에 따라 1자릿수 하향.
+                                     # 선행 하드코딩값은 1e-2 (BCE + [0,1] 정규화 기준)
 
 train:
   batch: 256
@@ -58,14 +61,22 @@ train:
   weight_decay: 1.0e-6               # 선행 값
   lr_step_size: 50                   # StepLR, gamma 0.1 (선행 값)
   gradient_clip_val: 0.5             # 선행 값
-  max_epoch: 100                     # 선행은 25지만 설계 §6 유지
-  early_stop_patience: 10            # 검증 재구성 손실 기준
+  max_epoch: 300                     # T6.5: 재구성 충실도(고주파 소실) 문제로 연장
+  early_stop_patience: 30            # T6.5: 조기 종료가 미수렴 시점에서 끊던 문제로 연장
   # 체크포인트는 검증 '분리 품질' 최고 에폭 (설계 §6). 선행의 monitor: recon_loss/train 은 따르지 않는다.
   checkpoint_metric: val_separation_quality
-  # 분리 품질 = (잡음별 최대 |r| 평균) - penalty x (잡음 간 최고 인코더 중복 수)
-  # 중복 수 = 3 - (bw/ma/em의 최고 인코더 중 서로 다른 것의 개수)
-  # 소급 검증: penalty 0.05~0.30 전 구간에서 같은 에폭을 고른다(중복=2인 붕괴 에폭만 걸러냄).
+  # 분리 품질 = (참조 4종 각각의 최대 |r| 평균) - penalty x (최고 인코더 중복 수)
+  # 참조 4종 = clean, bw, ma, em. 중복 수 = 4 - (네 참조의 최고 인코더 중 서로 다른 것의 개수)
+  # clean을 포함시키는 이유: 덜 학습된 모델은 성분이 전부 완만한 곡선이라 잡음 상관만
+  # 부풀려진다. clean 항이 있어야 "심장 성분을 실제로 담은 모델"이 높은 점수를 받는다.
+  # 지표 수정 2회차이자 마지막. 두 번 모두 val 기반이며 test는 봉인 상태다.
   separation_duplicate_penalty: 0.15
+  # 후보 구간 제한 (T6.5 처방 A): 분리 품질 최대화 대상을 '수렴한 에폭'으로 한정한다.
+  # 재구성이 안 된 모델의 성분은 해석 대상이 아니다 — 위계상 재구성이 목표이기 때문.
+  # val_recon은 자기지도 손실이므로 정답을 쓰지 않는다 (§0 원칙 4 유지).
+  checkpoint_recon_gate: 1.2         # val_recon <= 1.2 x (그 실행의 최소 val_recon)
+  checkpoint_pool: 10                # 학습 중 보관할 후보 가중치 수 (분리 품질 상위)
+  checkpoint_keep_top: 3             # 종료 시 남길 상위 체크포인트 수 (재선택용)
   log_loss_terms: true               # 4개 손실 항을 에폭별로 기록 (MSE 전환 후 항 간 균형 확인)
   pair_corr_alert: 0.75              # 성분 중복 경보. λ 3조건 실측 95%분위 0.549/0.587/0.659
 

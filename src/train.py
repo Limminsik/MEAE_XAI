@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import random
+import shutil
 import time
 
 import numpy as np
@@ -86,10 +87,11 @@ def evaluate(model, crit, val, cfg, device, batch: int):
     # 덜 학습된 모델은 모든 성분이 완만한 곡선이라 bw/ma와 폭넓게 상관돼 앞항이 높게 나온다.
     # 그때는 세 잡음의 최고 인코더가 한 곳으로 몰리므로, 중복 페널티가 이를 걸러낸다.
     # 헝가리안 1:1 강제 배정은 쓰지 않는다 — 분리 실패를 강제로 가려버리기 때문이다.
-    noise_cols = [REF_KEYS.index(r) for r in NOISE_REFS]
-    base = float(np.mean([corr[:, c].max() for c in noise_cols]))
-    tops = [int(corr[:, c].argmax()) for c in noise_cols]
-    n_dup = len(NOISE_REFS) - len(set(tops))
+    # 참조 4종(clean 포함) 각각의 최대 |r| 평균 - penalty x 중복 수.
+    # clean을 포함시키는 것이 핵심이다 — 잡음 3종만 쓰면 미수렴 모델이 이긴다.
+    base = float(np.mean([corr[:, c].max() for c in range(len(REF_KEYS))]))
+    tops = [int(corr[:, c].argmax()) for c in range(len(REF_KEYS))]
+    n_dup = len(REF_KEYS) - len(set(tops))
     penalty = cfg["train"]["separation_duplicate_penalty"]
     model.train()
     return {
@@ -138,17 +140,83 @@ def _plot_components(model, val, cfg, device, path, idx=0):
     plt.close(fig)
 
 
+class CheckpointPool:
+    """후보 가중치를 학습 중 보관하고, 종료 시 수렴 구간에서 최종 선택한다 (T6.5 처방 A).
+
+    선택 규칙
+      후보 = `val_recon <= gate x (그 실행의 최소 val_recon)` 인 에폭
+      선택 = 후보 중 분리 품질 최대
+
+    최소 val_recon은 학습이 끝나야 확정되므로, 진행 중에는 **그 시점까지의 최소**로
+    잠정 판정하고 최소값이 갱신될 때마다 조건을 어기게 된 항목을 즉시 버린다.
+    학습이 끝나면 잠정 기준이 최종 기준과 일치한다.
+
+    상위 `keep_top`개를 함께 남긴다 — 이후 지표를 다시 손보더라도 **재학습 없이 재선택**
+    할 수 있게 하기 위함이다. 반복 재실행의 근본 원인(가중치 미보관)을 제거하는 조치다.
+    """
+
+    def __init__(self, run, ckpt_dir, log_dir, gate, size, keep_top):
+        self.run, self.ckpt_dir = run, ckpt_dir
+        self.dir = os.path.join(log_dir, "pool")
+        self.gate, self.size, self.keep_top = gate, size, keep_top
+        self.items, self.best_recon = [], float("inf")
+        os.makedirs(self.dir, exist_ok=True)
+
+    def _drop(self, it):
+        if os.path.exists(it["path"]):
+            os.remove(it["path"])
+
+    def update(self, epoch, sep, val_recon, payload):
+        self.best_recon = min(self.best_recon, val_recon)
+        limit = self.gate * self.best_recon
+        keep = [it for it in self.items if it["val_recon"] <= limit]
+        for it in self.items:
+            if it not in keep:
+                self._drop(it)
+        self.items = keep
+        if val_recon > limit:
+            return False
+        path = os.path.join(self.dir, f"ep{epoch:04d}.pt")
+        torch.save(payload, path)
+        self.items.append({"epoch": epoch, "sep": sep, "val_recon": val_recon, "path": path})
+        self.items.sort(key=lambda d: -d["sep"])
+        for it in self.items[self.size:]:
+            self._drop(it)
+        self.items = self.items[:self.size]
+        return self.items[0]["epoch"] == epoch
+
+    def finalize(self):
+        limit = self.gate * self.best_recon
+        self.items = [it for it in self.items if it["val_recon"] <= limit]
+        self.items.sort(key=lambda d: -d["sep"])
+        chosen = []
+        for rank, it in enumerate(self.items[:self.keep_top]):
+            name = f"{self.run}.pt" if rank == 0 else f"{self.run}_alt{rank}.pt"
+            dst = os.path.join(self.ckpt_dir, name)
+            shutil.copyfile(it["path"], dst)
+            chosen.append({**{k: it[k] for k in ("epoch", "sep", "val_recon")},
+                           "rank": rank, "file": name})
+        for it in self.items:
+            self._drop(it)
+        if os.path.isdir(self.dir) and not os.listdir(self.dir):
+            os.rmdir(self.dir)
+        return chosen
+
+
 def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
-          max_epoch: int = None, lambda_mixing: float = None):
-    if lambda_mixing is not None:                 # λ 스윕 전용 오버라이드
+          max_epoch: int = None, lambda_mixing: float = None, lambda_z_l2: float = None):
+    # λ 스윕 전용 오버라이드. 지정한 값만 바꾸고 나머지는 config 그대로 둔다(단일 변수 통제).
+    over = {"lambda_mixing": lambda_mixing, "lambda_z_l2": lambda_z_l2}
+    over = {k: v for k, v in over.items() if v is not None}
+    if over:
         cfg = json.loads(json.dumps(cfg))
-        cfg["loss"]["lambda_mixing"] = lambda_mixing
+        cfg["loss"].update(over)
     tr_cfg = cfg["train"]
     max_epoch = max_epoch or tr_cfg["max_epoch"]
     batch = tr_cfg["batch"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    run = tag or (f"K{n_encoders}_seed{seed}"
-                  + (f"_lam{cfg['loss']['lambda_mixing']:g}" if lambda_mixing is not None else ""))
+    suffix = "".join(f"_{'lam' if k == 'lambda_mixing' else 'lz'}{v:g}" for k, v in over.items())
+    run = tag or f"K{n_encoders}_seed{seed}{suffix}"
 
     set_seed(seed)
     train_set, val_set = load(cfg, "train"), load(cfg, "val")
@@ -164,8 +232,10 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
     print(f"[{run}] device={device} train={len(train_set)} val={len(val_set)} "
           f"K={n_encoders} max_epoch={max_epoch}")
 
+    pool = CheckpointPool(run, ckpt_dir, log_dir, tr_cfg["checkpoint_recon_gate"],
+                          tr_cfg["checkpoint_pool"], tr_cfg["checkpoint_keep_top"])
     rng = np.random.default_rng(seed)
-    history, best_sep, best_recon, bad = [], -np.inf, np.inf, 0
+    history, best_recon, bad = [], np.inf, 0
     for epoch in range(1, max_epoch + 1):
         t0 = time.time()
         order = rng.permutation(len(train_set))
@@ -189,7 +259,7 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
         row = {"epoch": epoch, **train_terms, "val_recon": ev["val_recon"],
                "val_separation": ev["val_separation"],
                "sep_base": ev["sep_base"], "n_dup": ev["n_dup"],
-               "tops": "".join(str(t) for t in ev["tops"]),   # bw/ma/em 최고 인코더
+               "tops": "".join(str(t) for t in ev["tops"]),   # clean/bw/ma/em 최고 인코더
                "clean_max_corr": float(ev["corr"][:, REF_KEYS.index("x_clean")].max()),
                "max_pair_corr": ev["max_pair_corr"],
                "min_energy_ratio": float(ev["energy_ratio"].min()),
@@ -210,12 +280,11 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
               f" tops {''.join(str(t) for t in ev['tops'])}) "
               f"clean={row['clean_max_corr']:.3f} dead={row['n_dead']} {dt:.0f}s")
 
-        if ev["val_separation"] > best_sep:                    # 체크포인트: 분리 품질
-            best_sep = ev["val_separation"]
-            torch.save({"model": model.state_dict(), "epoch": epoch, "cfg": cfg,
-                        "n_encoders": n_encoders, "seed": seed,
-                        "val_separation": best_sep, "corr": ev["corr"].tolist()},
-                       os.path.join(ckpt_dir, f"{run}.pt"))
+        pool.update(epoch, ev["val_separation"], ev["val_recon"],
+                    {"model": model.state_dict(), "epoch": epoch, "cfg": cfg,
+                     "n_encoders": n_encoders, "seed": seed,
+                     "val_separation": ev["val_separation"], "val_recon": ev["val_recon"],
+                     "corr": ev["corr"].tolist()})
         if ev["val_recon"] < best_recon - 1e-6:                # 조기 종료: 재구성 손실
             best_recon, bad = ev["val_recon"], 0
         else:
@@ -227,7 +296,16 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 5,
             _plot_components(model, val_set, cfg, device,
                              os.path.join(log_dir, "plots", f"ep{epoch:03d}.png"))
 
-    print(f"[{run}] 완료. 최고 분리 품질 {best_sep:.4f} → checkpoints/{run}.pt")
+    chosen = pool.finalize()
+    with open(os.path.join(log_dir, "checkpoints.json"), "w", encoding="utf-8") as f:
+        json.dump({"gate": tr_cfg["checkpoint_recon_gate"], "min_val_recon": pool.best_recon,
+                   "limit": tr_cfg["checkpoint_recon_gate"] * pool.best_recon,
+                   "chosen": chosen}, f, ensure_ascii=False, indent=2)
+    print(f"[{run}] 완료. 최소 val_recon {pool.best_recon:.5f} "
+          f"(후보 상한 {tr_cfg['checkpoint_recon_gate'] * pool.best_recon:.5f})")
+    for c in chosen:
+        print(f"    rank{c['rank']} 에폭 {c['epoch']:3d}  sep {c['sep']:.4f}  "
+              f"val_recon {c['val_recon']:.5f}  → {c['file']}")
     return pd.DataFrame(history)
 
 
@@ -240,6 +318,9 @@ if __name__ == "__main__":
     p.add_argument("--plot-every", type=int, default=5)
     p.add_argument("--lambda-mixing", type=float, default=None,
                    help="λ 스윕 전용. 지정하면 실행명에 기록된다.")
+    p.add_argument("--lambda-z-l2", type=float, default=None,
+                   help="인코딩 L2 가중치 오버라이드. 지정하면 실행명에 기록된다.")
     a = p.parse_args()
     train(load_cfg(a.config), a.k, a.seed, max_epoch=a.max_epoch,
-          plot_every=a.plot_every, lambda_mixing=a.lambda_mixing)
+          plot_every=a.plot_every, lambda_mixing=a.lambda_mixing,
+          lambda_z_l2=a.lambda_z_l2)
