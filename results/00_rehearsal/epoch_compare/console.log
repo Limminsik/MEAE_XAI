@@ -1,6 +1,6 @@
-C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
   WeightNorm.apply(module, name, dim)
-C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
   WeightNorm.apply(module, name, dim)
 === K8_seed42 후보 에폭 비교 · val 900분절 ===
 
@@ -36,27 +36,49 @@ enc6  88    0.106 0.303 0.260 0.250
 enc7  88    0.086 0.351 0.277 0.183
 enc8  88    0.170 0.167 0.139 0.169 
 
-[인코더 × 참조 원값 RMSE] 에폭 48
- 인코더  에폭  x_clean     bw     ma     em
-enc1  48   0.5639 0.2811 0.2717 0.2567
-enc2  48   0.5127 0.2664 0.2672 0.2667
-enc3  48   0.4383 0.4936 0.5133 0.5414
-enc4  48   0.3972 0.3828 0.3808 0.3797
-enc5  48   0.5327 0.1705 0.1712 0.1688
-enc6  48   0.4969 0.2619 0.2720 0.2666
-enc7  48   0.5314 0.1616 0.1672 0.1679
-enc8  48   0.5148 0.3317 0.3311 0.3162 
+[인코더 × 참조 RMSE_norm] 에폭 48   = √(2(1−|r|)), |r|의 함수
+ 인코더  에폭  x_clean    bw    ma    em
+enc1  48    1.292 1.245 1.245 1.225
+enc2  48    1.348 1.066 1.156 1.250
+enc3  48    1.313 0.845 0.995 1.190
+enc4  48    0.839 1.360 1.368 1.367
+enc5  48    1.347 1.169 1.190 1.290
+enc6  48    1.329 1.124 1.176 1.206
+enc7  48    1.350 1.087 1.177 1.257
+enc8  48    1.293 1.254 1.285 1.280 
 
-[인코더 × 참조 원값 RMSE] 에폭 88
- 인코더  에폭  x_clean     bw     ma     em
-enc1  88   0.5543 0.2820 0.2723 0.2550
-enc2  88   0.4936 0.2926 0.2896 0.2876
-enc3  88   0.4306 0.4976 0.5157 0.5436
-enc4  88   0.3964 0.3786 0.3765 0.3754
-enc5  88   0.5327 0.1729 0.1739 0.1710
-enc6  88   0.4863 0.2550 0.2608 0.2519
-enc7  88   0.5258 0.1648 0.1690 0.1699
-enc8  88   0.4961 0.3187 0.3169 0.3018 
+[인코더 × 참조 RMSE_norm] 에폭 88   = √(2(1−|r|)), |r|의 함수
+ 인코더  에폭  x_clean    bw    ma    em
+enc1  88    1.291 1.265 1.263 1.226
+enc2  88    1.347 1.068 1.152 1.254
+enc3  88    1.312 0.849 0.990 1.189
+enc4  88    0.827 1.362 1.369 1.368
+enc5  88    1.348 1.162 1.196 1.285
+enc6  88    1.334 1.167 1.206 1.217
+enc7  88    1.350 1.119 1.191 1.273
+enc8  88    1.287 1.285 1.309 1.286 
+
+[인코더 × 참조 MAD] 에폭 48   국소 최대 편차, |r|과 독립
+ 인코더  에폭  x_clean    bw    ma    em
+enc1  48    6.894 3.929 4.437 4.269
+enc2  48    7.614 3.978 4.587 4.815
+enc3  48    7.634 2.174 3.295 3.977
+enc4  48    5.324 7.701 7.736 7.585
+enc5  48    7.716 4.359 4.719 4.972
+enc6  48    7.604 3.443 4.141 4.117
+enc7  48    7.705 3.899 4.578 4.726
+enc8  48    7.484 4.616 4.963 4.825 
+
+[인코더 × 참조 MAD] 에폭 88   국소 최대 편차, |r|과 독립
+ 인코더  에폭  x_clean    bw    ma    em
+enc1  88    6.826 4.312 4.707 4.448
+enc2  88    7.592 4.107 4.594 4.828
+enc3  88    7.647 2.210 3.290 3.985
+enc4  88    5.067 7.459 7.489 7.318
+enc5  88    7.623 4.207 4.526 4.688
+enc6  88    7.626 3.680 4.265 4.177
+enc7  88    7.655 4.543 5.066 5.169
+enc8  88    7.441 4.939 5.285 5.126 
 
 [기여 분해 %] 에폭 48
  인코더  에폭  x_clean    bw    ma   em

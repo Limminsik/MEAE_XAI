@@ -1,10 +1,24 @@
-"""S4 — 인코더–참조 대응 분석 (RESEARCH_DESIGN.md §7).
+"""S4 — 인코더–참조 대응 분석 (RESEARCH_DESIGN.md §8).
 
-T5.6 산출물 패키지 v1
-  ① 인코더 × 참조 상관 행렬        stage1_matrix.csv        fig1_correspondence.png
+선행 연구는 실제 소스 파형을 알 수 없어 심박수 같은 파생 지표로 간접 평가했다. 본 연구는
+주입한 잡음 성분을 개별 보존하므로 **성분과 참조 파형을 직접 대조하는 정량 평가**가 가능하다.
+
+산출물
+  ① 인코더 × 참조 대응표           stage1_matrix.csv        fig1_correspondence.png
   ② 참조 간 상관표                 reference_correlation.csv
   ③ 기여 분해 (다중 회귀)          stage1_contribution.csv
   ④ 시각 — bw 상관 상위/중앙/하위 분절 성분 그림 + 대상 인코더 |r| 히스토그램
+
+**확정 지표 — 성분과 참조를 각각 z-정규화한 뒤 산출한다.**
+
+| 지표 | 정의 | 성격 |
+|---|---|---|
+| ① 상관 r (+r²) | 피어슨 상관. 부호는 인코더–디코더 가중치의 임의 부호이므로 절대값 | 형태 유사도 |
+| ② RMSE_norm | z-정규화·부호 정렬 후 `RMSE = √(2(1−ρ))` — **ρ의 함수**다. 해석 편의로 병기 | ①과 같은 정보의 다른 표현 |
+| ③ MAD | z-정규화 후 `max |ẑ_k − r̂|`. 정규화 후에도 ρ와 독립인 유일한 지표 | 국소 최대 편차 (보완적) |
+
+**원값 RMSE는 폐기했다** — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다
+(에폭 48 실측: enc3이 bw \|r\| 0.602로 1위인데 원값 RMSE는 0.4936으로 최하위).
 
 **기여 분해**: 참조 r을 K개 성분에 다중 회귀하고, 설명 분산을 성분별로 쪼갠다.
 
@@ -86,16 +100,33 @@ def corr_matrix(comps, refs):
     return np.where(den > 0, np.abs(num) / np.maximum(den, 1e-12), 0.0)
 
 
-def rmse_matrix(comps, refs):
-    """(n, K, R) 분절별 **원값** RMSE. 배율 보정을 하지 않는다 —
-    배율 보정 RMSE는 RMSE(b*x_hat, ref) = RMS(ref)*sqrt(1-r^2) 로 |r|과 대수적으로 중복이다."""
-    n, K, T = comps.shape
-    R = refs.shape[1]
-    out = np.empty((n, K, R))
-    for k in range(K):                    # 한 번에 (n,K,R,T)를 만들면 수백 MB가 된다
-        d = comps[:, k, None, :] - refs
-        out[:, k, :] = np.sqrt((d ** 2).mean(-1))
-    return out
+def znorm(a):
+    """마지막 축 기준 z-정규화. 상수 신호는 0으로 둔다."""
+    s = a.std(-1, keepdims=True)
+    return np.where(s > 0, _center(a) / np.maximum(s, 1e-12), 0.0)
+
+
+def metric_matrices(comps, refs):
+    """확정 지표 3종을 (n, K, R) 로 돌려준다: (|r|, RMSE_norm, MAD).
+
+    성분과 참조를 각각 z-정규화한 뒤 계산한다. 성분의 절대 크기는 임의 스케일이므로
+    원값 RMSE는 순위가 뒤집힌다(폐기).
+
+      RMSE_norm = sqrt(2 * (1 - |rho|))     정규화·부호 정렬 후. rho 의 함수다
+      MAD       = max |z_comp * sign(rho) - z_ref|   정규화 후에도 rho 와 독립
+    """
+    zc, zr = znorm(comps), znorm(refs)
+    n, K, T = zc.shape
+    R = zr.shape[1]
+    rho = np.einsum("nkt,nrt->nkr", zc, zr) / T          # 부호 있는 상관
+    corr = np.abs(rho)
+    rmse_norm = np.sqrt(np.maximum(2.0 * (1.0 - corr), 0.0))
+    mad = np.empty((n, K, R))
+    for k in range(K):                    # (n,K,R,T) 를 한 번에 만들면 수백 MB가 된다
+        sgn = np.sign(rho[:, k, :])[:, :, None]
+        sgn[sgn == 0] = 1.0
+        mad[:, k, :] = np.abs(zc[:, k, None, :] * sgn - zr).max(-1)
+    return corr, rmse_norm, mad
 
 
 def contribution(comps, refs):
@@ -146,46 +177,65 @@ def spectral_centroid(refs, fs):
 
 
 # ---------------------------------------------------------------- 그림
-def fig_correspondence(cm, out, run, rm=None):
-    m = cm.mean(0)
-    sd = cm.std(0)
-    mr = rm.mean(0) if rm is not None else None
+def fig_correspondence(cm, out, run, rn=None, mad=None):
+    """색은 |r|, 칸 안에 RMSE_norm·MAD를 병기한다. 모두 z-정규화 후 값이다."""
+    m, sd = cm.mean(0), cm.std(0)
+    mr = rn.mean(0) if rn is not None else None
+    mm = mad.mean(0) if mad is not None else None
     K = m.shape[0]
-    fig, ax = plt.subplots(figsize=(6.4, 0.78 * K + 2))
+    fig, ax = plt.subplots(figsize=(6.6, 0.86 * K + 2))
     im = ax.imshow(m, cmap="magma", vmin=0, vmax=max(0.6, m.max()), aspect="auto")
     ax.set_xticks(range(len(REF_KEYS)))
     ax.set_xticklabels(list(REF_KEYS))
     ax.set_yticks(range(K))
-    ax.set_yticklabels([f"인코더 {k+1}" for k in range(K)])
+    ax.set_yticklabels([enc_label(k) for k in range(K)])
     for k in range(K):
         for r in range(len(REF_KEYS)):
-            ax.text(r, k, f"{m[k, r]:.2f}\n±{sd[k, r]:.2f}", ha="center", va="center",
-                    fontsize=7, color="white" if m[k, r] < m.max() * .6 else "black")
+            lab = f"|r| {m[k, r]:.2f}±{sd[k, r]:.2f}"
+            if mr is not None:
+                lab += f"\nRMSEn {mr[k, r]:.2f}"
+            if mm is not None:
+                lab += f"\nMAD {mm[k, r]:.2f}"
+            ax.text(r, k, lab, ha="center", va="center",
+                    fontsize=6.5, color="white" if m[k, r] < m.max() * .6 else "black")
     for r in range(len(REF_KEYS)):
         ax.add_patch(plt.Rectangle((r - .5, m[:, r].argmax() - .5), 1, 1,
                                    fill=False, ec="cyan", lw=2))
-    ax.set_title(f"① 인코더 × 참조 |r| 평균±SD · 원값 RMSE — {run}", fontsize=10)
-    fig.colorbar(im, ax=ax, shrink=.8)
+    ax.set_title(f"① 인코더 × 참조 대응 — {run}\n"
+                 "z-정규화 후 |r| (색) · RMSE_norm · MAD", fontsize=10)
+    fig.colorbar(im, ax=ax, shrink=.8, label="|r|")
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
 
 
 def fig_components(comps, refs, x_noisy, i, out, title, fs):
+    """성분·참조를 z-정규화해 **공통 y축**으로 그린다.
+
+    성분마다 y축을 따로 잡으면 크기가 작은 성분이 크게 보여 서로 비교가 안 된다.
+    입력 x_noisy만 원값(mV)이므로 축을 따로 둔다."""
     K = comps.shape[1]
-    rows = ([("입력 x_noisy", x_noisy[i], "#000")]
-            + [(f"성분 {k+1}", comps[i, k], "#1f77b4") for k in range(K)]
-            + [(f"참조 {n}", refs[i, list(REF_KEYS).index(n)], "#d62728") for n in NOISE_REFS]
-            + [("참조 clean", refs[i, 0], "#2ca02c")])
+    zc, zr = znorm(comps[i]), znorm(refs[i])
+    rows = ([("입력 x_noisy  [원값, mV]", x_noisy[i], "#000", False)]
+            + [(f"성분 {k+1}", zc[k], "#1f77b4", True) for k in range(K)]
+            + [(f"참조 {n}", zr[list(REF_KEYS).index(n)], "#d62728", True) for n in NOISE_REFS]
+            + [("참조 clean", zr[0], "#2ca02c", True)])
+    lim = max(np.abs(v).max() for _, v, _, z in rows if z) * 1.05
     t = np.arange(comps.shape[-1]) / fs
     fig, ax = plt.subplots(len(rows), 1, figsize=(11, 1.0 * len(rows)), sharex=True)
-    for a, (lb, v, c) in zip(ax, rows):
+    for a, (lb, v, c, z) in zip(ax, rows):
         a.plot(t, v, lw=.6, color=c)
         a.set_title(lb, fontsize=8, loc="left")
         a.grid(alpha=.25, lw=.4)
         a.tick_params(labelsize=7)
+        if z:
+            a.set_ylim(-lim, lim)
+            a.set_ylabel("z", fontsize=7)
+        else:
+            a.set_ylabel("mV", fontsize=7)
     ax[-1].set_xlabel("시간 (초)")
-    fig.suptitle(title, fontsize=11)
+    fig.suptitle(title + "\n성분·참조는 z-정규화 후 공통 y축 (단위 없음). 입력만 원값 mV",
+                 fontsize=10)
     fig.tight_layout()
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -220,19 +270,31 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     comps, refs = component_bank(model, ds, device, idx)
     K = comps.shape[1]
 
-    # ① 대응표 — |r| 과 원값 RMSE 병기 (확정 지표 2종)
-    cm = corr_matrix(comps, refs)
-    rm = rmse_matrix(comps, refs)
-    mat = pd.DataFrame(cm.mean(0), columns=list(REF_KEYS), index=[enc_label(k) for k in range(K)])
-    sd = pd.DataFrame(cm.std(0), columns=[f"{c}_sd" for c in REF_KEYS],
-                      index=mat.index)
+    # ① 대응표 — 확정 지표 3종. 모두 z-정규화 후 값이다
+    cm, rn, mad = metric_matrices(comps, refs)
+    ix = [enc_label(k) for k in range(K)]
+    mat = pd.DataFrame(cm.mean(0), columns=list(REF_KEYS), index=ix)
+    sd = pd.DataFrame(cm.std(0), columns=[f"{c}_sd" for c in REF_KEYS], index=ix)
+    r2c = pd.DataFrame((cm ** 2).mean(0), columns=[f"{c}_r2" for c in REF_KEYS], index=ix)
+    rnm = pd.DataFrame(rn.mean(0), columns=[f"{c}_rmse_norm" for c in REF_KEYS], index=ix)
+    rnsd = pd.DataFrame(rn.std(0), columns=[f"{c}_rmse_norm_sd" for c in REF_KEYS], index=ix)
+    mdm = pd.DataFrame(mad.mean(0), columns=[f"{c}_mad" for c in REF_KEYS], index=ix)
+    mdsd = pd.DataFrame(mad.std(0), columns=[f"{c}_mad_sd" for c in REF_KEYS], index=ix)
     energy = (comps ** 2).mean(-1).mean(0)
-    rmse = pd.DataFrame(rm.mean(0), columns=[f"{c}_rmse" for c in REF_KEYS], index=mat.index)
-    rmse_sd = pd.DataFrame(rm.std(0), columns=[f"{c}_rmse_sd" for c in REF_KEYS], index=mat.index)
-    mat_out = pd.concat([mat.round(4), sd.round(4), rmse.round(4), rmse_sd.round(4)], axis=1)
+    mat_out = pd.concat([mat.round(4), sd.round(4), r2c.round(4),
+                         rnm.round(4), rnsd.round(4), mdm.round(4), mdsd.round(4)], axis=1)
     mat_out["energy_ratio"] = (energy / energy.sum()).round(4)
     mat_out.to_csv(f"{outdir}/stage1_matrix.csv", encoding="utf-8-sig")
-    fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run, rm)
+    with open(f"{outdir}/stage1_matrix_note.txt", "w", encoding="utf-8") as fnote:
+        fnote.write(
+            "지표는 성분과 참조를 각각 z-정규화한 뒤 산출한다.\n"
+            "① |r| — 형태 유사도. 부호는 인코더–디코더 가중치의 임의 부호이므로 절대값.\n"
+            "② RMSE_norm — 정규화·부호 정렬 후 RMSE = sqrt(2(1-|r|)) 로 |r|의 함수다.\n"
+            "   ①과 같은 정보의 다른 표현이며 해석 편의를 위해 병기한다. 독립 근거가 아니다.\n"
+            "③ MAD — 정규화 후 max|z_comp - z_ref|. 정규화 후에도 |r|과 독립인 유일한 지표로\n"
+            "   국소 최대 편차를 포착한다.\n"
+            "원값 RMSE는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.\n")
+    fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run, rn, mad)
 
     # ② 참조 간 상관 + 스펙트럼
     rc = reference_correlation(refs)
@@ -268,19 +330,25 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
 
     # ---- 콘솔 보고
     print(f"=== {run} · {split} {len(ds)}분절 · best epoch {ck['epoch']} ===\n")
-    print("① 인코더 × 참조 |r| 평균 (±SD)")
-    print(pd.DataFrame({c: [f"{mat.loc[i, c]:.3f}±{sd.loc[i, c+'_sd']:.3f}" for i in mat.index]
+    print("지표는 성분·참조를 각각 z-정규화한 뒤 산출한다. 원값 RMSE는 폐기.\n")
+    print("① 인코더 × 참조 |r| 평균 (±SD)  [r² 병기]")
+    print(pd.DataFrame({c: [f"{mat.loc[i, c]:.3f}±{sd.loc[i, c+'_sd']:.3f} "
+                            f"(r² {r2c.loc[i, c+'_r2']:.3f})" for i in mat.index]
                         for c in REF_KEYS}, index=mat.index).to_string(), "\n")
-    print("① 인코더 × 참조 원값 RMSE 평균 (±SD)")
-    print(pd.DataFrame({c: [f"{rmse.loc[i, c+'_rmse']:.4f}±{rmse_sd.loc[i, c+'_rmse_sd']:.4f}"
+    print("② 인코더 × 참조 RMSE_norm 평균 (±SD)   = √(2(1−|r|)) — |r|의 함수, 병기용")
+    print(pd.DataFrame({c: [f"{rnm.loc[i, c+'_rmse_norm']:.3f}±{rnsd.loc[i, c+'_rmse_norm_sd']:.3f}"
                             for i in mat.index] for c in REF_KEYS},
                        index=mat.index).to_string(), "\n")
-    print("② 참조 간 |r| — 분리 한계의 독립 근거")
+    print("③ 인코더 × 참조 MAD 평균 (±SD)   국소 최대 편차 — |r|과 독립")
+    print(pd.DataFrame({c: [f"{mdm.loc[i, c+'_mad']:.3f}±{mdsd.loc[i, c+'_mad_sd']:.3f}"
+                            for i in mat.index] for c in REF_KEYS},
+                       index=mat.index).to_string(), "\n")
+    print("④ 참조 간 |r| — 분리 한계의 독립 근거")
     print(ref_df.to_string(index=False))
     print(spec_df.to_string(index=False), "\n")
-    print("③ 기여 분해 — 참조 에너지 중 각 성분이 설명하는 몫 (%)")
+    print("⑤ 기여 분해 — 참조 에너지 중 각 성분이 설명하는 몫 (%)")
     print(out[list(REF_KEYS)].to_string(), "\n")
-    print(f"④ 기준 인코더 = {enc_label(k_bw)} (bw 최대 상관). 시각 4종 → {figdir}/")
+    print(f"⑥ 기준 인코더 = {enc_label(k_bw)} (bw 최대 상관). 시각 4종 → {figdir}/")
     return mat_out, ref_df, out
 
 

@@ -8,7 +8,8 @@
 산출물 (results/00_rehearsal/epoch_compare/)
   recon.csv          전대역·대역별 보존율, R-피크 진폭비, 잔차 상관, 기울기차
   corr.csv           인코더 x 참조 |r| (에폭별)
-  rmse.csv           인코더 x 참조 원값 RMSE (에폭별)
+  rmse_norm.csv      인코더 x 참조 RMSE_norm (에폭별)
+  mad.csv            인코더 x 참조 MAD (에폭별)
   contribution.csv   기여 분해 (에폭별)
   summary.csv        clean 최대 인코더의 |r| 과 잡음 상관
   figures/
@@ -28,8 +29,8 @@ from .data.build import load_cfg
 from .data.dataset import REF_KEYS, load
 from .fidelity import check, verdict
 from .model.meae import enc_label
-from .s4_identify import (component_bank, contribution, corr_matrix, load_ckpt,
-                          rmse_matrix)
+from .s4_identify import (component_bank, contribution, load_ckpt,
+                          metric_matrices)
 from .spectral import band_keep, crossover, keep_curve, psd_pair, slope
 from .viz import plt
 
@@ -142,7 +143,7 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
     idx = np.arange(min(n, len(ds)))
     labs = [f"에폭 {e}" for e in epochs]
 
-    recon_rows, corr_rows, rmse_rows, con_rows, sum_rows = [], [], [], [], []
+    recon_rows, corr_rows, rmse_rows, mad_rows, con_rows, sum_rows = [], [], [], [], [], []
     recs, curves, cms, banks = {}, {}, {}, {}
     f = None
 
@@ -171,12 +172,13 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
 
         # ---- 분리
         comps, refs = component_bank(model, ds, device, idx)
-        cm, rm = corr_matrix(comps, refs), rmse_matrix(comps, refs)
+        cm, rn_m, mad = metric_matrices(comps, refs)
         share, r2 = contribution(comps, refs)
         K = comps.shape[1]
         cms[lab], banks[lab] = cm, (comps, refs)
         ix = [enc_label(k) for k in range(K)]
-        for name, arr, sink in (("corr", cm, corr_rows), ("rmse", rm, rmse_rows)):
+        for name, arr, sink in (("corr", cm, corr_rows), ("rmse_norm", rn_m, rmse_rows),
+                                ("mad", mad, mad_rows)):
             t = pd.DataFrame(arr.mean(0), columns=list(REF_KEYS), index=ix)
             t.insert(0, "에폭", e)
             t.index.name = "인코더"
@@ -202,7 +204,8 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
     rec_df = pd.DataFrame(recon_rows)
     rec_df.to_csv(f"{outdir}/recon.csv", index=False, encoding="utf-8-sig")
     pd.concat(corr_rows).to_csv(f"{outdir}/corr.csv", index=False, encoding="utf-8-sig")
-    pd.concat(rmse_rows).to_csv(f"{outdir}/rmse.csv", index=False, encoding="utf-8-sig")
+    pd.concat(rmse_rows).to_csv(f"{outdir}/rmse_norm.csv", index=False, encoding="utf-8-sig")
+    pd.concat(mad_rows).to_csv(f"{outdir}/mad.csv", index=False, encoding="utf-8-sig")
     pd.concat(con_rows).to_csv(f"{outdir}/contribution.csv", index=False, encoding="utf-8-sig")
     sum_df = pd.DataFrame(sum_rows)
     sum_df.to_csv(f"{outdir}/summary.csv", index=False, encoding="utf-8-sig")
@@ -242,8 +245,11 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
         print(f"[인코더 × 참조 |r|] {lab}")
         print(t.round(3).to_string(index=False), "\n")
     for lab, t in zip(labs, rmse_rows):
-        print(f"[인코더 × 참조 원값 RMSE] {lab}")
-        print(t.round(4).to_string(index=False), "\n")
+        print(f"[인코더 × 참조 RMSE_norm] {lab}   = √(2(1−|r|)), |r|의 함수")
+        print(t.round(3).to_string(index=False), "\n")
+    for lab, t in zip(labs, mad_rows):
+        print(f"[인코더 × 참조 MAD] {lab}   국소 최대 편차, |r|과 독립")
+        print(t.round(3).to_string(index=False), "\n")
     for lab, t in zip(labs, con_rows):
         print(f"[기여 분해 %] {lab}")
         print(t.round(2).to_string(index=False), "\n")
