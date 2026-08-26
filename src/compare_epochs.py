@@ -245,10 +245,10 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
         print(f"[인코더 × 참조 |r|] {lab}")
         print(t.round(3).to_string(index=False), "\n")
     for lab, t in zip(labs, rmse_rows):
-        print(f"[인코더 × 참조 RMSE_norm] {lab}   = √(2(1−|r|)), |r|의 함수")
+        print(f"[인코더 × 참조 RMSE_norm] {lab}   S4-02, 낮을수록 유사")
         print(t.round(3).to_string(index=False), "\n")
     for lab, t in zip(labs, mad_rows):
-        print(f"[인코더 × 참조 MAD] {lab}   국소 최대 편차, |r|과 독립")
+        print(f"[인코더 × 참조 MAD] {lab}   국소 최대 편차, |ρ|과 독립")
         print(t.round(3).to_string(index=False), "\n")
     for lab, t in zip(labs, con_rows):
         print(f"[기여 분해 %] {lab}")
