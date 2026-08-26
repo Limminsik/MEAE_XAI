@@ -256,6 +256,45 @@ def spectral_centroid(refs, fs):
     return out
 
 
+# ---------------------------------------------------------------- 표 렌더링
+def top_idx(m, n=2, largest=True):
+    """(K, R) 에서 **열별** 상·하위 n개 인코더 인덱스. 반환 (n, R), 1위가 첫 행.
+
+    표시는 열 기준이다 — 한 참조를 어느 인코더가 가장 잘 잡는지를 열 안에서 비교한다.
+    """
+    order = np.argsort(-m if largest else m, axis=0)
+    return order[:n]
+
+
+def mark(m, n=2, largest=True):
+    """(K, R) 값 → 열별 상·하위 n개에 볼드 표시할 (K, R) 순위 배열. 0=미표시, 1=1위, 2=2위."""
+    out = np.zeros(m.shape, dtype=int)
+    for rank, ks in enumerate(top_idx(m, n, largest)):
+        out[ks, np.arange(m.shape[1])] = rank + 1
+    return out
+
+
+def render(m, sd, flag, fmt="{:.3f}"):
+    """볼드 대신 콘솔·CSV에서 쓸 표식을 붙인다. ** = 열 1위, * = 열 2위."""
+    tag = {0: "", 1: "**", 2: "*"}
+    return [[f"{fmt.format(m[k, r])}±{fmt.format(sd[k, r])}{tag[flag[k, r]]}"
+             for r in range(m.shape[1])] for k in range(m.shape[0])]
+
+
+def agreement(rbar, rn_bar, md_bar):
+    """세 지표가 **행별로** 같은 참조를 지목하는지. (지목 참조 3종, 일치 여부) 표."""
+    names = list(REF_KEYS)
+    rows = []
+    for k in range(rbar.shape[0]):
+        picks = (names[int(rbar[k].argmax())],
+                 names[int(rn_bar[k].argmin())],
+                 names[int(md_bar[k].argmin())])
+        rows.append({"|r|_지목": picks[0], "RMSE_지목": picks[1], "MAD_지목": picks[2],
+                     "일치": "일치" if len(set(picks)) == 1 else "불일치"})
+    return pd.DataFrame(rows, index=pd.Index(
+        [enc_label(k) for k in range(rbar.shape[0])], name="인코더"))
+
+
 # ---------------------------------------------------------------- 그림
 def fig_correspondence(cm, out, run, rn=None, mad=None):
     """색은 ρ̄ = mean_s|ρ|, 칸 안에 RMSE_norm·MAD를 병기한다.
@@ -281,11 +320,13 @@ def fig_correspondence(cm, out, run, rn=None, mad=None):
                 lab += f"\nMAD {mm[k, r]:.2f}"
             ax.text(r, k, lab, ha="center", va="center",
                     fontsize=6.5, color="white" if m[k, r] < m.max() * .6 else "black")
-    for k in range(K):                       # 행별 최댓값
-        ax.add_patch(plt.Rectangle((m[k].argmax() - .5, k - .5), 1, 1,
-                                   fill=False, ec="cyan", lw=2))
+    for r, ks in enumerate(top_idx(m, 2, largest=True).T):   # 열별 상위 2
+        for rank, k in enumerate(ks):
+            ax.add_patch(plt.Rectangle((r - .5, k - .5), 1, 1, fill=False,
+                                       ec="cyan", lw=2.5 if rank == 0 else 1.2))
     ax.set_title(f"① 인코더 × 참조 대응 — {run}\n"
-                 "표준화 후 mean|ρ| ± SD (색 = mean|ρ|) · RMSE_norm · MAD · 테두리 = 행별 mean|ρ| 최댓값",
+                 "표준화 후 mean|ρ| ± SD (색 = mean|ρ|) · RMSE_norm · MAD\n"
+                 "테두리 = 열별 mean|ρ| 상위 2 (굵은 선 = 1위)",
                  fontsize=9.5)
     fig.colorbar(im, ax=ax, shrink=.8, label="mean|ρ|")
     fig.tight_layout()
@@ -320,6 +361,51 @@ def fig_components(comps, refs, x_noisy, i, out, title, fs):
     ax[-1].set_xlabel("시간 (초)")
     fig.suptitle(title + "\n성분·참조는 z-정규화 후 공통 y축 (단위 없음). 입력만 원값 mV",
                  fontsize=10)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def pick_segment(ds, idx):
+    """대표 분절 **사전 규칙** — 주입 SNR 3종의 평균이 val 중앙값에 가장 가까운 분절.
+
+    모델 출력과 무관한 데이터 속성만으로 정한다. 지표를 보고 고르지 않기 위해서다.
+    """
+    snr = np.array([np.mean([ds.meta[int(i)][f"snr_{t}"] for t in NOISE_REFS]) for i in idx])
+    return int(np.argmin(np.abs(snr - np.median(snr)))), snr
+
+
+def fig_overlay(comps, refs, i, cm, rn, mad, out, fs, title):
+    """S4 마무리 그림 — 성분 × 참조 8×4 격자. 한 패널에 표준화한 두 파형을 겹쳐 그린다.
+
+    패널마다 그 분절의 세 지표를 병기하고, 전 패널이 공통 y축을 쓴다.
+    """
+    zc, zr = znorm(comps[i]), znorm(refs[i])
+    K, R = zc.shape[0], zr.shape[0]
+    lim = max(np.abs(zc).max(), np.abs(zr).max()) * 1.05
+    t = np.arange(zc.shape[-1]) / fs
+    fig, ax = plt.subplots(K, R, figsize=(4.0 * R, 1.65 * K), sharex=True, sharey=True)
+    ax = np.atleast_2d(ax)
+    for k in range(K):
+        for r in range(R):
+            a = ax[k, r]
+            a.plot(t, zr[r], lw=.7, color="#d62728", alpha=.85, label="참조")
+            a.plot(t, zc[k], lw=.7, color="#1f77b4", alpha=.85, label="성분")
+            a.set_ylim(-lim, lim)
+            a.grid(alpha=.2, lw=.3)
+            a.tick_params(labelsize=6)
+            a.set_title(f"|r| {cm[i, k, r]:.3f}  RMSE {rn[i, k, r]:.3f}  "
+                        f"MAD {mad[i, k, r]:.2f}", fontsize=7, loc="left")
+            if k == 0:
+                a.text(.5, 1.35, list(REF_KEYS)[r], transform=a.transAxes,
+                       ha="center", fontsize=11)
+            if r == 0:
+                a.set_ylabel(f"{enc_label(k)}\n(z)", fontsize=8)
+    for a in ax[-1]:
+        a.set_xlabel("시간 (초)")
+    ax[0, 0].legend(fontsize=6, loc="lower left")
+    fig.suptitle(title + "\n성분(파랑)·참조(빨강) 모두 분절 내 표준화 후 공통 y축 (단위 없음)",
+                 fontsize=12, y=1.005)
     fig.tight_layout()
     fig.savefig(out, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -387,9 +473,15 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     rbar, rsd, pos = aggregate(rho)
     ix = [enc_label(k) for k in range(K)]
 
+    rn_bar, rn_sd = rn.mean(0), rn.std(0, ddof=1)
+    md_bar, md_sd = mad.mean(0), mad.std(0, ddof=1)
+    # 표식은 **열별**이다. |r| 은 열 상위 2, RMSE·MAD 는 열 하위 2 (** = 1위, * = 2위)
+    f_r = mark(rbar, 2, largest=True)
+    f_n = mark(rn_bar, 2, largest=False)
+    f_m = mark(md_bar, 2, largest=False)
+
     # corr_matrix.csv — K x 4, 각 칸 rho_bar +- sigma
-    pd.DataFrame([[f"{rbar[k, r]:.4f} ± {rsd[k, r]:.4f}" for r in range(len(REF_KEYS))]
-                  for k in range(K)], columns=list(REF_KEYS),
+    pd.DataFrame(render(rbar, rsd, f_r, "{:.4f}"), columns=list(REF_KEYS),
                  index=pd.Index(ix, name="인코더")).to_csv(
         f"{outdir}/corr_matrix.csv", encoding="utf-8-sig")
 
@@ -402,19 +494,15 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
                  index=pd.Index(ix, name="인코더")).to_csv(
         f"{outdir}/corr_sign.csv", encoding="utf-8-sig")
 
-    # ---- S4-02 정규화 RMSE. 낮을수록 유사하므로 행별 **최솟값**을 표시한다
-    rn_bar, rn_sd = rn.mean(0), rn.std(0, ddof=1)
-    pd.DataFrame([[f"{rn_bar[k, r]:.4f} ± {rn_sd[k, r]:.4f}" for r in range(len(REF_KEYS))]
-                  for k in range(K)], columns=list(REF_KEYS),
+    # ---- S4-02 정규화 RMSE. 낮을수록 유사하므로 **열별 하위 2**를 표시한다
+    pd.DataFrame(render(rn_bar, rn_sd, f_n, "{:.4f}"), columns=list(REF_KEYS),
                  index=pd.Index(ix, name="인코더")).to_csv(
         f"{outdir}/rmse_norm_matrix.csv", encoding="utf-8-sig")
     persegment(rn, "rmse_norm", idx, ix, ds).to_csv(
         f"{outdir}/rmse_norm_persegment.csv", index=False, encoding="utf-8-sig")
 
-    # ---- S4-03 MAD. 단위는 표준편차. 역시 행별 **최솟값**을 표시한다
-    md_bar, md_sd = mad.mean(0), mad.std(0, ddof=1)
-    pd.DataFrame([[f"{md_bar[k, r]:.4f} ± {md_sd[k, r]:.4f}" for r in range(len(REF_KEYS))]
-                  for k in range(K)], columns=list(REF_KEYS),
+    # ---- S4-03 MAD. 단위는 표준편차. 역시 **열별 하위 2**를 표시한다
+    pd.DataFrame(render(md_bar, md_sd, f_m, "{:.4f}"), columns=list(REF_KEYS),
                  index=pd.Index(ix, name="인코더")).to_csv(
         f"{outdir}/mad_matrix.csv", encoding="utf-8-sig")
     md_per = persegment(mad, "mad", idx, ix, ds)
@@ -422,6 +510,10 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     md_per["argmax_초"] = (mad_arg.reshape(-1) / fs).round(4)
     md_per.to_csv(f"{outdir}/mad_persegment.csv", index=False, encoding="utf-8-sig")
     fig_mad_argmax(mad_arg, f"{figdir}/mad_argmax_hist.png", fs, comps.shape[-1])
+
+    # ---- 세 지표의 행별 지목 일치 여부
+    agree = agreement(rbar, rn_bar, md_bar)
+    agree.to_csv(f"{outdir}/metric_agreement.csv", encoding="utf-8-sig")
 
     mat = pd.DataFrame(rbar, columns=list(REF_KEYS), index=ix)
     sd = pd.DataFrame(rsd, columns=[f"{c}_sd" for c in REF_KEYS], index=ix)
@@ -472,6 +564,14 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
             "잡음 3종을 '잡음 최대'로 요약하지 않고 4열을 그대로 싣는다.\n")
     fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run, rn, mad)
 
+    # ---- S4 마무리 그림 — 성분 x 참조 8x4 겹침 격자 (대표 분절, 사전 규칙)
+    seg, snr = pick_segment(ds, idx)
+    m = ds.meta[int(idx[seg])]
+    fig_overlay(comps, refs, seg, cm, rn, mad, f"{figdir}/fig_overlay_grid.png", fs,
+                f"{run} · 분절 {m['record_id']}_{m['seg_idx']:04d} "
+                f"(주입 SNR bw {m['snr_bw']:.1f} / ma {m['snr_ma']:.1f} / em {m['snr_em']:.1f} dB, "
+                f"평균 {snr[seg]:.2f} dB · val 중앙값 {np.median(snr):.2f} dB)")
+
     # ② 참조 간 상관 + 스펙트럼
     rc = reference_correlation(refs)
     sc = spectral_centroid(refs, fs)
@@ -507,33 +607,34 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     # ---- 콘솔 보고
     print(f"=== {run} · {split} {len(ds)}분절 · best epoch {ck['epoch']} ===\n")
     print("[S4-01] 분절 내 Pearson → 분절 간 mean|ρ| ± std|ρ|(ddof=1). * = 행별 최댓값\n")
+    print("표식은 열별. ** = 열 1위, * = 열 2위 (|r|은 상위 2, RMSE·MAD는 하위 2)\n")
     print("① 인코더 × 참조 ρ̄ ± σ  [r² 병기]")
-    print(pd.DataFrame({c: [f"{rbar[k, j]:.3f}±{rsd[k, j]:.3f}"
-                            f"{'*' if j == rbar[k].argmax() else ' '}"
-                            f" (r² {r2c.loc[ix[k], c+'_r2']:.3f})" for k in range(K)]
-                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string(), "\n")
+    print(pd.DataFrame([[f"{c}  (r² {r2c.loc[ix[k], list(REF_KEYS)[j]+'_r2']:.3f})"
+                         for j, c in enumerate(row)]
+                        for k, row in enumerate(render(rbar, rsd, f_r))],
+                       columns=list(REF_KEYS), index=ix).to_string(), "\n")
     print("①-보조 원 부호 양수 비율 (부호 반전 여부 기록용. |ρ| 산출과 무관)")
     print(pd.DataFrame(pos.round(3), columns=list(REF_KEYS), index=ix).to_string(), "\n")
-    print("[S4-02] 분절 내 표준화 → 분절 내 RMSE → 분절 간 평균±SD(ddof=1). "
-          "* = 행별 최솟값 (낮을수록 유사)\n")
+    print("[S4-02] 분절 내 표준화 → 분절 내 RMSE → 분절 간 평균±SD(ddof=1). 낮을수록 유사\n")
     print("② 인코더 × 참조 RMSE_norm 평균 (±SD)")
-    print(pd.DataFrame({c: [f"{rn_bar[k, j]:.3f}±{rn_sd[k, j]:.3f}"
-                            f"{'*' if j == rn_bar[k].argmin() else ' '}" for k in range(K)]
-                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string(), "\n")
+    print(pd.DataFrame(render(rn_bar, rn_sd, f_n), columns=list(REF_KEYS),
+                       index=ix).to_string(), "\n")
     print("[S4-03] 분절 내 표준화 → 분절 내 max|차이| → 분절 간 평균±SD(ddof=1). "
           "단위는 표준편차\n")
-    print("③ 인코더 × 참조 MAD 평균 (±SD)   * = 행별 최솟값")
-    print(pd.DataFrame({c: [f"{md_bar[k, j]:.3f}±{md_sd[k, j]:.3f}"
-                            f"{'*' if j == md_bar[k].argmin() else ' '}" for k in range(K)]
-                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string())
+    print("③ 인코더 × 참조 MAD 평균 (±SD)")
+    print(pd.DataFrame(render(md_bar, md_sd, f_m), columns=list(REF_KEYS),
+                       index=ix).to_string())
     print("   각주: 값이 낮을수록 유사하며, 참조 파형의 첨도에 영향받으므로 열 내 비교에 적합.")
     print("   최대 편차 발생 시점 분포 → figures/mad_argmax_hist.png\n")
+    print("③-보조 세 지표의 행별 지목 일치 여부")
+    print(agree.to_string(), "\n")
     print("④ 참조 간 |r| — 분리 한계의 독립 근거")
     print(ref_df.to_string(index=False))
     print(spec_df.to_string(index=False), "\n")
     print("⑤ 기여 분해 — 참조 에너지 중 각 성분이 설명하는 몫 (%)")
     print(out[list(REF_KEYS)].to_string(), "\n")
-    print(f"⑥ 기준 인코더 = {enc_label(k_bw)} (bw 최대 상관). 시각 4종 → {figdir}/")
+    print(f"⑥ 시각 → {figdir}/  (fig1_correspondence · fig_overlay_grid · "
+          f"components_bw_* · hist · mad_argmax_hist)")
     return mat_out, ref_df, out
 
 
