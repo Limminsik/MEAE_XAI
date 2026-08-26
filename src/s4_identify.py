@@ -4,21 +4,35 @@
 주입한 잡음 성분을 개별 보존하므로 **성분과 참조 파형을 직접 대조하는 정량 평가**가 가능하다.
 
 산출물
-  ① 인코더 × 참조 대응표           stage1_matrix.csv        fig1_correspondence.png
-  ② 참조 간 상관표                 reference_correlation.csv
-  ③ 기여 분해 (다중 회귀)          stage1_contribution.csv
-  ④ 시각 — bw 상관 상위/중앙/하위 분절 성분 그림 + 대상 인코더 |r| 히스토그램
+  corr_matrix.csv        K×4, 각 칸 ρ̄ ± σ                     fig1_correspondence.png
+  corr_persegment.csv    분절별 원값 (K×4×S), **부호 포함**
+  corr_sign.csv          원 부호의 양수 비율
+  stage1_matrix.csv      위에 r²·RMSE_norm·MAD·energy_ratio 를 더한 통합표 + _note.txt
+  reference_correlation.csv / reference_spectrum.csv          참조 간 상관·중심주파수
+  stage1_contribution.csv                                     기여 분해 (다중 회귀)
+  figures/                성분 파형(공통 y축) · 분절별 |ρ| 히스토그램
 
-**확정 지표 — 성분과 참조를 각각 z-정규화한 뒤 산출한다.**
+**[S4-01] 상관계수 산출 명세 (확정)**
 
-| 지표 | 정의 | 성격 |
-|---|---|---|
-| ① 상관 r (+r²) | 피어슨 상관. 부호는 인코더–디코더 가중치의 임의 부호이므로 절대값 | 형태 유사도 |
-| ② RMSE_norm | z-정규화·부호 정렬 후 `RMSE = √(2(1−ρ))` — **ρ의 함수**다. 해석 편의로 병기 | ①과 같은 정보의 다른 표현 |
-| ③ MAD | z-정규화 후 `max |ẑ_k − r̂|`. 정규화 후에도 ρ와 독립인 유일한 지표 | 국소 최대 편차 (보완적) |
+입력 — 성분 x̂_k = D(0,…,z_k,…,0) k=1…K, 참조 4종(x_clean, α·n_bw, α·n_ma, α·n_em),
+패딩 제외 중앙 N=3600 표본, 분절 S=900.
+
+1단계 **분절 내** Pearson: 평균·표준편차를 해당 분절 안에서만 구한다. 분절을 이어붙여 일괄
+계산하지 않는다 — 분절마다 다른 잡음 구간이 주입되었고, 진폭 큰 분절이 결과를 지배한다.
+
+2단계 분절 간 집계: `ρ̄ = mean_s|ρ|`, `σ = std_s|ρ|` (ddof=1). 절댓값을 쓰는 이유는
+인코딩과 디코더 가중치가 동시에 부호 반전되어도 재구성이 불변하기 때문이다 — 부호 반전은
+무관이 아니라 반대 위상의 일치다. 원 부호 분포는 `corr_sign.csv`에 따로 남긴다.
+
+함께 싣는 지표 (성분·참조를 각각 z-정규화한 뒤 산출)
+- **RMSE_norm** `= √(2(1−|ρ|))` — ρ의 함수다. 같은 정보의 다른 표현이며 해석 편의로 병기한다.
+- **MAD** `max|ẑ_k − r̂|` — 정규화 후에도 ρ와 독립인 유일한 지표. 국소 최대 편차.
 
 **원값 RMSE는 폐기했다** — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다
-(에폭 48 실측: enc3이 bw \|r\| 0.602로 1위인데 원값 RMSE는 0.4936으로 최하위).
+(에폭 48 실측: enc3이 bw ρ̄ 0.602로 1위인데 원값 RMSE는 0.4936으로 최하위).
+
+**하지 않는 것**: 표본 수(N=3600) 기반 p값(시간적 자기상관으로 독립 관측 가정 불성립) ·
+인코더에 참조 이름 붙이기 · 잡음 3종의 "잡음 최대" 요약 · 값에 대한 해석·판정.
 
 **기여 분해**: 참조 r을 K개 성분에 다중 회귀하고, 설명 분산을 성분별로 쪼갠다.
 
@@ -90,24 +104,45 @@ def _center(a):
     return a - a.mean(-1, keepdims=True)
 
 
-def corr_matrix(comps, refs):
-    """(n, K, R) 분절별 |피어슨 r|."""
-    c, r = _center(comps), _center(refs)
-    cn = np.linalg.norm(c, axis=-1)[:, :, None]
-    rn = np.linalg.norm(r, axis=-1)[:, None, :]
-    num = np.einsum("nkt,nrt->nkr", c, r)
-    den = cn * rn
-    return np.where(den > 0, np.abs(num) / np.maximum(den, 1e-12), 0.0)
-
-
 def znorm(a):
     """마지막 축 기준 z-정규화. 상수 신호는 0으로 둔다."""
     s = a.std(-1, keepdims=True)
     return np.where(s > 0, _center(a) / np.maximum(s, 1e-12), 0.0)
 
 
+def pearson(comps, refs):
+    """S4-01 1단계 — **분절 내** Pearson 상관. (n, K, R) 부호 있는 ρ.
+
+    평균·표준편차는 해당 분절 안에서만 구한다. 분절을 이어붙여 일괄 계산하지 않는다 —
+    분절마다 다른 잡음 구간이 주입되었고, 진폭 큰 분절이 결과를 지배하기 때문이다.
+    입력은 crop 후 중앙 3600 표본이어야 한다.
+
+    상관 관련 코드는 전부 이 함수를 거친다.
+    """
+    zc, zr = znorm(comps), znorm(refs)
+    return np.einsum("nkt,nrt->nkr", zc, zr) / zc.shape[-1]
+
+
+def corr_matrix(comps, refs):
+    """(n, K, R) 분절별 |ρ|."""
+    return np.abs(pearson(comps, refs))
+
+
+def aggregate(rho):
+    """S4-01 2단계 — 분절 간 집계. (ρ̄, σ, 양수비율) 각 (K, R).
+
+      ρ̄ = mean_s |ρ|,  σ = std_s |ρ| (ddof=1)
+
+    절댓값을 쓰는 이유: 인코딩과 디코더 가중치가 동시에 부호 반전되어도 재구성이 불변하므로
+    성분이 참조와 반대 위상으로 수렴할 수 있다. 부호 반전은 무관이 아니라 반대 위상의 일치다.
+    원 부호의 분포는 양수 비율로 따로 기록한다.
+    """
+    a = np.abs(rho)
+    return a.mean(0), a.std(0, ddof=1), (rho > 0).mean(0)
+
+
 def metric_matrices(comps, refs):
-    """확정 지표 3종을 (n, K, R) 로 돌려준다: (|r|, RMSE_norm, MAD).
+    """(|ρ|, RMSE_norm, MAD) 를 각 (n, K, R) 로 돌려준다.
 
     성분과 참조를 각각 z-정규화한 뒤 계산한다. 성분의 절대 크기는 임의 스케일이므로
     원값 RMSE는 순위가 뒤집힌다(폐기).
@@ -117,11 +152,10 @@ def metric_matrices(comps, refs):
     """
     zc, zr = znorm(comps), znorm(refs)
     n, K, T = zc.shape
-    R = zr.shape[1]
-    rho = np.einsum("nkt,nrt->nkr", zc, zr) / T          # 부호 있는 상관
+    rho = pearson(comps, refs)
     corr = np.abs(rho)
     rmse_norm = np.sqrt(np.maximum(2.0 * (1.0 - corr), 0.0))
-    mad = np.empty((n, K, R))
+    mad = np.empty((n, K, zr.shape[1]))
     for k in range(K):                    # (n,K,R,T) 를 한 번에 만들면 수백 MB가 된다
         sgn = np.sign(rho[:, k, :])[:, :, None]
         sgn[sgn == 0] = 1.0
@@ -178,8 +212,11 @@ def spectral_centroid(refs, fs):
 
 # ---------------------------------------------------------------- 그림
 def fig_correspondence(cm, out, run, rn=None, mad=None):
-    """색은 |r|, 칸 안에 RMSE_norm·MAD를 병기한다. 모두 z-정규화 후 값이다."""
-    m, sd = cm.mean(0), cm.std(0)
+    """색은 ρ̄ = mean_s|ρ|, 칸 안에 RMSE_norm·MAD를 병기한다.
+
+    잡음 3종을 "잡음 최대"로 요약하지 않고 4열을 그대로 싣는다.
+    테두리는 **행별(인코더별) 최댓값**이다."""
+    m, sd, _ = aggregate(cm)          # cm 은 |ρ| 또는 ρ 어느 쪽이 와도 동일한 결과다
     mr = rn.mean(0) if rn is not None else None
     mm = mad.mean(0) if mad is not None else None
     K = m.shape[0]
@@ -191,19 +228,20 @@ def fig_correspondence(cm, out, run, rn=None, mad=None):
     ax.set_yticklabels([enc_label(k) for k in range(K)])
     for k in range(K):
         for r in range(len(REF_KEYS)):
-            lab = f"|r| {m[k, r]:.2f}±{sd[k, r]:.2f}"
+            lab = f"|ρ| {m[k, r]:.3f}±{sd[k, r]:.3f}"
             if mr is not None:
                 lab += f"\nRMSEn {mr[k, r]:.2f}"
             if mm is not None:
                 lab += f"\nMAD {mm[k, r]:.2f}"
             ax.text(r, k, lab, ha="center", va="center",
                     fontsize=6.5, color="white" if m[k, r] < m.max() * .6 else "black")
-    for r in range(len(REF_KEYS)):
-        ax.add_patch(plt.Rectangle((r - .5, m[:, r].argmax() - .5), 1, 1,
+    for k in range(K):                       # 행별 최댓값
+        ax.add_patch(plt.Rectangle((m[k].argmax() - .5, k - .5), 1, 1,
                                    fill=False, ec="cyan", lw=2))
     ax.set_title(f"① 인코더 × 참조 대응 — {run}\n"
-                 "z-정규화 후 |r| (색) · RMSE_norm · MAD", fontsize=10)
-    fig.colorbar(im, ax=ax, shrink=.8, label="|r|")
+                 "z-정규화 후 mean|ρ| ± SD (색 = mean|ρ|) · RMSE_norm · MAD · 테두리 = 행별 최댓값",
+                 fontsize=9.5)
+    fig.colorbar(im, ax=ax, shrink=.8, label="mean|ρ|")
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
@@ -244,12 +282,13 @@ def fig_components(comps, refs, x_noisy, i, out, title, fs):
 def fig_hist(cm, k, out):
     fig, ax = plt.subplots(figsize=(8, 4))
     for j, name in enumerate(REF_KEYS):
-        ax.hist(cm[:, k, j], bins=40, alpha=.55, label=f"{name} (중앙 {np.median(cm[:, k, j]):.3f})")
-    ax.set_xlabel(f"인코더 {k+1} 성분과 참조의 |r| (분절 단위)")
+        ax.hist(cm[:, k, j], bins=40, alpha=.55,
+                label=f"{name} (평균 {cm[:, k, j].mean():.3f})")
+    ax.set_xlabel(f"{enc_label(k)} 성분과 참조의 |ρ| (분절 단위)")
     ax.set_ylabel("분절 수")
     ax.legend(fontsize=8)
     ax.grid(alpha=.3, lw=.4)
-    ax.set_title(f"④ 인코더 {k+1}의 분절별 |r| 분포 — 평균값 뒤에 가려진 산포", fontsize=10)
+    ax.set_title(f"{enc_label(k)}의 분절별 |ρ| 분포 — 평균값 뒤에 가려진 산포", fontsize=10)
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
@@ -270,16 +309,40 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     comps, refs = component_bank(model, ds, device, idx)
     K = comps.shape[1]
 
-    # ① 대응표 — 확정 지표 3종. 모두 z-정규화 후 값이다
+    # ① 대응표 — S4-01 명세. 모두 z-정규화 후 값이다
+    rho = pearson(comps, refs)                       # (S, K, R) 부호 있는 원값
     cm, rn, mad = metric_matrices(comps, refs)
+    rbar, rsd, pos = aggregate(rho)
     ix = [enc_label(k) for k in range(K)]
-    mat = pd.DataFrame(cm.mean(0), columns=list(REF_KEYS), index=ix)
-    sd = pd.DataFrame(cm.std(0), columns=[f"{c}_sd" for c in REF_KEYS], index=ix)
+
+    # corr_matrix.csv — K x 4, 각 칸 rho_bar +- sigma
+    pd.DataFrame([[f"{rbar[k, r]:.4f} ± {rsd[k, r]:.4f}" for r in range(len(REF_KEYS))]
+                  for k in range(K)], columns=list(REF_KEYS),
+                 index=pd.Index(ix, name="인코더")).to_csv(
+        f"{outdir}/corr_matrix.csv", encoding="utf-8-sig")
+
+    # corr_persegment.csv — 분절별 원값, 부호 포함
+    per = pd.DataFrame(
+        {"분절": np.repeat(idx, K * len(REF_KEYS)),
+         "record_id": np.repeat([ds.meta[int(i)]["record_id"] for i in idx], K * len(REF_KEYS)),
+         "seg_idx": np.repeat([ds.meta[int(i)]["seg_idx"] for i in idx], K * len(REF_KEYS)),
+         "인코더": np.tile(np.repeat(ix, len(REF_KEYS)), len(idx)),
+         "참조": np.tile(list(REF_KEYS), len(idx) * K),
+         "rho": rho.reshape(-1)})
+    per.to_csv(f"{outdir}/corr_persegment.csv", index=False, encoding="utf-8-sig")
+
+    # corr_sign.csv — 원 부호의 분절별 분포 (양수 비율)
+    pd.DataFrame(pos.round(4), columns=list(REF_KEYS),
+                 index=pd.Index(ix, name="인코더")).to_csv(
+        f"{outdir}/corr_sign.csv", encoding="utf-8-sig")
+
+    mat = pd.DataFrame(rbar, columns=list(REF_KEYS), index=ix)
+    sd = pd.DataFrame(rsd, columns=[f"{c}_sd" for c in REF_KEYS], index=ix)
     r2c = pd.DataFrame((cm ** 2).mean(0), columns=[f"{c}_r2" for c in REF_KEYS], index=ix)
     rnm = pd.DataFrame(rn.mean(0), columns=[f"{c}_rmse_norm" for c in REF_KEYS], index=ix)
-    rnsd = pd.DataFrame(rn.std(0), columns=[f"{c}_rmse_norm_sd" for c in REF_KEYS], index=ix)
+    rnsd = pd.DataFrame(rn.std(0, ddof=1), columns=[f"{c}_rmse_norm_sd" for c in REF_KEYS], index=ix)
     mdm = pd.DataFrame(mad.mean(0), columns=[f"{c}_mad" for c in REF_KEYS], index=ix)
-    mdsd = pd.DataFrame(mad.std(0), columns=[f"{c}_mad_sd" for c in REF_KEYS], index=ix)
+    mdsd = pd.DataFrame(mad.std(0, ddof=1), columns=[f"{c}_mad_sd" for c in REF_KEYS], index=ix)
     energy = (comps ** 2).mean(-1).mean(0)
     mat_out = pd.concat([mat.round(4), sd.round(4), r2c.round(4),
                          rnm.round(4), rnsd.round(4), mdm.round(4), mdsd.round(4)], axis=1)
@@ -287,13 +350,25 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     mat_out.to_csv(f"{outdir}/stage1_matrix.csv", encoding="utf-8-sig")
     with open(f"{outdir}/stage1_matrix_note.txt", "w", encoding="utf-8") as fnote:
         fnote.write(
-            "지표는 성분과 참조를 각각 z-정규화한 뒤 산출한다.\n"
-            "① |r| — 형태 유사도. 부호는 인코더–디코더 가중치의 임의 부호이므로 절대값.\n"
-            "② RMSE_norm — 정규화·부호 정렬 후 RMSE = sqrt(2(1-|r|)) 로 |r|의 함수다.\n"
-            "   ①과 같은 정보의 다른 표현이며 해석 편의를 위해 병기한다. 독립 근거가 아니다.\n"
-            "③ MAD — 정규화 후 max|z_comp - z_ref|. 정규화 후에도 |r|과 독립인 유일한 지표로\n"
-            "   국소 최대 편차를 포착한다.\n"
-            "원값 RMSE는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.\n")
+            "[S4-01] 상관계수 산출 명세\n"
+            "1단계 분절 내 Pearson — 평균·표준편차는 해당 분절 안에서만 구한다.\n"
+            "  분절을 이어붙여 일괄 계산하지 않는다(분절마다 다른 잡음 구간이 주입되었고,\n"
+            "  진폭 큰 분절이 결과를 지배한다). 패딩 제외 중앙 N=3600 표본.\n"
+            "2단계 분절 간 집계 — rho_bar = mean_s|rho|, sigma = std_s|rho| (ddof=1).\n"
+            "  절댓값: 인코딩과 디코더 가중치가 동시에 부호 반전되어도 재구성이 불변하므로\n"
+            "  성분이 참조와 반대 위상으로 수렴할 수 있다. 부호 반전은 무관이 아니라\n"
+            "  반대 위상의 일치다. 원 부호 분포는 corr_sign.csv 에 양수 비율로 기록한다.\n"
+            "\n"
+            "함께 싣는 지표 (성분·참조를 각각 z-정규화한 뒤 산출)\n"
+            "  RMSE_norm — 정규화·부호 정렬 후 RMSE = sqrt(2(1-|rho|)) 로 rho 의 함수다.\n"
+            "    상관과 같은 정보의 다른 표현이며 해석 편의를 위해 병기한다. 독립 근거가 아니다.\n"
+            "  MAD — 정규화 후 max|z_comp - z_ref|. 정규화 후에도 rho 와 독립인 유일한 지표로\n"
+            "    국소 최대 편차를 포착한다.\n"
+            "원값 RMSE는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.\n"
+            "\n"
+            "표본 수(N=3600) 기반 p값은 산출하지 않는다 — 시간적 자기상관 때문에\n"
+            "독립 관측 가정이 성립하지 않는다.\n"
+            "잡음 3종을 '잡음 최대'로 요약하지 않고 4열을 그대로 싣는다.\n")
     fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run, rn, mad)
 
     # ② 참조 간 상관 + 스펙트럼
@@ -324,17 +399,20 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     for tag, i in picks.items():
         fig_components(comps, refs, ds.x_noisy, i,
                        f"{figdir}/components_bw_{tag}.png",
-                       f"{enc_label(k_bw)}–bw |r| {v[i]:.3f} ({tag}) · "
+                       f"{enc_label(k_bw)}–bw |ρ| {v[i]:.3f} ({tag}) · "
                        f"{ds.meta[i]['record_id']}_{ds.meta[i]['seg_idx']:04d}", fs)
     fig_hist(cm, k_bw, f"{figdir}/hist_{enc_label(k_bw)}.png")
 
     # ---- 콘솔 보고
     print(f"=== {run} · {split} {len(ds)}분절 · best epoch {ck['epoch']} ===\n")
-    print("지표는 성분·참조를 각각 z-정규화한 뒤 산출한다. 원값 RMSE는 폐기.\n")
-    print("① 인코더 × 참조 |r| 평균 (±SD)  [r² 병기]")
-    print(pd.DataFrame({c: [f"{mat.loc[i, c]:.3f}±{sd.loc[i, c+'_sd']:.3f} "
-                            f"(r² {r2c.loc[i, c+'_r2']:.3f})" for i in mat.index]
-                        for c in REF_KEYS}, index=mat.index).to_string(), "\n")
+    print("[S4-01] 분절 내 Pearson → 분절 간 mean|ρ| ± std|ρ|(ddof=1). * = 행별 최댓값\n")
+    print("① 인코더 × 참조 ρ̄ ± σ  [r² 병기]")
+    print(pd.DataFrame({c: [f"{rbar[k, j]:.3f}±{rsd[k, j]:.3f}"
+                            f"{'*' if j == rbar[k].argmax() else ' '}"
+                            f" (r² {r2c.loc[ix[k], c+'_r2']:.3f})" for k in range(K)]
+                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string(), "\n")
+    print("①-보조 원 부호 양수 비율 (부호 반전 여부 기록용. |ρ| 산출과 무관)")
+    print(pd.DataFrame(pos.round(3), columns=list(REF_KEYS), index=ix).to_string(), "\n")
     print("② 인코더 × 참조 RMSE_norm 평균 (±SD)   = √(2(1−|r|)) — |r|의 함수, 병기용")
     print(pd.DataFrame({c: [f"{rnm.loc[i, c+'_rmse_norm']:.3f}±{rnsd.loc[i, c+'_rmse_norm_sd']:.3f}"
                             for i in mat.index] for c in REF_KEYS},

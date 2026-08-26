@@ -2,40 +2,51 @@ c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: Futur
   WeightNorm.apply(module, name, dim)
 === K8_seed42 · val 900분절 · best epoch 48 ===
 
-지표는 성분·참조를 각각 z-정규화한 뒤 산출한다. 원값 RMSE는 폐기.
+[S4-01] 분절 내 Pearson → 분절 간 mean|ρ| ± std|ρ|(ddof=1). * = 행별 최댓값
 
-① 인코더 × 참조 |r| 평균 (±SD)  [r² 병기]
-                     x_clean                      bw                      ma                      em
-enc1  0.161±0.113 (r² 0.039)  0.218±0.148 (r² 0.069)  0.217±0.154 (r² 0.070)  0.242±0.149 (r² 0.081)
-enc2  0.088±0.105 (r² 0.019)  0.405±0.237 (r² 0.220)  0.315±0.199 (r² 0.139)  0.209±0.161 (r² 0.069)
-enc3  0.130±0.149 (r² 0.039)  0.602±0.254 (r² 0.427)  0.477±0.234 (r² 0.282)  0.275±0.199 (r² 0.115)
-enc4  0.641±0.103 (r² 0.422)  0.074±0.068 (r² 0.010)  0.063±0.059 (r² 0.007)  0.064±0.054 (r² 0.007)
-enc5  0.090±0.097 (r² 0.017)  0.298±0.212 (r² 0.134)  0.277±0.191 (r² 0.113)  0.161±0.135 (r² 0.044)
-enc6  0.112±0.121 (r² 0.027)  0.347±0.220 (r² 0.169)  0.293±0.193 (r² 0.123)  0.263±0.161 (r² 0.095)
-enc7  0.086±0.097 (r² 0.017)  0.381±0.240 (r² 0.203)  0.292±0.194 (r² 0.123)  0.202±0.152 (r² 0.064)
-enc8  0.161±0.097 (r² 0.035)  0.204±0.157 (r² 0.066)  0.169±0.131 (r² 0.046)  0.175±0.124 (r² 0.046) 
+① 인코더 × 참조 ρ̄ ± σ  [r² 병기]
+                      x_clean                       bw                       ma                       em
+enc1  0.161±0.113  (r² 0.039)  0.218±0.148  (r² 0.069)  0.217±0.154  (r² 0.070)  0.242±0.149* (r² 0.081)
+enc2  0.088±0.105  (r² 0.019)  0.405±0.237* (r² 0.220)  0.315±0.199  (r² 0.139)  0.209±0.161  (r² 0.069)
+enc3  0.130±0.149  (r² 0.039)  0.602±0.254* (r² 0.427)  0.477±0.234  (r² 0.282)  0.275±0.199  (r² 0.115)
+enc4  0.641±0.103* (r² 0.422)  0.074±0.068  (r² 0.010)  0.063±0.059  (r² 0.007)  0.064±0.054  (r² 0.007)
+enc5  0.090±0.097  (r² 0.017)  0.298±0.212* (r² 0.134)  0.277±0.191  (r² 0.113)  0.161±0.135  (r² 0.044)
+enc6  0.112±0.121  (r² 0.027)  0.347±0.220* (r² 0.169)  0.293±0.193  (r² 0.123)  0.263±0.161  (r² 0.095)
+enc7  0.086±0.097  (r² 0.017)  0.381±0.240* (r² 0.203)  0.292±0.194  (r² 0.123)  0.202±0.152  (r² 0.064)
+enc8  0.161±0.097  (r² 0.035)  0.204±0.157* (r² 0.066)  0.169±0.132  (r² 0.046)  0.175±0.124  (r² 0.046) 
+
+①-보조 원 부호 양수 비율 (부호 반전 여부 기록용. |ρ| 산출과 무관)
+      x_clean     bw     ma     em
+enc1    0.934  0.573  0.659  0.821
+enc2    0.543  0.546  0.534  0.543
+enc3    0.836  0.931  0.917  0.814
+enc4    1.000  0.551  0.536  0.641
+enc5    0.473  0.410  0.391  0.461
+enc6    0.754  0.720  0.696  0.817
+enc7    0.637  0.721  0.684  0.719
+enc8    0.919  0.549  0.541  0.803 
 
 ② 인코더 × 참조 RMSE_norm 평균 (±SD)   = √(2(1−|r|)) — |r|의 함수, 병기용
           x_clean           bw           ma           em
 enc1  1.292±0.091  1.245±0.124  1.245±0.131  1.225±0.125
 enc2  1.348±0.086  1.066±0.234  1.156±0.181  1.250±0.139
-enc3  1.313±0.128  0.845±0.288  0.995±0.238  1.190±0.182
+enc3  1.313±0.129  0.845±0.288  0.995±0.238  1.190±0.183
 enc4  0.839±0.116  1.360±0.052  1.368±0.045  1.367±0.041
 enc5  1.347±0.078  1.169±0.195  1.190±0.170  1.290±0.111
-enc6  1.329±0.101  1.124±0.208  1.176±0.173  1.206±0.139
-enc7  1.350±0.079  1.087±0.235  1.177±0.173  1.257±0.129
+enc6  1.329±0.101  1.124±0.209  1.176±0.173  1.206±0.140
+enc7  1.350±0.079  1.087±0.236  1.177±0.173  1.257±0.129
 enc8  1.293±0.076  1.254±0.134  1.285±0.108  1.280±0.102 
 
 ③ 인코더 × 참조 MAD 평균 (±SD)   국소 최대 편차 — |r|과 독립
           x_clean           bw           ma           em
-enc1  6.894±1.306  3.929±1.083  4.437±1.053  4.269±0.912
-enc2  7.614±1.247  3.978±1.675  4.587±1.455  4.815±1.296
-enc3  7.634±1.271  2.174±0.722  3.295±0.889  3.977±0.797
-enc4  5.324±0.940  7.701±0.702  7.736±0.762  7.585±0.783
-enc5  7.716±1.303  4.359±1.326  4.719±1.305  4.972±1.196
-enc6  7.604±1.368  3.443±0.942  4.141±1.015  4.117±0.806
-enc7  7.705±1.286  3.899±1.562  4.578±1.420  4.726±1.203
-enc8  7.484±1.300  4.616±1.227  4.963±1.109  4.825±1.067 
+enc1  6.894±1.306  3.929±1.083  4.437±1.053  4.269±0.913
+enc2  7.614±1.248  3.978±1.676  4.587±1.456  4.815±1.297
+enc3  7.634±1.272  2.174±0.723  3.295±0.889  3.977±0.798
+enc4  5.324±0.941  7.701±0.702  7.736±0.762  7.585±0.783
+enc5  7.716±1.304  4.359±1.327  4.719±1.306  4.972±1.196
+enc6  7.604±1.369  3.443±0.942  4.141±1.016  4.117±0.807
+enc7  7.705±1.286  3.899±1.563  4.578±1.421  4.726±1.203
+enc8  7.484±1.301  4.616±1.228  4.963±1.109  4.825±1.068 
 
 ④ 참조 간 |r| — 분리 한계의 독립 근거
          쌍   mean  median    p75    max
@@ -64,3 +75,75 @@ enc8          3.11   2.63   1.95   3.47
 합계 (R²·%)    55.81  71.24  54.79  37.39 
 
 ⑥ 기준 인코더 = enc3 (bw 최대 상관). 시각 4종 → results/02_separation/figures/
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+=== 재구성 충실도 — 서술 지표 (val 900분절) ===
+관문이 아니다. pass_* 열은 참고용 이력이며 합격/불합격 판정에 쓰지 않는다.
+
+      run  epoch  keep_full  keep_band  rmse_to_noisy  rmse_to_clean  denoise_ok_frac  pass_keep  pass_denoise  PASS
+K8_seed42     48      0.912      0.484          0.157          0.286              1.0      False          True False
+
+--- 진단 지표 ---
+      run  dx_resid_clean  dx_resid_bw  dx_resid_ma  dx_resid_em  dx_rpeak_ratio
+K8_seed42            0.23        0.045        0.084         0.15           0.921
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+=== 대역별 보존율 · 스펙트럼 기울기 (val 900분절) ===
+보존율 = P(x_hat)/P(x_noisy) 분절 중앙값. 기울기 = 로그-로그 PSD 10–60 Hz 회귀
+
+      run  epoch  5-15Hz  15-25Hz  25-40Hz  40-60Hz*  60-90Hz*  꺾임_0.7Hz  꺾임_0.5Hz  기울기_입력  기울기_재구성   기울기차
+K8_seed42     48    1.02    0.585    0.172     0.033     0.086    17.227    21.094   -3.68   -6.559 -2.879
