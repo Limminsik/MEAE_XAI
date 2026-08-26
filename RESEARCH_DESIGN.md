@@ -44,24 +44,28 @@ uv pip install -r requirements.txt
 meae_xai/
 ├── README.md  RESEARCH_DESIGN.md  CLAUDE.md
 ├── configs/default.yaml            모든 설정. 코드 하드코딩 금지
-├── data/raw/  data/processed/      git 제외
-├── src/
-│   ├── data/{download,split,build,dataset}.py
-│   ├── model/{meae,losses,_vendor_*}.py
-│   ├── train.py  fidelity.py  spectral.py  compare_epochs.py
-│   ├── s4_identify.py  s5_restore.py
-│   └── metrics.py  stats.py  viz.py
-├── tests/
-├── results/                        ★ 본 실험 산출물
-│     00_data_spotcheck/
-│     01_train/<run>/  가중치·history·selection·pool/·plots/
-│                      + metric/ · fidelity/ · epoch_compare/   ← 그 실행에서 파생된 산출
-│     02_separation/(S4 test)  03_denoising/(S5)  04_external/(S6)
-├── experiments/{ssl,supervised_noise}/outputs/   보조 기록 (본 노선 아님)
-└── _work/archive/                  폐기된 실행·구버전
+│
+├── 01_build.py   02_model.py   03_bss.py   04_masked_denoising.py   05_validation.py
+│      ↑ 실제로 쓰는 코드는 이 다섯뿐이다. 번호가 단계 순서다.
+│
+├── src/                            다섯이 공유하는 라이브러리
+│   ├── core.py                     체크포인트 로드·성분 추출·표준화 지표·표 렌더링
+│   ├── data/{download,split,build,dataset}.py      §4
+│   ├── model/{meae,losses,_vendor_*}.py            §5
+│   ├── metrics.py                  §9 지표 5종 · R-피크 · SNR/RMSE/SDNN
+│   └── spectral.py  stats.py  viz.py
+├── tests/   data/raw/  data/processed/   (data 는 git 제외)
+│
+├── results/       ★ 폴더 번호 = 스크립트 번호
+│     01_build/  02_model/<run>/(+fidelity/)  03_bss/<run>/<split>/
+│     04_masked_denoising/<run>/<split>/      05_validation/<run>/<source>/
+│
+└── _work/archive/    과거 실행·구버전·구코드·보조 실험 (보존, 실행 대상 아님)
 ```
 
 실행 이름 = `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_h128`). 접미사가 없으면 config 그대로다.
+**번호 붙은 스크립트만이 실제로 쓰는 코드다.** 새 분석이 생기면 그 단계 스크립트 안에 넣고,
+여러 단계가 함께 쓰는 것만 `src/core.py` 로 올린다.
 
 ## 3. configs/default.yaml
 
@@ -70,7 +74,7 @@ meae_xai/
 
 ---
 
-## 4. S1 — 데이터 구축 (`src/data/build.py`) — 완료·동결
+## 4. 01 — 데이터셋 구축 (`01_build.py`) — 완료·동결
 
 **소스**
 
@@ -111,7 +115,7 @@ x_noisy = x_clean + comp["bw"] + comp["ma"] + comp["em"]
 
 ---
 
-## 5. S2 — 모델 (`src/model/`) — 완료·동결
+## 5. 02 — 모델 (`02_model.py`, `src/model/`) — 완료·동결
 
 **출처**: 선행 `mesa_ecg_bss` 설정을 무수정 이식(`_vendor_*.py`, MIT 라이선스, 원 고지 유지).
 
@@ -153,7 +157,7 @@ K는 디코더 `GroupNorm(num_groups=K)`이 채널 32/64/128/256을 나눠야 �
 
 ---
 
-## 6. 비용 함수 ① — 학습 손실 (`src/model/losses.py`)
+## 6. 02 — 비용 함수 ① 학습 손실 (`src/model/losses.py`)
 
 ```
 L = MSE(x̂, x_noisy) + λ_m·L_mix + λ_o·‖D(0)‖² + λ_z·Σ_k mean(z_k²)
@@ -174,7 +178,7 @@ L = MSE(x̂, x_noisy) + λ_m·L_mix + λ_o·‖D(0)‖² + λ_z·Σ_k mean(z_k²
 
 ---
 
-## 7. 비용 함수 ② — 체크포인트 선택 (`src/train.py`)
+## 7. 02 — 비용 함수 ② 체크포인트 선택 (`02_model.py`)
 
 ```
 x̂_k    = D(0,…,z_k,…,0)                     k번째 인코딩만 남긴 재구성, crop 후 중앙 3600
@@ -220,12 +224,12 @@ S(t)   = max_k ρ_k(t)
 (train 5,760 × 3,600 float32 ≈ 83 MB) 시드 고정 인덱스 셔플만 한다. 워커 시드 문제가 사라진다.
 **재현성**: Python/NumPy/PyTorch/CUDA 시드 + cudnn deterministic.
 
-**출력**: `results/01_train/<run>/` — 선택 가중치 · `history.csv` · `selection.json` · `console.log` ·
+**출력**: `results/02_model/<run>/` — 선택 가중치 · `history.csv` · `selection.json` · `console.log` ·
 `pool/`(후보 구간 가중치) · `plots/`(에폭 간격 성분 파형)
 
 ---
 
-## 7.5 재구성 충실도 진단 (`src/fidelity.py`, `src/spectral.py`)
+## 7.5 02 — 재구성 충실도 진단 (`02_model.py --diagnose`)
 
 **관문이 아니라 서술 지표다.** 선행이 명시한 재구성–분리 트레이드오프
 ("인코딩이 너무 작으면 좋은 재구성이 불가하고, 너무 크면 인코더가 특화 대신 전체 특징 공간으로
@@ -243,7 +247,7 @@ S(t)   = max_k ρ_k(t)
 
 **디노이징 지수(`RMSE(x̂,x_noisy)` vs `RMSE(x̂,clean)`)와 잔차 상관은 산출하지 않는다.**
 
-**출력**: `results/01_train/<run>/fidelity/` — `fidelity.csv` · `fidelity_note.txt` ·
+**출력**: `results/02_model/<run>/fidelity/` — `fidelity.csv` · `fidelity_note.txt` ·
 `keep_curve.npz` · `figures/{zoom, spectrum, keep_curve}.png`
 
 ```bash
@@ -252,7 +256,7 @@ python -m src.fidelity --run K8_seed42 --split val --n 900
 
 ---
 
-## 8. S4 — 인코더–참조 대응 분석 (`src/s4_identify.py`) ★핵심 단계
+## 8. 03 — 분리·참조 대응 분석 (`03_bss.py`) ★핵심 단계
 
 **라벨을 붙이지 않는다.** 인코더를 잡음/신호/혼재/비활성으로 분류하고 임계 δ·ε로 판정하는 방식은
 폐기했다. 이유 둘.
@@ -436,7 +440,7 @@ RMSE_norm 최소 참조, MAD 최소 참조가 같은지. 산출물 `metric_agree
 **하지 않을 것**: 인코더 명명 · 값 해석 · 순열 검정 · 코히런스 · 대역 분해 ·
 SSD·PRD(RMSE_norm과 순위 동일) · N 기반 p값.
 
-**산출 위치**: val 산출물은 그 실행 폴더 안 `results/01_train/<run>/metric/` 에 둔다
+**산출 위치**: val 산출물은 그 실행 폴더 안 `results/02_model/<run>/metric/` 에 둔다
 (`--split test` 로 실행하면 봉인 해제 후 `results/02_separation/` 에 같은 코드로 생성된다).
 
 **이것으로 S4를 종료한다.** 마스킹·디노이징(S5)과 외부 적용(S6)은 별도 단계로 이후 착수한다.
@@ -482,67 +486,70 @@ clean 상관은 SNR과 무관하다.
 
 ---
 
-## 9. S5 — 마스킹 전후 평가 (`src/s5_restore.py`) ★판별의 인과 검증
+## 9. 04 — 마스킹 복원 평가 (`04_masked_denoising.py`) ★판별의 인과 검증
 
-**성능 경쟁이 아니다.** S4의 대응 판별이 실제로 맞는지를 개입(intervention)으로 검증한다.
+**성능 경쟁이 아니다.** 03의 대응 판별이 실제로 맞는지를 개입(intervention)으로 검증한다.
 대역통과·웨이블릿·DAE 비교군은 두지 않는다 — 표의 초점이 "어느 기법이 더 좋은가"로 옮겨가면
-③의 논리가 묻힌다. **비교 대상은 마스킹 전 vs 후 vs clean 참조**다.
+③의 논리가 묻힌다. 모델은 03에서 확정한 **K=8 seed 42 체크포인트**, **추론만** 한다.
 
-### 마스킹 조건 사다리 M0–M5
+### 전수 조합
 
-| 조건 | 마스킹 대상 | 목적 |
-|---|---|---|
-| **M0** | 없음 | 기준선. `x_noisy` 자체도 함께 싣는다 |
-| **M1** | 인코더 1개씩 단독 (K개 조건) | **주 실험 — 아블레이션** |
-| **M2** | 주력 잡음 인코더만 | 최소 개입 |
-| **M3** | M2 + 잔여 잡음 우세 인코더 | 중간 개입 |
-| **M4** | clean 1위 인코더 제외 전부 | 최대 개입 |
-| **M5** | clean 인코더만 | **음성 대조.** 지표가 악화돼야 한다 |
+**2^K = 256개 마스킹 조합 × 해당 split 전체 분절.** 조건 사다리(M0–M5)를 미리 정해 변호하는
+대신 지형 전체를 산출한다. **최적 조합 선정은 하지 않는다** — 전수 결과를 먼저 보고,
+지표 5종이 각각 어느 조합을 지목하는지 표로 제시한 뒤 일치 여부를 확인하고
+선정 기준을 따로 논의해 결정한다.
 
-**M2·M3 선정 규칙** (기여 분해 기준, **val에서 정의하고 test에 그대로 적용**)
+### 비교 구조 — 기준은 `x_clean`, **mV 원단위**(표준화하지 않는다)
+
+| | 상태 |
+|---|---|
+| **ⓐ** | `x_noisy` — 처리 전 |
+| **ⓑ** | M0 복원 (마스킹 없음) — 재구성만 거친 상태 |
+| **ⓒ** | 각 마스킹 조합 — 최종 |
+
 ```
-잡음 기여 합_k = share_k(bw) + share_k(ma) + share_k(em)      [%]
-M2 = { k : 잡음 기여 합_k ≥ 10% }
-M3 = M2 ∪ { k : 잡음 기여 합_k > clean 기여_k }
+ⓒ − ⓐ = 전체 개선량        ⓒ − ⓑ = 마스킹 순효과
 ```
-임계 10%는 결과를 보고 옮기지 않는다.
 
-**표 2 = M0 대비 M2·M3·M4의 SNR 계단.** 각 조건에 **전수 2^K 지도에서의 백분위**를 병기해
-그 조건이 가능한 모든 조합 중 어디쯤인지 함께 보인다(K=8이면 256 조합). 규칙 선택의 자의성을
-지형 전체로 대체하는 장치다.
+세 상태를 각각 clean과 비교한다. ⓑ를 따로 두는 이유: 개선량 중 어디까지가 재구성 자체의
+몫이고 어디부터가 마스킹의 몫인지 갈라야 하기 때문이다.
 
-### 지표 — 모두 clean 참조 기준
+### 지표 5종 (DeepFilter·MECG-E 표준 세트)
 
-(S4는 잡음 참조, S5는 clean 참조 — 혼동 주의)
-
-| 지표 | 정의 | 역할 |
+| 지표 | 정의 | 방향 |
 |---|---|---|
-| **SNR (dB)** | `10log10(var(clean) / mean((est−clean)²))`, 개선 = 후 − 전 | **주 지표.** 주입 SNR과 정의가 같아 해석이 일관 |
-| RMSE | clean 대비 | 교차 확인 |
-| R-피크 F1 | 검출 vs MIT-BIH 주석, 허용오차 150 ms | **심박 훼손 경고등.** 상한 0.981(검출기 vs 주석 불일치), 마스킹 전 0.956 → 여지 2.5%p뿐 |
-| SDNN 오차 | \|est SDNN − 주석 SDNN\| (ms) | 10초 창은 RR이 8~19개뿐 → **중앙값[IQR]로 보고** |
+| **SSD** | `Σ_i (est − clean)²` | 낮을수록 유사 |
+| **MAD** | `max_i \|est − clean\|` | 낮을수록 유사 |
+| **PRD** | `100·√(Σ(est−clean)² / Σclean²)` [%] | 낮을수록 유사 |
+| **CosSim** | 코사인 유사도 | 높을수록 유사 |
+| **ΔSNR** | `10log10(var(clean) / mean(잔차²))` | 높을수록 유사 |
 
-SNR 정의는 §4 주입과 동일하게 신호는 분산, 잔차는 mean(·²) 기준이다.
-복원율(bSQI)은 임의 임계에 좌우되므로 사용하지 않는다.
+MAD는 03의 MAD와 이름만 같다 — **여기는 표준화하지 않은 mV 원단위**다.
+분절별로 산출하고 중앙값·평균±SD(ddof=1)로 집계한다.
 
-### 주 실험 — 단독 마스킹 아블레이션 (M1)
+### 부수 산출
 
-| 끈 인코더의 S4 대응 | 기대 방향 | 뒷받침하는 것 |
-|---|---|---|
-| 잡음 참조와 상관·기여가 높음 | 개선 | 그 인코더가 실제로 잡음을 담고 있었다 |
-| clean 최대 상관 | 악화 | 심장 성분이 그 인코더에 있었다 |
-| 어느 참조와도 낮음 | 변화 미미 | 기여가 미미하다는 판독이 맞았다 |
+- **단독 마스킹 8개** — 인코더를 하나씩만 껐을 때의 개별 효과.
+- **누적 곡선** — 03의 잡음 유사도(잡음 3종 최대 ρ̄) 높은 순으로 하나씩 추가 마스킹.
+- **R-피크 진폭비(복원/clean)** — 형태 훼손 감시. 1.0이면 clean과 같은 첨두간 진폭.
 
-**S5의 핵심 증거는 지표 수치가 아니라 이 방향성 비대칭이다.** 지표는 비대칭을 재는 자다.
-S4는 연관(상관) 근거이고 아블레이션은 개입 근거이므로 논증의 성격이 다르다.
+### 산출물 `results/04_masked_denoising/<run>/<split>/`
 
-**출력**: `results/03_denoising/` — `table_masking.csv`(표 2), `ablation.csv`(M1),
-`mask_map.csv`(전수 지도 + 백분위), `stats_pairwise.csv`,
-`fig_ablation.png`, `fig_mask_map.png`, `fig_internal_example.png`
+| 파일 | 내용 |
+|---|---|
+| `exhaustive.csv` | 256조합 × 지표 5종 (중앙·평균·SD) + ⓐ·ⓑ 대비 델타 + R피크 진폭비 |
+| `baseline.csv` | ⓐ `x_noisy` · ⓑ M0 |
+| `best_by_metric.csv` | 지표별 지목 조합과 **일치 여부** |
+| `single_mask.csv` · `cumulative.csv` (+`_order`) · `rpeak_ratio.csv` | 부수 산출 |
+| `persegment_top.csv` | M0·단독 8개의 분절별 원값 |
+| `meta.json` | 실행·에폭·분절 수·누적 순서 |
+| `figures/` | `exhaustive_scatter` · `single_mask` · `cumulative` · `rpeak_ratio` |
+
+**값에 대한 해석·명명은 붙이지 않는다.**
 
 ---
 
-## 10. S6 — 외부 적용 시연 (`src/s6_external.py`)
+## 10. 05 — 외부 적용 시연 (`05_validation.py`)
 
 **목적은 성능 검증이 아니라 적용 가능성 시연이다.** 정답이 없으므로 정량 성능을 주장하지 않는다.
 연구계획서 기반연구 ①에 명시된 데이터셋을 쓴다.
@@ -565,7 +572,7 @@ MIT-BIH MLII와 도메인이 가깝다. CC-BY 4.0. 단위가 mV인지 raw인지 
 
 ---
 
-## 11. S7 — 통계 및 원고 매핑
+## 11. 통계 및 원고 매핑
 
 | 대상 | 방법 |
 |---|---|
@@ -602,13 +609,13 @@ MIT-BIH MLII와 도메인이 가깝다. CC-BY 4.0. 단위가 mV인지 raw인지 
 ## 13. 태스크 순서
 
 ```
-S1  데이터 구축                                  ✅ 완료·동결
-S2  모델 이식                                    ✅ 완료·동결
-S3  학습 (K=8, seed 42)                          ✅ 완료 — 에폭 48 확정
-S4  인코더–참조 대응 분석                        ✅ 종료 — 명세 S4-01·02·03, val 산출 완료
+01  데이터셋 구축                    ✅ 완료·동결 (모델 이식 포함)
+02  학습 (K=8, seed 42) + 충실도 진단  ✅ 완료 — 에폭 48 확정
+03  분리·참조 대응 분석               ✅ 종료 — 지표 3종 확정, val 산출 완료
+04  마스킹 복원 평가                  🔧 전수 256조합 val 산출 완료
+    → ★지표 5종의 지목 조합 비교 보고 → **선정 기준 논의·확정** (승인 전 선정 금지)
 T7-0 ★사용자 승인 — test 봉인 해제. 승인 전 해제 금지
-S5  마스킹 전후 평가 + 아블레이션
-S6  외부 적용 시연
+05  외부 적용 시연
 S7  통계 → 원고 수치 정리
 ```
 
@@ -624,7 +631,7 @@ S7  통계 → 원고 수치 정리
 - 원본 데이터는 절대 수정하지 않는다. 커밋 단위 = 태스크.
 - 성분·인코더 표시는 **1부터** (`enc_label`). 내부 인덱스만 0-based.
 - 폐기된 실행·구버전은 `_work/archive/`로 옮긴다. 지우지 않는다.
-- 본 노선이 아닌 실험은 `experiments/<이름>/outputs/`에 둔다. `results/`에 섞지 않는다.
+- 본 노선이 아닌 실험은 `_work/archive/`에 둔다. `results/`에 섞지 않는다.
 
 ## 15. 선행 저장소
 

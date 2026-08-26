@@ -33,6 +33,56 @@ def rmse(clean: np.ndarray, est: np.ndarray) -> float:
     return float(np.sqrt(np.mean(d ** 2)))
 
 
+# ---------------------------------------------------------------- [S5] 지표 5종
+# DeepFilter·MECG-E 표준 세트. 전부 clean 참조 기준, **mV 원단위**(표준화하지 않는다).
+# 마지막 축 기준 벡터화 — (n, T) 를 넣으면 (n,) 이 나온다.
+def ssd(clean, est):
+    """Sum of Squared Distance — `Σ_i (est − clean)²`. 낮을수록 유사."""
+    d = np.asarray(est, np.float64) - np.asarray(clean, np.float64)
+    return (d ** 2).sum(-1)
+
+
+def mad(clean, est):
+    """Maximum Absolute Distance — `max_i |est − clean|`. 낮을수록 유사.
+    S4의 MAD와 이름은 같지만 **여기는 표준화하지 않은 mV 원단위**다."""
+    d = np.asarray(est, np.float64) - np.asarray(clean, np.float64)
+    return np.abs(d).max(-1)
+
+
+def prd(clean, est):
+    """Percentage Root-mean-square Difference — `100·√(Σ(est−clean)² / Σclean²)` [%].
+    낮을수록 유사. 분모는 평균을 빼지 않은 원 신호 제곱합이다."""
+    c = np.asarray(clean, np.float64)
+    d = np.asarray(est, np.float64) - c
+    den = (c ** 2).sum(-1)
+    return 100.0 * np.sqrt((d ** 2).sum(-1) / np.maximum(den, 1e-30))
+
+
+def cossim(clean, est):
+    """Cosine Similarity — 두 벡터 내적 / 노름 곱. 높을수록 유사. 평균 제거 없음."""
+    c = np.asarray(clean, np.float64)
+    e = np.asarray(est, np.float64)
+    den = np.linalg.norm(c, axis=-1) * np.linalg.norm(e, axis=-1)
+    return np.where(den > 0, (c * e).sum(-1) / np.maximum(den, 1e-30), 0.0)
+
+
+def snr_db_vec(clean, est):
+    """`10log10(var(clean) / mean((est−clean)²))` 의 벡터판. 높을수록 유사."""
+    c = np.asarray(clean, np.float64)
+    d = np.asarray(est, np.float64) - c
+    return 10.0 * np.log10(c.var(-1) / np.maximum((d ** 2).mean(-1), 1e-30))
+
+
+# 지표 이름 → (함수, 높을수록 좋은가)
+S5_METRICS = {"SSD": (ssd, False), "MAD": (mad, False), "PRD": (prd, False),
+              "CosSim": (cossim, True), "SNR": (snr_db_vec, True)}
+
+
+def s5_score(clean, est):
+    """지표 5종을 한 번에. 반환 {이름: (n,) 배열}."""
+    return {k: f(clean, est) for k, (f, _) in S5_METRICS.items()}
+
+
 def detect_rpeaks(sig: np.ndarray, fs: int) -> np.ndarray:
     """neurokit2로 R-피크 검출. 잡음이 심해 실패하면 빈 배열을 돌려준다."""
     import neurokit2 as nk

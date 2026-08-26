@@ -14,15 +14,14 @@
 
 | 단계 | 상태 |
 |---|---|
-| S1 데이터 구축 | ✅ 완료·동결 |
-| S2 모델 이식 | ✅ 완료·동결 |
-| S3 학습 | ✅ 완료 — K=8 seed 42, 에폭 48 확정 |
-| **S4 성분 분리 평가** | ✅ **종료** — 명세 S4-01·02·03 확정, val 산출 완료 |
-| **S5 마스킹·아블레이션** | 🔧 **다음** — 설계 확정, 미실행 |
-| S6 외부 적용 | ⏸ 설계 확정, 미실행 |
+| 01 데이터셋 구축 | ✅ 완료·동결 (모델 이식 포함) |
+| 02 모델·학습 | ✅ 완료 — K=8 seed 42, 에폭 48 확정 + 충실도 진단 |
+| **03 분리·대응 분석** | ✅ **종료** — 지표 3종 확정, val 산출 완료 |
+| **04 마스킹 복원 평가** | 🔧 **여기** — 전수 256조합 val 산출 완료, 최적 조합 선정은 보류 |
+| 05 외부 적용 | ⏸ 로더 미구현 — 04에서 조합 확정 후 착수 |
 
-**다음**: T6.9 리허설 → `pre-test-freeze` → **승인 후** test 봉인 해제 → S5 → S6 → 통계·원고.
-**추가 구조·손실·K·시드 탐색 없음.**
+**다음**: 04 전수 결과 검토 → 지표 5종의 지목 조합 비교 → **선정 기준 논의·확정** →
+test 봉인 해제 → 05 외부 적용 → 통계·원고. **추가 구조·손실·K·시드 탐색 없음.**
 
 ---
 
@@ -65,7 +64,7 @@ S(t)   = max_k ρ_k(t)
 2에폭 간격 산출 · 학습 종료 후 전체 이력 일괄 판정 · 후보 구간 가중치 보관.
 배율 민감도 {1.2, 1.5, 2.0}을 함께 산출한다. **사전 등록한 1.5를 유지한다** —
 1.2가 고르는 에폭 88과 실물 대조 결과 역할 구조가 동일하고 지표 차이가 미미했다
-(근거: `results/01_train/K8_seed42/epoch_compare/`, RESEARCH_DESIGN §7).
+(근거는 RESEARCH_DESIGN §7. 대조 산출은 `_work/archive/` 에 보존).
 `x_clean`은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다.
 
 ### 데이터 (S1, 동결)
@@ -98,26 +97,31 @@ S(t)   = max_k ρ_k(t)
 meae_xai/
 ├── README.md  RESEARCH_DESIGN.md  CLAUDE.md
 ├── configs/default.yaml        모든 설정. 코드 하드코딩 금지
-├── src/                        본 실험 코드
-├── tests/                      33개
+│
+├── 01_build.py                 데이터셋 구축 — 로드·검증·분할·분절·잡음 주입
+├── 02_model.py                 모델·학습 — 구조 세팅, 두 비용 함수, 체크포인트 선택
+│                               `--diagnose` 로 재구성 충실도 진단
+├── 03_bss.py                   성분 분리 + 참조 대응 분석 (지표 3종)
+├── 04_masked_denoising.py      마스킹 복원 평가 (전수 2^K, 지표 5종)
+├── 05_validation.py            외부 데이터 적용 시연
+│
+├── src/                        위 다섯이 공유하는 라이브러리
+│   ├── core.py                 체크포인트 로드·성분 추출·표준화 지표·표 렌더링
+│   ├── data/{download,split,build,dataset}.py
+│   ├── model/{meae,losses,_vendor_*}.py
+│   ├── metrics.py              S5 지표 5종 · R-피크 · SNR/RMSE/SDNN
+│   └── spectral.py  stats.py  viz.py
+├── tests/                      27개
 ├── data/                       원본·분절 (git 제외)
 │
-├── results/               ★ 본 실험 산출물 — 앞으로 나오는 자료만 여기 둔다
-│     00_data_spotcheck/       S1 분절 스팟체크 그림
-│     01_train/K8_seed42/      학습 1회 = 폴더 1개. 그 실행에서 파생된 산출을 모두 안에 둔다
-│         K8_seed42.pt  history.csv  selection.json  console.log  pool/  plots/
-│         metric/                  S4 지표 3종 표·그림·분절별 원값 (val)
-│         fidelity/                재구성 충실도 진단 (val)
-│         epoch_compare/           배율 민감도 대조 (에폭 48 vs 88)
-│     02_separation/           S4 test 산출 (봉인 해제 후, 같은 코드)
-│     03_denoising/            S5 — 마스킹 M0–M5, 아블레이션, 전수 지도
-│     04_external/             S6 — 외부 적용
+├── results/               ★ 산출물 — 폴더 번호가 스크립트 번호와 같다
+│     01_build/                 분절 스팟체크 그림
+│     02_model/<run>/           가중치·history·selection·console·pool/·plots/ + fidelity/
+│     03_bss/<run>/<split>/     대응표 3종·일치표·분절별 원값·그림
+│     04_masked_denoising/<run>/<split>/   전수 지도·기준선·단독·누적·R피크
+│     05_validation/<run>/<source>/        외부 적용
 │
-├── experiments/           보조 기록 (본 노선 아님)
-│     ssl/                     K 비교 (K=4·8·16 × 시드 3)
-│     supervised_noise/        잡음 지도 방식 — 중단
-│
-└── _work/archive/         폐기된 실행·구버전
+└── _work/archive/         과거 실행·구버전·구코드·보조 실험 (보존, 실행 대상 아님)
 ```
 
 ## 4. 실행
@@ -129,13 +133,13 @@ uv pip install -r requirements.txt
 ```
 
 ```bash
-python -m src.data.download     # MIT-BIH 내려받기·검증
-python -m src.data.split        # 기록 단위 분할
-python -m src.data.build        # 8,280 분절 생성
+python 01_build.py                                   # 데이터셋 구축
 python -m pytest tests/ -q
-python -m src.train      --k 8 --seed 42                 # S3 학습
-python -m src.s4_identify --run K8_seed42 --split val    # S4 지표
-python -m src.fidelity    --run K8_seed42 --split val    # 재구성 충실도 진단
+python 02_model.py --k 8 --seed 42                   # 학습
+python 02_model.py --diagnose --run K8_seed42        # 재구성 충실도 진단
+python 03_bss.py            --run K8_seed42 --split val
+python 04_masked_denoising.py --run K8_seed42 --split val
+python 05_validation.py     --run K8_seed42 --source mimic_iv
 ```
 
 한글 콘솔 출력이 있으므로 `PYTHONIOENCODING=utf-8` 로 실행한다 (Windows cp949 오류).
@@ -173,6 +177,6 @@ MIT 라이선스 코드를 무수정 이식했다 (`src/model/_vendor_*.py`, 원
 
 | 실험 | 위치 |
 |---|---|
-| K 비교 (K=4·8·16 × 시드 3) | `experiments/ssl/outputs/` |
-| 잡음 지도(supervised) 방식 | `experiments/supervised_noise/outputs/` |
+| K 비교 (K=4·8·16 × 시드 3) | `_work/archive/experiments/ssl/outputs/` |
+| 잡음 지도(supervised) 방식 | `_work/archive/experiments/supervised_noise/outputs/` |
 | 차분 손실 γ · λ_z 제거 · hidden 128 | `_work/archive/` |
