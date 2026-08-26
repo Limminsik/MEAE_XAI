@@ -13,7 +13,8 @@ SEG_LEN = CFG["data"]["fs"] * CFG["data"]["seg_sec"]
 PAD_TO = CFG["data"]["pad_to"]
 
 
-@pytest.fixture(params=CFG["model"]["n_encoders"])
+# n_encoders 는 K 후보 목록이 아니라 확정된 단일 값(8)이다.
+@pytest.fixture(params=[CFG["model"]["n_encoders"]])
 def model(request):
     torch.manual_seed(0)
     return meae.build(CFG, request.param).eval()

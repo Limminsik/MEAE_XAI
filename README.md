@@ -65,7 +65,7 @@ S(t)   = max_k ρ_k(t)
 2에폭 간격 산출 · 학습 종료 후 전체 이력 일괄 판정 · 후보 구간 가중치 보관.
 배율 민감도 {1.2, 1.5, 2.0}을 함께 산출한다. **사전 등록한 1.5를 유지한다** —
 1.2가 고르는 에폭 88과 실물 대조 결과 역할 구조가 동일하고 지표 차이가 미미했다
-(근거: `results/00_rehearsal/epoch_compare/`, RESEARCH_DESIGN §7).
+(근거: `results/01_train/K8_seed42/epoch_compare/`, RESEARCH_DESIGN §7).
 `x_clean`은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다.
 
 ### 데이터 (S1, 동결)
@@ -102,10 +102,13 @@ meae_xai/
 ├── tests/                      33개
 ├── data/                       원본·분절 (git 제외)
 │
-├── results/               ★ 본 실험 산출물
-│     00_rehearsal/metric/        S4 val 산출 (봉인 전) — 지표 3종 표·그림·분절별 원값
-│     00_rehearsal/epoch_compare/ 배율 민감도 대조 (에폭 48 vs 88)
-│     01_train/<run>/          가중치 · history.csv · selection.json · console.log · pool/ · plots/
+├── results/               ★ 본 실험 산출물 — 앞으로 나오는 자료만 여기 둔다
+│     00_data_spotcheck/       S1 분절 스팟체크 그림
+│     01_train/K8_seed42/      학습 1회 = 폴더 1개. 그 실행에서 파생된 산출을 모두 안에 둔다
+│         K8_seed42.pt  history.csv  selection.json  console.log  pool/  plots/
+│         metric/                  S4 지표 3종 표·그림·분절별 원값 (val)
+│         fidelity/                재구성 충실도 진단 (val)
+│         epoch_compare/           배율 민감도 대조 (에폭 48 vs 88)
 │     02_separation/           S4 test 산출 (봉인 해제 후, 같은 코드)
 │     03_denoising/            S5 — 마스킹 M0–M5, 아블레이션, 전수 지도
 │     04_external/             S6 — 외부 적용
@@ -130,9 +133,12 @@ python -m src.data.download     # MIT-BIH 내려받기·검증
 python -m src.data.split        # 기록 단위 분할
 python -m src.data.build        # 8,280 분절 생성
 python -m pytest tests/ -q
-python -m src.train --k 8 --seed 42          # S3
-python -m src.s4_identify --run K8_seed42    # S4
+python -m src.train      --k 8 --seed 42                 # S3 학습
+python -m src.s4_identify --run K8_seed42 --split val    # S4 지표
+python -m src.fidelity    --run K8_seed42 --split val    # 재구성 충실도 진단
 ```
+
+한글 콘솔 출력이 있으므로 `PYTHONIOENCODING=utf-8` 로 실행한다 (Windows cp949 오류).
 
 Python 3.9.21 / torch 2.8.0+cu129 / RTX 5060 Ti. `neurokit2==0.2.10` 고정
 (0.2.12는 `float | None` 문법이라 py3.9 import 실패).

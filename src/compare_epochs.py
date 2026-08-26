@@ -5,7 +5,7 @@
 
     python -m src.compare_epochs --run K8_seed42 --epochs 48 88 --split val --n 900
 
-산출물 (results/00_rehearsal/epoch_compare/)
+산출물 (results/01_train/<run>/epoch_compare/)
   recon.csv          전대역·대역별 보존율, R-피크 진폭비, 잔차 상관, 기울기차
   corr.csv           인코더 x 참조 |r| (에폭별)
   rmse_norm.csv      인코더 x 참조 RMSE_norm (에폭별)
@@ -27,7 +27,7 @@ import torch
 
 from .data.build import load_cfg
 from .data.dataset import REF_KEYS, load
-from .fidelity import check, verdict
+from .fidelity import band_power, reconstruct, rpeak_amp_ratio
 from .model.meae import enc_label
 from .s4_identify import (component_bank, contribution, load_ckpt,
                           metric_matrices)
@@ -133,10 +133,11 @@ def fig_components(comps, refs, x_noisy, i, out, title, fs):
 
 def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
          split="val", n=900, seg=None,
-         outdir="results/00_rehearsal/epoch_compare"):
+         outdir=None):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    outdir = outdir or os.path.join("results", "01_train", run, "epoch_compare")
     figdir = os.path.join(outdir, "figures")
     os.makedirs(figdir, exist_ok=True)
     ds = load(cfg, split)
@@ -151,22 +152,19 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
         model, ck = load_ckpt(cfg, ckpt_path(run, e))
         model = model.to(device)
 
-        # ---- 재구성
-        df, rec, inp = check(model, ds, device, fs, len(idx))
-        v = verdict(df)
+        # ---- 재구성 (디노이징 지수·잔차 상관은 산출하지 않는다)
+        inp, rec = reconstruct(model, ds, device, idx)
         f, Pi, Pr = psd_pair(model, ds, device, fs, len(idx))
         c = keep_curve(f, Pi, Pr)
         si, sr = slope(f, Pi), slope(f, Pr)
         recon_rows.append({
             "에폭": e, "val_recon(학습기록)": ck.get("val_recon"), "S(학습기록)": ck.get("S"),
-            "보존율_전대역": v["keep_full"], **band_keep(f, Pi, Pr),
+            "보존율_전대역": float(np.median(band_power(rec, fs) / band_power(inp, fs))),
+            **band_keep(f, Pi, Pr),
             "꺾임_0.7": crossover(f, c, 0.7), "꺾임_0.5": crossover(f, c, 0.5),
             "기울기_입력": si, "기울기_재구성": sr, "기울기차": sr - si,
-            "RMSE_대_noisy": v["rmse_to_noisy"], "RMSE_대_clean": v["rmse_to_clean"],
-            "디노이징지수_충족비": v["denoise_ok_frac"],
-            "R피크_진폭비": v["dx_rpeak_ratio"],
-            "잔차_clean": v["dx_resid_clean"], "잔차_bw": v["dx_resid_bw"],
-            "잔차_ma": v["dx_resid_ma"], "잔차_em": v["dx_resid_em"],
+            "R피크_진폭비": float(np.nanmedian(
+                rpeak_amp_ratio(inp, rec, [ds.rpeaks[k] for k in idx]))),
         })
         recs[lab], curves[lab] = rec, c
 
@@ -211,8 +209,7 @@ def main(config="configs/default.yaml", run="K8_seed42", epochs=(48, 88),
     sum_df.to_csv(f"{outdir}/summary.csv", index=False, encoding="utf-8-sig")
 
     # ---- 그림
-    inp_arr = ds.x_noisy[idx].astype(np.float64)
-    fig_zoom_pair(inp_arr, recs, f"{figdir}/zoom.png", fs)
+    fig_zoom_pair(ds.x_noisy[idx].astype(np.float64), recs, f"{figdir}/zoom.png", fs)
     fig_keep_pair(f, curves, f"{figdir}/keep_curve.png")
     fig_corr_pair(cms, f"{figdir}/corr_heatmap.png")
 

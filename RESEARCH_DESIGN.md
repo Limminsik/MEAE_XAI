@@ -48,13 +48,15 @@ meae_xai/
 ├── src/
 │   ├── data/{download,split,build,dataset}.py
 │   ├── model/{meae,losses,_vendor_*}.py
-│   ├── train.py  fidelity.py  spectral.py
-│   ├── s4_identify.py  s5_restore.py  rehearsal.py
+│   ├── train.py  fidelity.py  spectral.py  compare_epochs.py
+│   ├── s4_identify.py  s5_restore.py
 │   └── metrics.py  stats.py  viz.py
 ├── tests/
 ├── results/                        ★ 본 실험 산출물
-│     00_rehearsal/{metric,epoch_compare}/  01_train/<run>/
-│     02_separation/  03_denoising/  04_external/
+│     00_data_spotcheck/
+│     01_train/<run>/  가중치·history·selection·pool/·plots/
+│                      + metric/ · fidelity/ · epoch_compare/   ← 그 실행에서 파생된 산출
+│     02_separation/(S4 test)  03_denoising/(S5)  04_external/(S6)
 ├── experiments/{ssl,supervised_noise}/outputs/   보조 기록 (본 노선 아님)
 └── _work/archive/                  폐기된 실행·구버전
 ```
@@ -197,7 +199,7 @@ S(t)   = max_k ρ_k(t)
 
 **사전 등록한 배율 1.5를 유지한다.** 1.2가 고르는 에폭 88과 실물을 대조한 결과를 근거로 남긴다.
 가중치는 `pool/`에 보관돼 있어 재학습 없이 대조했다 (`src/compare_epochs.py`,
-산출물 `results/00_rehearsal/epoch_compare/`).
+산출물 `results/01_train/K8_seed42/epoch_compare/`).
 
 | | 에폭 48 (배율 1.5·2.0) | 에폭 88 (배율 1.2) |
 |---|---|---|
@@ -231,13 +233,22 @@ S(t)   = max_k ρ_k(t)
 
 | 지표 | 정의 |
 |---|---|
-| 대역별 보존율 | `P(x̂)/P(x_noisy)` — 5–15 / 15–25 / 25–40 / **40–60(59–61 Hz 노치 제외)** / 60–90 Hz |
-| log-log 기울기 · keep 곡선 | 주파수축 전체의 보존 형태 |
-| 디노이징 지수 | `RMSE(x̂, x_noisy)` vs `RMSE(x̂, clean)` |
-| 잔차 상관 | `|r(x_noisy − x̂, ref)|` — 못 담은 것의 정체 |
+| 전대역 보존율 | `P(x̂)/P(x_noisy)` 의 분절 중앙값 |
+| 대역별 보존율 | 5–15 / 15–25 / 25–40 / **40–60·60–90(59–61 Hz 노치 제외)** Hz |
+| 꺾임 지점 | 보존율이 0.7 / 0.5 아래로 처음 내려가는 주파수 |
+| log-log PSD 기울기 | 입력·재구성과 그 차이 (10–60 Hz 회귀) |
 | R-피크 진폭비 | R-피크 ±30샘플 첨두간 진폭의 재구성/입력 비 |
 
-**출력**: `results/02_separation/fidelity/`, `results/02_separation/spectral/`
+대역을 나누는 이유: 저주파 포락선만 재현해도 전대역 보존율은 높게 나온다.
+
+**디노이징 지수(`RMSE(x̂,x_noisy)` vs `RMSE(x̂,clean)`)와 잔차 상관은 산출하지 않는다.**
+
+**출력**: `results/01_train/<run>/fidelity/` — `fidelity.csv` · `fidelity_note.txt` ·
+`keep_curve.npz` · `figures/{zoom, spectrum, keep_curve}.png`
+
+```bash
+python -m src.fidelity --run K8_seed42 --split val --n 900
+```
 
 ---
 
@@ -425,8 +436,8 @@ RMSE_norm 최소 참조, MAD 최소 참조가 같은지. 산출물 `metric_agree
 **하지 않을 것**: 인코더 명명 · 값 해석 · 순열 검정 · 코히런스 · 대역 분해 ·
 SSD·PRD(RMSE_norm과 순위 동일) · N 기반 p값.
 
-**산출 위치**: test 봉인 전이므로 val 산출물은 `results/00_rehearsal/metric/` 에 둔다.
-봉인 해제 후 test 산출은 `results/02_separation/` 에 같은 코드로 생성한다.
+**산출 위치**: val 산출물은 그 실행 폴더 안 `results/01_train/<run>/metric/` 에 둔다
+(`--split test` 로 실행하면 봉인 해제 후 `results/02_separation/` 에 같은 코드로 생성된다).
 
 **이것으로 S4를 종료한다.** 마스킹·디노이징(S5)과 외부 적용(S6)은 별도 단계로 이후 착수한다.
 
@@ -595,8 +606,6 @@ S1  데이터 구축                                  ✅ 완료·동결
 S2  모델 이식                                    ✅ 완료·동결
 S3  학습 (K=8, seed 42)                          ✅ 완료 — 에폭 48 확정
 S4  인코더–참조 대응 분석                        ✅ 종료 — 명세 S4-01·02·03, val 산출 완료
-T6.9 val 전체 리허설 (test 봉인 해제 전 필수 관문) → results/00_rehearsal/
-    → ★보고 후 `pre-test-freeze` 태그
 T7-0 ★사용자 승인 — test 봉인 해제. 승인 전 해제 금지
 S5  마스킹 전후 평가 + 아블레이션
 S6  외부 적용 시연

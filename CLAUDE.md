@@ -16,9 +16,11 @@
 
 ## 산출물 규칙
 
-- **본 실험 산출물은 `results/` 에만** 둔다.
-  `01_train/<run>/`(가중치·history.csv·selection.json·console.log·pool/·plots/) ·
-  `02_separation/`(S4) · `03_denoising/`(S5) · `04_external/`(S6) · `00_rehearsal/`(봉인 전 val 리허설)
+- **본 실험 산출물은 `results/` 에만** 둔다. 앞으로 나오는 자료만 여기 남기고, 과거 실행은 옮긴다.
+  `01_train/<run>/` — 학습 1회 = 폴더 1개. 가중치·history.csv·selection.json·console.log·pool/·plots/
+  와 **그 실행에서 파생된 산출을 모두 안에** 둔다: `metric/`(S4 지표) · `fidelity/`(충실도 진단) ·
+  `epoch_compare/`(배율 민감도)
+  `02_separation/`(S4 test) · `03_denoising/`(S5) · `04_external/`(S6) · `00_data_spotcheck/`(S1)
 - 본 노선이 아닌 보조 실험은 `experiments/<이름>/outputs/`. `results/`에 섞지 않는다.
 - 폐기된 실행·구버전은 `_work/archive/`로 옮긴다. 지우지 않는다.
 - 실행 이름은 `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_h128`).

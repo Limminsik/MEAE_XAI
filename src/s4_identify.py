@@ -455,12 +455,14 @@ def fig_hist(cm, k, out):
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K8_seed42", split="val",
-         outdir="results/02_separation", figdir="results/02_separation/figures"):
+def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=None):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    os.makedirs(outdir, exist_ok=True)
+    # val(봉인 전)은 그 실행 폴더 안에, test(봉인 해제 후)는 results/02_separation 에 남긴다
+    outdir = outdir or (os.path.join("results", "01_train", run, "metric")
+                        if split != "test" else os.path.join("results", "02_separation"))
+    figdir = os.path.join(outdir, "figures")
     os.makedirs(figdir, exist_ok=True)
 
     model, ck = load_ckpt(cfg, run)
@@ -648,5 +650,6 @@ if __name__ == "__main__":
     p.add_argument("--config", default="configs/default.yaml")
     p.add_argument("--run", default="K8_seed42")
     p.add_argument("--split", default="val")
+    p.add_argument("--outdir", default=None)
     a = p.parse_args()
-    main(a.config, a.run, a.split)
+    main(a.config, a.run, a.split, a.outdir)
