@@ -53,7 +53,8 @@ meae_xai/
 │   └── metrics.py  stats.py  viz.py
 ├── tests/
 ├── results/                        ★ 본 실험 산출물
-│     00_rehearsal/  01_train/<run>/  02_separation/  03_denoising/  04_external/
+│     00_rehearsal/{metric,epoch_compare}/  01_train/<run>/
+│     02_separation/  03_denoising/  04_external/
 ├── experiments/{ssl,supervised_noise}/outputs/   보조 기록 (본 노선 아님)
 └── _work/archive/                  폐기된 실행·구버전
 ```
@@ -392,7 +393,9 @@ S4-02·S4-03 모두 부호 정렬을 하지 않으므로 반대 위상은 값이
 | RMSE_norm | **열별 하위 2개** (낮을수록 유사) |
 | MAD | **열별 하위 2개** (낮을수록 유사) |
 
-CSV·콘솔에서는 굵은 글씨를 쓸 수 없으므로 `**` = 열 1위, `*` = 열 2위로 표기한다.
+CSV·콘솔에서는 굵은 글씨를 쓸 수 없으므로 `[1]` = 열 1위, `[2]` = 열 2위로 표기한다.
+히트맵에서는 지표 세 줄을 각각 굵게 처리하고 `●`(1위)·`○`(2위)를 붙인다 —
+지표마다 표시 대상이 다르므로 칸 하나에 여러 지표가 동시에 표시될 수 있다.
 
 **세 지표의 행별 지목 일치 여부**를 따로 표기한다 — 한 인코더에 대해 \|r\| 최대 참조,
 RMSE_norm 최소 참조, MAD 최소 참조가 같은지. 산출물 `metric_agreement.csv`.
@@ -421,6 +424,9 @@ RMSE_norm 최소 참조, MAD 최소 참조가 같은지. 산출물 `metric_agree
 
 **하지 않을 것**: 인코더 명명 · 값 해석 · 순열 검정 · 코히런스 · 대역 분해 ·
 SSD·PRD(RMSE_norm과 순위 동일) · N 기반 p값.
+
+**산출 위치**: test 봉인 전이므로 val 산출물은 `results/00_rehearsal/metric/` 에 둔다.
+봉인 해제 후 test 산출은 `results/02_separation/` 에 같은 코드로 생성한다.
 
 **이것으로 S4를 종료한다.** 마스킹·디노이징(S5)과 외부 적용(S6)은 별도 단계로 이후 착수한다.
 

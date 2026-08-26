@@ -276,7 +276,7 @@ def mark(m, n=2, largest=True):
 
 def render(m, sd, flag, fmt="{:.3f}"):
     """볼드 대신 콘솔·CSV에서 쓸 표식을 붙인다. ** = 열 1위, * = 열 2위."""
-    tag = {0: "", 1: "**", 2: "*"}
+    tag = {0: "", 1: " [1]", 2: " [2]"}
     return [[f"{fmt.format(m[k, r])}±{fmt.format(sd[k, r])}{tag[flag[k, r]]}"
              for r in range(m.shape[1])] for k in range(m.shape[0])]
 
@@ -300,12 +300,16 @@ def fig_correspondence(cm, out, run, rn=None, mad=None):
     """색은 ρ̄ = mean_s|ρ|, 칸 안에 RMSE_norm·MAD를 병기한다.
 
     잡음 3종을 "잡음 최대"로 요약하지 않고 4열을 그대로 싣는다.
-    테두리는 **행별(인코더별) 최댓값**이다."""
+    표시는 **열별**이며 지표마다 방향이 다르다 — |ρ|는 상위 2, RMSE_norm·MAD는 하위 2."""
     m, sd, _ = aggregate(cm)          # cm 은 |ρ| 또는 ρ 어느 쪽이 와도 동일한 결과다
-    mr = rn.mean(0) if rn is not None else None
-    mm = mad.mean(0) if mad is not None else None
+    mr, mm = rn.mean(0), mad.mean(0)
     K = m.shape[0]
-    fig, ax = plt.subplots(figsize=(6.6, 0.86 * K + 2))
+    # 지표마다 **열별** 표시 대상이 다르다 — |ρ|는 상위 2, RMSE_norm·MAD는 하위 2
+    flags = [mark(m, 2, True), mark(mr, 2, False), mark(mm, 2, False)]
+    lines = [lambda k, r: f"|ρ| {m[k, r]:.3f}±{sd[k, r]:.3f}",
+             lambda k, r: f"RMSEn {mr[k, r]:.3f}",
+             lambda k, r: f"MAD {mm[k, r]:.2f}"]
+    fig, ax = plt.subplots(figsize=(7.0, 0.95 * K + 2.4))
     im = ax.imshow(m, cmap="magma", vmin=0, vmax=max(0.6, m.max()), aspect="auto")
     ax.set_xticks(range(len(REF_KEYS)))
     ax.set_xticklabels(list(REF_KEYS))
@@ -313,21 +317,22 @@ def fig_correspondence(cm, out, run, rn=None, mad=None):
     ax.set_yticklabels([enc_label(k) for k in range(K)])
     for k in range(K):
         for r in range(len(REF_KEYS)):
-            lab = f"|ρ| {m[k, r]:.3f}±{sd[k, r]:.3f}"
-            if mr is not None:
-                lab += f"\nRMSEn {mr[k, r]:.2f}"
-            if mm is not None:
-                lab += f"\nMAD {mm[k, r]:.2f}"
-            ax.text(r, k, lab, ha="center", va="center",
-                    fontsize=6.5, color="white" if m[k, r] < m.max() * .6 else "black")
-    for r, ks in enumerate(top_idx(m, 2, largest=True).T):   # 열별 상위 2
+            col = "white" if m[k, r] < m.max() * .6 else "black"
+            for j, (dy, fl, txt) in enumerate(zip((-.27, 0.0, .27), flags, lines)):
+                hit = fl[k, r] > 0
+                ax.text(r, k + dy, txt(k, r) + ("  ●" if fl[k, r] == 1 else
+                                                "  ○" if fl[k, r] == 2 else ""),
+                        ha="center", va="center", fontsize=7.2 if hit else 6.4,
+                        color=col, fontweight="bold" if hit else "normal")
+    for r, ks in enumerate(top_idx(m, 2, largest=True).T):   # 색 기준(|ρ|) 열별 상위 2
         for rank, k in enumerate(ks):
-            ax.add_patch(plt.Rectangle((r - .5, k - .5), 1, 1, fill=False,
-                                       ec="cyan", lw=2.5 if rank == 0 else 1.2))
+            ax.add_patch(plt.Rectangle((r - .5, k - .5), 1, 1, fill=False, ec="cyan",
+                                       lw=2.5, ls="-" if rank == 0 else (0, (4, 2))))
     ax.set_title(f"① 인코더 × 참조 대응 — {run}\n"
                  "표준화 후 mean|ρ| ± SD (색 = mean|ρ|) · RMSE_norm · MAD\n"
-                 "테두리 = 열별 mean|ρ| 상위 2 (굵은 선 = 1위)",
-                 fontsize=9.5)
+                 "굵은 글씨 = 지표별 열 상위 2 (● 1위 / ○ 2위) — |ρ|는 큰 값, RMSE·MAD는 작은 값\n"
+                 "테두리 = |ρ| 열 상위 2 (실선 1위 / 파선 2위)",
+                 fontsize=9)
     fig.colorbar(im, ax=ax, shrink=.8, label="mean|ρ|")
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")

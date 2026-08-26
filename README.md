@@ -103,8 +103,10 @@ meae_xai/
 ├── data/                       원본·분절 (git 제외)
 │
 ├── results/               ★ 본 실험 산출물
+│     00_rehearsal/metric/        S4 val 산출 (봉인 전) — 지표 3종 표·그림·분절별 원값
+│     00_rehearsal/epoch_compare/ 배율 민감도 대조 (에폭 48 vs 88)
 │     01_train/<run>/          가중치 · history.csv · selection.json · console.log · pool/ · plots/
-│     02_separation/           S4 — r·RMSE 표, 성분 그림, 충실도·스펙트럼
+│     02_separation/           S4 test 산출 (봉인 해제 후, 같은 코드)
 │     03_denoising/            S5 — 마스킹 M0–M5, 아블레이션, 전수 지도
 │     04_external/             S6 — 외부 적용
 │
