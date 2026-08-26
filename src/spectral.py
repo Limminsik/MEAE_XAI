@@ -4,7 +4,7 @@
 같은 0.59라도 15 Hz 부근만 살아 있고 35 Hz는 없는 경우와, 대역 전체가 고르게 0.59인 경우가
 구분되지 않는다. 아래 셋으로 실태를 드러낸다.
 
-  ① 대역별 보존율 — 5–15 / 15–25 / 25–40 / 40–60 / 60–90 Hz 각각 `P(x̂)/P(x_noisy)`
+  ① 대역별 보존율 — 5–15 / 15–25 / 25–40 / 40–60 / 60–90 Hz 각각 `P(x_hat)/P(x_noisy)`
   ② 스펙트럼 기울기 차 — 로그–로그 PSD를 10–60 Hz에서 선형 회귀한 기울기의
      (재구성 − 입력). 음수일수록 재구성이 더 가파르다 = 저역통과가 강하다
   ③ 주파수별 보존율 곡선 — 대역 경계 없이 전 주파수에서 비를 그려
@@ -102,7 +102,7 @@ def fig_curves(f, curves, out, fmax=90, base=None):
         ax.axvline(lo, color="#bbb", lw=.5)
     ax.set_yscale("log")
     ax.set_xlabel("주파수 (Hz)")
-    ax.set_ylabel("보존율  P(x̂) / P(x_noisy)  — 분절 중앙값")
+    ax.set_ylabel("보존율  P(x_hat) / P(x_noisy)  — 분절 중앙값")
     ax.set_xlim(0, fmax)
     ax.grid(alpha=.3, lw=.4)
     ax.legend(fontsize=8, ncol=2)
@@ -140,7 +140,7 @@ def main(config="configs/default.yaml", runs=None, split="val", n=300,
     fig_curves(f, curves, f"{figdir}/keep_curve.png", base=base)
     pd.set_option("display.width", 220)
     print(f"=== 대역별 보존율 · 스펙트럼 기울기 ({split} {n}분절) ===")
-    print("보존율 = P(x̂)/P(x_noisy) 분절 중앙값. 기울기 = 로그-로그 PSD 10–60 Hz 회귀\n")
+    print("보존율 = P(x_hat)/P(x_noisy) 분절 중앙값. 기울기 = 로그-로그 PSD 10–60 Hz 회귀\n")
     print(out.round(3).to_string(index=False))
     return out, f, curves
 

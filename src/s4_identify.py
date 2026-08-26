@@ -36,6 +36,13 @@ NOISE_REFS = ("bw", "ma", "em")
 
 
 def load_ckpt(cfg, run):
+    """run 은 실행 이름이거나 체크포인트 파일 경로다.
+    후자를 허용하는 이유: pool/ 에 보관한 후보 에폭을 재학습 없이 그대로 불러 비교하기 위해서다."""
+    if run.endswith(".pt") and os.path.exists(run):
+        ck = torch.load(run, map_location="cpu", weights_only=False)
+        model = meae.build(ck.get("cfg", cfg), ck["n_encoders"])
+        model.load_state_dict(ck["model"])
+        return model.eval(), ck
     name = os.path.basename(run)
     cand = [os.path.join("results", "01_train", run, f"{name}.pt"),  # 본 실험
             os.path.join("_work", "runs", run, f"{name}.pt"),         # 보조 실행

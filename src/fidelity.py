@@ -125,7 +125,7 @@ def fig_zoom(inp, rec, out, fs, i=0, t0=2.0, dur=1.5):
     ax[0].legend(fontsize=8)
     ax[0].set_title("① 확대 — 잔떨림(고주파 변동) 재현 여부", fontsize=10, loc="left")
     ax[1].plot(t, inp[i][a:b] - rec[i][a:b], lw=.8, color="#1f77b4")
-    ax[1].set_title("② 잔차 (입력 − 재구성) — 못 담은 것의 정체", fontsize=10, loc="left")
+    ax[1].set_title("② 잔차 (입력 - 재구성) — 못 담은 것의 정체", fontsize=10, loc="left")
     for a_ in ax:
         a_.grid(alpha=.25, lw=.4)
         a_.set_ylabel("mV", fontsize=8)
