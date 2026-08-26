@@ -19,6 +19,7 @@ from . import stats
 from .data.build import load_cfg
 from .data.dataset import REF_KEYS, load
 from .model import meae
+from .model.meae import enc_label
 from .s4_identify import (component_bank, contribution, corr_matrix, fig_components,
                           fig_hist, load_ckpt, reference_correlation, spectral_centroid)
 from .s5_restore import M2_THRESHOLD, exhaustive_map, mask_sets, run_conditions
@@ -44,7 +45,7 @@ def role_order(cm_mean):
     return [clean_enc] + rest
 
 
-ROLE_NAMES = ["R0 (clean 최대)"] + [f"R{i} (잡음 {i}위)" for i in range(1, 9)]
+ROLE_NAMES = ["R1 (clean 최대)"] + [f"R{i+1} (잡음 {i}위)" for i in range(1, 9)]
 
 
 # ---------------------------------------------------------------- 그림
@@ -75,7 +76,7 @@ def fig3_ablation(tab, out, title, base="M0"):
     d = tab.sort_values("enc")
     colors = ["#d62728" if v < 0 else "#2ca02c" for v in d.delta]
     fig, ax = plt.subplots(figsize=(9, 4.6))
-    ax.bar(d.enc.astype(str), d.delta, color=colors, alpha=.85)
+    ax.bar([enc_label(e) for e in d.enc], d.delta, color=colors, alpha=.85)
     for x, (v, r) in enumerate(zip(d.delta, d.role)):
         ax.text(x, v + (0.05 if v >= 0 else -0.05), f"{v:+.2f}", ha="center",
                 va="bottom" if v >= 0 else "top", fontsize=8)
@@ -166,7 +167,7 @@ def table1(cm, raw, order, K, alpha=0.05):
     """표 1 — 인코더 × 참조. |r| · 원값 RMSE · 잡음별 Wilcoxon(잡음 − clean) Holm p."""
     ci = list(REF_KEYS).index("x_clean")
     out = pd.DataFrame(index=[ROLE_NAMES[i] for i in range(K)])
-    out.insert(0, "encoder", [f"enc{e}" for e in order])
+    out.insert(0, "encoder", [enc_label(e) for e in order])   # 표시는 1부터
     for j, c in enumerate(REF_KEYS):
         out[f"{c}_r"] = [f"{cm[:, e, j].mean():.3f}±{cm[:, e, j].std():.3f}" for e in order]
         out[f"{c}_RMSE"] = [f"{raw[:, e, j].mean():.4f}" for e in order]
@@ -222,8 +223,8 @@ def fig1_visual(comps, refs, cm, seg, out, title, fs, with_spectrum=True):
         r = refs[seg, j] - refs[seg, j].mean()
         a = ax[j][0]
         a.plot(t, r, lw=.8, color="#d62728", label=f"참조 {name}")
-        a.plot(t, c, lw=.8, color="#1f77b4", alpha=.85, label=f"성분 enc{e} (β={b[e, j]:.2f})")
-        a.set_title(f"{name}  ·  enc{e}  ·  |r| = {cm[seg, e, j]:.3f}", fontsize=9, loc="left")
+        a.plot(t, c, lw=.8, color="#1f77b4", alpha=.85, label=f"성분 {enc_label(e)} (β={b[e, j]:.2f})")
+        a.set_title(f"{name}  ·  {enc_label(e)}  ·  |r| = {cm[seg, e, j]:.3f}", fontsize=9, loc="left")
         a.grid(alpha=.25, lw=.4)
         a.legend(fontsize=7, loc="upper right")
         a.set_ylabel("mV", fontsize=8)
@@ -281,8 +282,8 @@ def analyse_model(cfg, run, ds, idx, device, outdir, figdir, make_figs):
         o = np.argsort(v)
         for tag, i in (("high", int(o[-1])), ("mid", int(o[len(o) // 2])), ("low", int(o[0]))):
             fig_components(comps, refs, ds.x_noisy, i, f"{figdir}/components_{os.path.basename(run)}_{tag}.png",
-                           f"{run} · enc{k_bw}–bw |r| {v[i]:.3f} ({tag})", fs)
-        fig_hist(cm, k_bw, f"{figdir}/hist_{os.path.basename(run)}_enc{k_bw}.png")
+                           f"{run} · {enc_label(k_bw)}–bw |r| {v[i]:.3f} ({tag})", fs)
+        fig_hist(cm, k_bw, f"{figdir}/hist_{os.path.basename(run)}_{enc_label(k_bw)}.png")
     return dict(run=run, K=K, epoch=ck["epoch"], cm=cm, share_pct=share_pct,
                 rmse_raw=raw, rmse_scaled=scaled, comps=comps,
                 val_sep=float(ck.get("val_separation", np.nan)),
@@ -308,7 +309,7 @@ def summarise_conditions(df):
 
 
 def main(config="configs/default.yaml", split="val", n=1000,
-         outdir="analysis/validation", figdir="analysis/validation/figures", run_prefix=""):
+         outdir="results/00_rehearsal", figdir="results/00_rehearsal/figures", run_prefix=""):
     cfg = load_cfg(config)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(outdir, exist_ok=True)
@@ -328,7 +329,7 @@ def main(config="configs/default.yaml", split="val", n=1000,
     # ================= 메인 결과 (D38–D46) =================
     # 대표 모델 = T6.5 충실도 관문 통과 모델 중 검증 분리 품질 최고 (D43)
     # 위계 일관성: 재구성이 미달인 모델의 성분은 해석 대상이 아니다 (D26·D30).
-    fid = pd.read_csv("analysis/fidelity/fidelity.csv")
+    fid = pd.read_csv("results/02_separation/fidelity/fidelity.csv")
     passed = set(fid.loc[fid.PASS.astype(str).str.lower() == "true", "run"])
     pool = {r: v for r, v in res.items() if os.path.basename(r) in passed}
     if not pool:
@@ -336,7 +337,7 @@ def main(config="configs/default.yaml", split="val", n=1000,
         pool = res
     rep_run = max(pool, key=lambda r: pool[r]["val_sep"])
     fid_row = fid[fid.run == os.path.basename(rep_run)].iloc[0]
-    diag = pd.read_csv("analysis/fidelity/diagnostics.csv")
+    diag = pd.read_csv("results/02_separation/fidelity/diagnostics.csv")
     diag_row = diag[diag.run == os.path.basename(rep_run)].iloc[0]
     R = res[rep_run]
     order = role_order(R["cm"].mean(0))
@@ -354,7 +355,7 @@ def main(config="configs/default.yaml", split="val", n=1000,
 나머지 5개 모델의 판별 구조 재현성은 보조 자료로 제시한다 (D46).""")
     # 보정 RMSE는 표에서 제외하고 산출물로만 보존 (|r|의 단조 변환)
     pd.DataFrame(R["rmse_scaled"].mean(0), columns=list(REF_KEYS),
-                 index=[f"enc{k}" for k in range(R["K"])]).round(4).to_csv(
+                 index=[enc_label(k) for k in range(R["K"])]).round(4).to_csv(
         f"{outdir}/supp_rmse_scaled_{os.path.basename(rep_run)}.csv", encoding="utf-8-sig")
     seg, mean_pct = pick_representative_segment(R["cm"], order)
     fig1_visual(R["comps"], R["refs"], R["cm"], seg,

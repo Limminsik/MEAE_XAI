@@ -16,8 +16,17 @@
 
 ## 산출물 규칙
 
-- 학습 1회 = `runs/<run_id>/` 폴더 하나 (가중치·history.csv·checkpoints.json·plots/)
-- 분석 1종 = `analysis/<이름>/` 폴더 하나 (표는 루트, 그림은 `figures/`)
-- 폐기된 실행·구버전은 `archive/`로 옮긴다. 지우지 않는다.
-- 실행 이름은 `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_lam0.01`).
+- **본 실험 산출물은 `results/` 에만** 둔다.
+  `01_train/<run>/`(가중치·history.csv·selection.json·console.log·pool/·plots/) ·
+  `02_separation/`(S4) · `03_denoising/`(S5) · `04_external/`(S6) · `00_rehearsal/`(봉인 전 val 리허설)
+- 본 노선이 아닌 보조 실험은 `experiments/<이름>/outputs/`. `results/`에 섞지 않는다.
+- 폐기된 실행·구버전은 `_work/archive/`로 옮긴다. 지우지 않는다.
+- 실행 이름은 `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_h128`).
   접미사가 없으면 config 그대로라는 뜻이다.
+- 성분·인코더 표시는 **1부터** (`enc_label`). 내부 인덱스만 0-based.
+- 콘솔 출력에 한글이 있으면 `PYTHONIOENCODING=utf-8` 로 실행한다 (Windows cp949 인코딩 오류).
+
+## 해석 규칙
+
+**산출물만 보고한다. 해석·판독·원고 문구는 붙이지 않는다.** 표와 그림, 수치를 그대로 제시하고
+그것이 무엇을 뜻하는지는 사용자가 결정한다.

@@ -29,6 +29,7 @@ import torch
 from .data.build import load_cfg
 from .data.dataset import REF_KEYS, load
 from .model import meae
+from .model.meae import enc_label
 from .viz import plt
 
 NOISE_REFS = ("bw", "ma", "em")
@@ -36,12 +37,13 @@ NOISE_REFS = ("bw", "ma", "em")
 
 def load_ckpt(cfg, run):
     name = os.path.basename(run)
-    cand = [os.path.join("runs", run, f"{name}.pt"),          # 표준 위치
-            os.path.join("archive", run, f"{name}.pt"),        # 폐기된 실행
-            os.path.join("runs", f"{run}.pt")]
+    cand = [os.path.join("results", "01_train", run, f"{name}.pt"),  # 본 실험
+            os.path.join("_work", "runs", run, f"{name}.pt"),         # 보조 실행
+            os.path.join("_work", "archive", run, f"{name}.pt")]
     path = next((c for c in cand if os.path.exists(c)), cand[0])
     ck = torch.load(path, map_location="cpu", weights_only=False)
-    model = meae.build(cfg, ck["n_encoders"])
+    # 체크포인트에 저장된 config를 우선한다 — hidden 등 구조 오버라이드가 반영돼 있다
+    model = meae.build(ck.get("cfg", cfg), ck["n_encoders"])
     model.load_state_dict(ck["model"])
     return model.eval(), ck
 
@@ -75,6 +77,18 @@ def corr_matrix(comps, refs):
     num = np.einsum("nkt,nrt->nkr", c, r)
     den = cn * rn
     return np.where(den > 0, np.abs(num) / np.maximum(den, 1e-12), 0.0)
+
+
+def rmse_matrix(comps, refs):
+    """(n, K, R) 분절별 **원값** RMSE. 배율 보정을 하지 않는다 —
+    배율 보정 RMSE는 RMSE(b*x_hat, ref) = RMS(ref)*sqrt(1-r^2) 로 |r|과 대수적으로 중복이다."""
+    n, K, T = comps.shape
+    R = refs.shape[1]
+    out = np.empty((n, K, R))
+    for k in range(K):                    # 한 번에 (n,K,R,T)를 만들면 수백 MB가 된다
+        d = comps[:, k, None, :] - refs
+        out[:, k, :] = np.sqrt((d ** 2).mean(-1))
+    return out
 
 
 def contribution(comps, refs):
@@ -125,16 +139,17 @@ def spectral_centroid(refs, fs):
 
 
 # ---------------------------------------------------------------- 그림
-def fig_correspondence(cm, out, run):
+def fig_correspondence(cm, out, run, rm=None):
     m = cm.mean(0)
     sd = cm.std(0)
+    mr = rm.mean(0) if rm is not None else None
     K = m.shape[0]
-    fig, ax = plt.subplots(figsize=(5.6, 0.66 * K + 2))
+    fig, ax = plt.subplots(figsize=(6.4, 0.78 * K + 2))
     im = ax.imshow(m, cmap="magma", vmin=0, vmax=max(0.6, m.max()), aspect="auto")
     ax.set_xticks(range(len(REF_KEYS)))
     ax.set_xticklabels(list(REF_KEYS))
     ax.set_yticks(range(K))
-    ax.set_yticklabels([f"인코더 {k}" for k in range(K)])
+    ax.set_yticklabels([f"인코더 {k+1}" for k in range(K)])
     for k in range(K):
         for r in range(len(REF_KEYS)):
             ax.text(r, k, f"{m[k, r]:.2f}\n±{sd[k, r]:.2f}", ha="center", va="center",
@@ -142,7 +157,7 @@ def fig_correspondence(cm, out, run):
     for r in range(len(REF_KEYS)):
         ax.add_patch(plt.Rectangle((r - .5, m[:, r].argmax() - .5), 1, 1,
                                    fill=False, ec="cyan", lw=2))
-    ax.set_title(f"① 인코더 × 참조 |r| 평균±SD — {run}", fontsize=10)
+    ax.set_title(f"① 인코더 × 참조 |r| 평균±SD · 원값 RMSE — {run}", fontsize=10)
     fig.colorbar(im, ax=ax, shrink=.8)
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
@@ -152,7 +167,7 @@ def fig_correspondence(cm, out, run):
 def fig_components(comps, refs, x_noisy, i, out, title, fs):
     K = comps.shape[1]
     rows = ([("입력 x_noisy", x_noisy[i], "#000")]
-            + [(f"성분 {k}", comps[i, k], "#1f77b4") for k in range(K)]
+            + [(f"성분 {k+1}", comps[i, k], "#1f77b4") for k in range(K)]
             + [(f"참조 {n}", refs[i, list(REF_KEYS).index(n)], "#d62728") for n in NOISE_REFS]
             + [("참조 clean", refs[i, 0], "#2ca02c")])
     t = np.arange(comps.shape[-1]) / fs
@@ -173,18 +188,18 @@ def fig_hist(cm, k, out):
     fig, ax = plt.subplots(figsize=(8, 4))
     for j, name in enumerate(REF_KEYS):
         ax.hist(cm[:, k, j], bins=40, alpha=.55, label=f"{name} (중앙 {np.median(cm[:, k, j]):.3f})")
-    ax.set_xlabel(f"인코더 {k} 성분과 참조의 |r| (분절 단위)")
+    ax.set_xlabel(f"인코더 {k+1} 성분과 참조의 |r| (분절 단위)")
     ax.set_ylabel("분절 수")
     ax.legend(fontsize=8)
     ax.grid(alpha=.3, lw=.4)
-    ax.set_title(f"④ 인코더 {k}의 분절별 |r| 분포 — 평균값 뒤에 가려진 산포", fontsize=10)
+    ax.set_title(f"④ 인코더 {k+1}의 분절별 |r| 분포 — 평균값 뒤에 가려진 산포", fontsize=10)
     fig.tight_layout()
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K8_seed42_lam0.01", split="val",
-         outdir="analysis/s4", figdir="analysis/s4/figures"):
+def main(config="configs/default.yaml", run="K8_seed42", split="val",
+         outdir="results/02_separation", figdir="results/02_separation/figures"):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -198,16 +213,19 @@ def main(config="configs/default.yaml", run="K8_seed42_lam0.01", split="val",
     comps, refs = component_bank(model, ds, device, idx)
     K = comps.shape[1]
 
-    # ① 상관 행렬
+    # ① 대응표 — |r| 과 원값 RMSE 병기 (확정 지표 2종)
     cm = corr_matrix(comps, refs)
-    mat = pd.DataFrame(cm.mean(0), columns=list(REF_KEYS), index=[f"enc{k}" for k in range(K)])
+    rm = rmse_matrix(comps, refs)
+    mat = pd.DataFrame(cm.mean(0), columns=list(REF_KEYS), index=[enc_label(k) for k in range(K)])
     sd = pd.DataFrame(cm.std(0), columns=[f"{c}_sd" for c in REF_KEYS],
                       index=mat.index)
     energy = (comps ** 2).mean(-1).mean(0)
-    mat_out = pd.concat([mat.round(4), sd.round(4)], axis=1)
+    rmse = pd.DataFrame(rm.mean(0), columns=[f"{c}_rmse" for c in REF_KEYS], index=mat.index)
+    rmse_sd = pd.DataFrame(rm.std(0), columns=[f"{c}_rmse_sd" for c in REF_KEYS], index=mat.index)
+    mat_out = pd.concat([mat.round(4), sd.round(4), rmse.round(4), rmse_sd.round(4)], axis=1)
     mat_out["energy_ratio"] = (energy / energy.sum()).round(4)
     mat_out.to_csv(f"{outdir}/stage1_matrix.csv", encoding="utf-8-sig")
-    fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run)
+    fig_correspondence(cm, f"{figdir}/fig1_correspondence.png", run, rm)
 
     # ② 참조 간 상관 + 스펙트럼
     rc = reference_correlation(refs)
@@ -222,7 +240,7 @@ def main(config="configs/default.yaml", run="K8_seed42_lam0.01", split="val",
     # ③ 기여 분해
     share, r2 = contribution(comps, refs)
     con = pd.DataFrame(100 * share.mean(0), columns=list(REF_KEYS),
-                       index=[f"enc{k}" for k in range(K)])
+                       index=[enc_label(k) for k in range(K)])
     con_sd = pd.DataFrame(100 * share.std(0), columns=[f"{c}_sd" for c in REF_KEYS],
                           index=con.index)
     out = pd.concat([con.round(2), con_sd.round(2)], axis=1)
@@ -237,28 +255,32 @@ def main(config="configs/default.yaml", run="K8_seed42_lam0.01", split="val",
     for tag, i in picks.items():
         fig_components(comps, refs, ds.x_noisy, i,
                        f"{figdir}/components_bw_{tag}.png",
-                       f"인코더 {k_bw}–bw |r| {v[i]:.3f} ({tag}) · "
+                       f"{enc_label(k_bw)}–bw |r| {v[i]:.3f} ({tag}) · "
                        f"{ds.meta[i]['record_id']}_{ds.meta[i]['seg_idx']:04d}", fs)
-    fig_hist(cm, k_bw, f"{figdir}/hist_enc{k_bw}.png")
+    fig_hist(cm, k_bw, f"{figdir}/hist_{enc_label(k_bw)}.png")
 
     # ---- 콘솔 보고
     print(f"=== {run} · {split} {len(ds)}분절 · best epoch {ck['epoch']} ===\n")
     print("① 인코더 × 참조 |r| 평균 (±SD)")
     print(pd.DataFrame({c: [f"{mat.loc[i, c]:.3f}±{sd.loc[i, c+'_sd']:.3f}" for i in mat.index]
                         for c in REF_KEYS}, index=mat.index).to_string(), "\n")
+    print("① 인코더 × 참조 원값 RMSE 평균 (±SD)")
+    print(pd.DataFrame({c: [f"{rmse.loc[i, c+'_rmse']:.4f}±{rmse_sd.loc[i, c+'_rmse_sd']:.4f}"
+                            for i in mat.index] for c in REF_KEYS},
+                       index=mat.index).to_string(), "\n")
     print("② 참조 간 |r| — 분리 한계의 독립 근거")
     print(ref_df.to_string(index=False))
     print(spec_df.to_string(index=False), "\n")
     print("③ 기여 분해 — 참조 에너지 중 각 성분이 설명하는 몫 (%)")
     print(out[list(REF_KEYS)].to_string(), "\n")
-    print(f"④ 기준 인코더 = enc{k_bw} (bw 최대 상관). 시각 4종 → {figdir}/")
+    print(f"④ 기준 인코더 = {enc_label(k_bw)} (bw 최대 상관). 시각 4종 → {figdir}/")
     return mat_out, ref_df, out
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="K8_seed42_lam0.01")
+    p.add_argument("--run", default="K8_seed42")
     p.add_argument("--split", default="val")
     a = p.parse_args()
     main(a.config, a.run, a.split)

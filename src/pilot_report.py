@@ -62,7 +62,7 @@ def fig_heatmap(corr, run, out):
     ax.set_xticks(range(len(REF_KEYS)))
     ax.set_xticklabels(["clean", "bw", "ma", "em"])
     ax.set_yticks(range(K))
-    ax.set_yticklabels([f"인코더 {k}" for k in range(K)])
+    ax.set_yticklabels([f"인코더 {k+1}" for k in range(K)])
     for k in range(K):
         top = corr[k].argmax()
         for r in range(len(REF_KEYS)):
@@ -142,7 +142,7 @@ def main(config="configs/default.yaml", run="K8_seed42", n_seg=200):
     _plot_components(model, val, cfg, device, f"{outdir}/components.png", idx=0)
 
     df = pd.DataFrame(corr, columns=list(REF_KEYS),
-                      index=[f"enc{k}" for k in range(model.n_encoders)])
+                      index=[f"enc{k+1}" for k in range(model.n_encoders)])
     df["energy_ratio"] = energy / energy.sum()
     df.to_csv(f"{outdir}/corr_matrix.csv", encoding="utf-8-sig")
 
@@ -154,7 +154,7 @@ def main(config="configs/default.yaml", run="K8_seed42", n_seg=200):
         c = list(REF_KEYS).index(r)
         k = int(corr[:, c].argmax())
         srt = np.sort(corr[:, c])[::-1]
-        print(f"   {r:>7}: 인코더 {k}  |r|={srt[0]:.3f}  (2위 {srt[1]:.3f}, 격차 {srt[0]-srt[1]:.3f})")
+        print(f"   {r:>7}: 인코더 {k+1}  |r|={srt[0]:.3f}  (2위 {srt[1]:.3f}, 격차 {srt[0]-srt[1]:.3f})")
     print(f"\n③ 경계 {model.pad_each}샘플 |진폭| 평균 {edge.mean():.4f} vs "
           f"중앙 {mid.mean():.4f}  (비 {edge.mean()/mid.mean():.2f}x)")
     print(f"④ 에폭당 소요 {hist.sec.mean():.1f}s (총 {len(hist)}에폭, "

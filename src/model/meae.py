@@ -28,6 +28,12 @@ from ._vendor_meae import ConvolutionalAutoencoder
 DOWNSAMPLE_FACTOR = 256          # 선행 인코더 블록 8개 x MaxPool(2)
 
 
+def enc_label(k: int) -> str:
+    """표시용 인코더 이름. **내부 인덱스는 0부터, 사람이 보는 이름은 1부터**다.
+    그림·표·콘솔 출력에서 0-based를 쓰면 K와 마지막 번호가 어긋나 혼동이 생긴다."""
+    return f"enc{k + 1}"
+
+
 def pad(x: Tensor, pad_each: int) -> Tensor:
     """(B, C, 3600) → (B, C, 3840). 대칭 제로 패딩."""
     return F.pad(x, (pad_each, pad_each), mode="constant", value=0.0) if pad_each else x

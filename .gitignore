@@ -9,11 +9,10 @@ __pycache__/
 # 선행 저장소 클론 (커밋 해시는 README 참조)
 /external/
 
-# 학습 산출물 — 가중치·그림은 용량이 커서 제외, 이력은 추적한다
-/runs/*/*.pt
-/runs/*/plots/
-# 분석 산출물 — 그림 제외, 표는 추적한다
-/analysis/*/figures/
-/analysis/data_spotcheck/
-# 폐기된 실행
-/archive/
+# 가중치는 용량 때문에 추적하지 않는다. 표·이력·설정·그림은 추적한다.
+*.pt
+/results/01_train/*/pool/
+/results/01_train/*/plots/
+
+# 폐기된 실행·구버전
+/_work/

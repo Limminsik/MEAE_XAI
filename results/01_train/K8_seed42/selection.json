@@ -1,0 +1,62 @@
+{
+  "run": "K8_seed42",
+  "K": 8,
+  "seed": 42,
+  "hidden": 64,
+  "ratio": 1.5,
+  "eval_every": 2,
+  "val_n": 300,
+  "n_epochs": 151,
+  "n_evaluated": 76,
+  "min_val_recon": 0.016553888956705728,
+  "n_candidates": 55,
+  "candidate_range": [
+    40,
+    150
+  ],
+  "selected_epoch": 48,
+  "S": 0.6782121658325195,
+  "argmax_k": 3,
+  "val_recon": 0.02050089645385742,
+  "sensitivity": {
+    "1.2": {
+      "n_candidates": 50,
+      "selected_epoch": 88,
+      "S": 0.6641381978988647,
+      "val_recon": 0.01750110117594401,
+      "epoch_range": [
+        52,
+        150
+      ]
+    },
+    "1.5": {
+      "n_candidates": 55,
+      "selected_epoch": 48,
+      "S": 0.6782121658325195,
+      "val_recon": 0.02050089645385742,
+      "epoch_range": [
+        40,
+        150
+      ]
+    },
+    "2.0": {
+      "n_candidates": 63,
+      "selected_epoch": 48,
+      "S": 0.6782121658325195,
+      "val_recon": 0.02050089645385742,
+      "epoch_range": [
+        26,
+        150
+      ]
+    }
+  },
+  "loss": {
+    "recon": "mse",
+    "sep_impl": "alternative",
+    "sep_norm": "L1",
+    "lambda_mixing": 0.01,
+    "lambda_zero_recon": 0.01,
+    "lambda_z_l2": 0.001,
+    "gamma_diff": 0.0
+  }
+}

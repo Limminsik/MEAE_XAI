@@ -160,13 +160,13 @@ DIAG_COLS = ["run", "dx_resid_clean", "dx_resid_bw", "dx_resid_ma", "dx_resid_em
 
 
 def main(config="configs/default.yaml", runs=None, split="val", n=300,
-         outdir="analysis/fidelity", figdir="analysis/fidelity/figures"):
+         outdir="results/02_separation/fidelity", figdir="results/02_separation/fidelity/figures"):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(figdir, exist_ok=True)
     ds = load(cfg, split)
-    runs = runs or [f"K{K}_seed{s}" for K in (8, 4) for s in (42, 202, 2026)]
+    runs = runs or ["K8_seed42"]          # 본 실험 단일 모델. --runs 로 덮어쓴다
 
     rows = []
     for run in runs:
@@ -183,12 +183,12 @@ def main(config="configs/default.yaml", runs=None, split="val", n=300,
     out[PASS_COLS].to_csv(f"{outdir}/fidelity.csv", index=False, encoding="utf-8-sig")
     out[DIAG_COLS].to_csv(f"{outdir}/diagnostics.csv", index=False, encoding="utf-8-sig")
     pd.set_option("display.width", 220)
-    print(f"=== T6.5 재구성 충실도 ({split} {n}분절) ===")
-    print(f"합격 기준: 전대역·15–40 Hz 보존율 모두 ≥ {PASS_RATIO}  AND  "
-          f"RMSE(x_hat, x_noisy) < RMSE(x_hat, clean)\n")
+    print(f"=== 재구성 충실도 — 서술 지표 ({split} {n}분절) ===")
+    print("관문이 아니다. pass_* 열은 참고용 이력이며 합격/불합격 판정에 쓰지 않는다.")
+    print("")
     print(out[PASS_COLS].round(3).to_string(index=False))
-    print(f"\n합격 {int(out.PASS.sum())}/{len(out)}")
-    print("\n--- 진단 지표 (관문 아님. 미달 시 원인 규명용) ---")
+    print("")
+    print("--- 진단 지표 ---")
     print(out[DIAG_COLS].round(3).to_string(index=False))
     return out
 
@@ -198,5 +198,6 @@ if __name__ == "__main__":
     p.add_argument("--config", default="configs/default.yaml")
     p.add_argument("--split", default="val")
     p.add_argument("--n", type=int, default=300)
+    p.add_argument("--runs", nargs="*", default=None)
     a = p.parse_args()
-    main(a.config, split=a.split, n=a.n)
+    main(a.config, runs=a.runs, split=a.split, n=a.n)

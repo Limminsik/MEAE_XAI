@@ -1,90 +1,98 @@
-# meae_xai — 전역 설정 (RESEARCH_DESIGN.md §3)
+# meae_xai — 전역 설정
 # 코드 하드코딩 금지. 모든 실험 파라미터는 이 파일에서만 바꾼다.
 
-seeds: [42, 202, 2026]
+seeds: [42]                          # 주 분석 시드. 다중 시드 반복은 수행하지 않는다
 
 paths:
   mitdb: "data/raw/mit-bih-arrhythmia-database-1.0.0"
   nstdb: "data/mit-bih-noise-stress-test-database-1.0.0"
   galaxyppg: "data/GalaxyPPG/GalaxyPPG/Dataset"
-  mimic3: "data/raw/mimic3wdb"
   processed: "data/processed"
 
+# ────────────────────────────────────────────────────────────────
+# S1 데이터 (완료·동결)
+# ────────────────────────────────────────────────────────────────
 data:
   fs: 360
   seg_sec: 10                        # 3600 샘플
   mitdb_exclude: ["102", "104"]      # MLII 없음 → 46개 기록
   lead: "MLII"
-  noise_channel: 0                   # NSTDB 잡음 레코드는 2채널(noise1/noise2).
-                                     # nst 도구가 채널 번호끼리 짝지어 섞는 관례에 따라,
-                                     # MLII가 0번 채널이므로 잡음도 0번(noise1)을 쓴다.
-  noise_split_ratio: 0.7             # 잡음 레코드 앞 70% = 학습용, 뒤 30% = 검증·평가용
-  noise_snr_range_db: [0, 12]        # 잡음별 독립 추첨 (확정)
-  # 선행 인코더 깊이가 8(MaxPool 2배 x 8 = 256배)이라 입력 길이가 256의 배수여야 한다.
-  # 3600 -> 3840 = 256 x 15. 선행 후속 저장소도 6000 -> 6144(=256x24)로 대칭 제로 패딩했다.
-  pad_to: 3840                       # 모델 입력 길이
-  pad_each: 120                      # 양쪽 대칭 제로 패딩 (3840-3600)/2
-  # 모든 상관·지표는 패딩을 제외한 중앙 3600 구간을 크롭한 뒤 계산한다.
-  # R-피크 인덱스는 크롭 좌표(0~3599) 기준을 유지한다.
-  split:
-    unit: "record"                   # 기록(환자) 단위 분할만. 분절 단위는 누수 (§0 원칙 5)
-    counts: {train: 32, val: 5, test: 9}   # 46 x (0.7/0.1/0.2) = 32.2/4.6/9.2 -> 정수 배정
-    stratify: false                  # 층화 없음. 완전 무작위
-    split_seed: 42                   # 분할 전용 고정 시드. 학습 시드(seeds)와 무관하며
-                                     # split.json은 1회 생성 후 모든 K/시드 실험이 공유한다
+  noise_channel: 0                   # NSTDB 잡음 2채널 중 noise1.
+                                     # nst 도구가 채널 번호끼리 짝지어 섞는 관례를 따른다
+  noise_split_ratio: 0.7             # 잡음 레코드 앞 70% = train, 뒤 30% = val·test
+  noise_snr_range_db: [0, 12]        # 잡음별 독립 균등추첨
 
+  # 선행 인코더 깊이 8(MaxPool 2배 x 8 = 256배) → 입력이 256의 배수여야 한다.
+  # 3600 -> 3840 = 256 x 15. 모든 상관·지표는 중앙 3600을 크롭한 뒤 계산한다.
+  pad_to: 3840
+  pad_each: 120
+
+  split:
+    unit: "record"                   # 기록(환자) 단위만. 분절 단위는 누수
+    counts: {train: 32, val: 5, test: 9}
+    stratify: false
+    split_seed: 42                   # 분할 전용 고정 시드. 학습 시드와 무관
+
+# ────────────────────────────────────────────────────────────────
+# S2 모델 (완료·동결) — 선행 mesa_ecg_bss 구조 차용
+# ────────────────────────────────────────────────────────────────
 model:
-  # 선행 mesa_ecg_bss 설정 차용 (T3 확인 완료).
-  # K=6은 GroupNorm(num_groups=K)이 채널 32/64/128/256을 나누지 못해 실행 불가 -> {4, 8}로 확정.
-  n_encoders: [4, 8]                 # 실험 변수. 8이 선행 기준선. 총 학습 2 x 3시드 = 6회
-  channels: [32, 32, 64, 64, 128, 128, 256, 256]   # 인코더당 채널은 c // K 로 분배 (총 용량 K 불변)
-  hidden: 64                         # 인코딩 채널은 hidden // K
+  n_encoders: 8                      # 주 분석 축. 소스 수를 가정하지 않는 설정
+  channels: [32, 32, 64, 64, 128, 128, 256, 256]   # 인코더당 c // K
+  hidden: 64                         # 인코딩 채널 = hidden // K
   norm_type: group_norm
   use_weight_norm: true
   input_channels: 1
 
+# ────────────────────────────────────────────────────────────────
+# 비용 함수 ① — 학습 손실
+#   L = MSE(x_hat, x_noisy) + λ_m*L_mix + λ_o*|D(0)|^2 + λ_z*Σ|z_k|^2/h
+#   참조 신호(clean·bw·ma·em)는 일절 사용하지 않는다 (§0 원칙 3)
+# ────────────────────────────────────────────────────────────────
 loss:
-  # 재구성만 BCE -> MSE 교체 (정규화 없음, ECG는 음수). zero_recon도 같은 손실이라 함께 MSE가 된다.
-  recon: mse
-  sep_impl: alternative              # separation_loss.py의 두 구현 중 mesa_ecg_bss가 쓴 쪽
+  recon: mse                         # 선행은 BCE. 정규화 없음·ECG 음수라 MSE로 교체
+  sep_impl: alternative              # separation_loss.py 의 WeightSeparationLossAlternative
   sep_norm: L1
-  lambda_mixing: 1.0e-2              # T5 λ 스윕 확정. 선행 ECG 설정은 1e-3이나 MSE 전환 후 부족
-  lambda_zero_recon: 1.0e-2          # 선행 zero_lr
-  lambda_z_l2: 1.0e-3                # T6.5 선등록 처방: 1e-2에서 15-40Hz 보존율 0.31~0.68로
-                                     # 전 실행 미달(<0.7). 인코딩 크기를 누르는 항이 고주파
-                                     # 표현 여력을 제한한다는 진단에 따라 1자릿수 하향.
-                                     # 선행 하드코딩값은 1e-2 (BCE + [0,1] 정규화 기준)
+  lambda_mixing: 1.0e-2              # λ_m
+  lambda_zero_recon: 1.0e-2          # λ_o
+  lambda_z_l2: 1.0e-3                # λ_z
+  gamma_diff: 0.0                    # 차분항 미사용
 
+# ────────────────────────────────────────────────────────────────
+# S3 학습
+# ────────────────────────────────────────────────────────────────
 train:
   batch: 256
   lr: 1.0e-3
-  weight_decay: 1.0e-6               # 선행 값
-  lr_step_size: 50                   # StepLR, gamma 0.1 (선행 값)
-  gradient_clip_val: 0.5             # 선행 값
-  max_epoch: 300                     # T6.5: 재구성 충실도(고주파 소실) 문제로 연장
-  early_stop_patience: 30            # T6.5: 조기 종료가 미수렴 시점에서 끊던 문제로 연장
-  # 체크포인트는 검증 '분리 품질' 최고 에폭 (설계 §6). 선행의 monitor: recon_loss/train 은 따르지 않는다.
-  checkpoint_metric: val_separation_quality
-  # 분리 품질 = (참조 4종 각각의 최대 |r| 평균) - penalty x (최고 인코더 중복 수)
-  # 참조 4종 = clean, bw, ma, em. 중복 수 = 4 - (네 참조의 최고 인코더 중 서로 다른 것의 개수)
-  # clean을 포함시키는 이유: 덜 학습된 모델은 성분이 전부 완만한 곡선이라 잡음 상관만
-  # 부풀려진다. clean 항이 있어야 "심장 성분을 실제로 담은 모델"이 높은 점수를 받는다.
-  # 지표 수정 2회차이자 마지막. 두 번 모두 val 기반이며 test는 봉인 상태다.
-  separation_duplicate_penalty: 0.15
-  # 후보 구간 제한 (T6.5 처방 A): 분리 품질 최대화 대상을 '수렴한 에폭'으로 한정한다.
-  # 재구성이 안 된 모델의 성분은 해석 대상이 아니다 — 위계상 재구성이 목표이기 때문.
-  # val_recon은 자기지도 손실이므로 정답을 쓰지 않는다 (§0 원칙 4 유지).
-  checkpoint_recon_gate: 1.2         # val_recon <= 1.2 x (그 실행의 최소 val_recon)
-  checkpoint_pool: 10                # 학습 중 보관할 후보 가중치 수 (분리 품질 상위)
-  checkpoint_keep_top: 3             # 종료 시 남길 상위 체크포인트 수 (재선택용)
-  log_loss_terms: true               # 4개 손실 항을 에폭별로 기록 (MSE 전환 후 항 간 균형 확인)
-  pair_corr_alert: 0.75              # 성분 중복 경보. λ 3조건 실측 95%분위 0.549/0.587/0.659
+  weight_decay: 1.0e-6
+  lr_step_size: 50                   # StepLR, gamma 0.1
+  gradient_clip_val: 0.5
+  max_epoch: 300
+  early_stop_patience: 30            # L_recon^val 정체 기준
 
+  # ---- 비용 함수 ② — 체크포인트 선택
+  #   x_hat_k  = D(0,...,z_k,...,0), 중앙 3600 크롭
+  #   rho_k(t) = median_{s in V} |corr(x_hat_k, x_clean)|,   |V| = val_n 고정
+  #   S(t)     = max_k rho_k(t)
+  #   1단계  C  = { t : L_recon^val(t) <= recon_ratio x min_tau L_recon^val(tau) }
+  #   2단계  t* = argmax_{t in C} S(t)
+  #   eval_every 에폭 간격으로 산출하고 학습 종료 후 전체 이력을 일괄 판정한다.
+  #   x_clean 은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다 (§0 원칙 4).
+  checkpoint:
+    recon_ratio: 1.5                 # 민감도 {1.2, 1.5, 2.0} 함께 산출
+    eval_every: 2
+    val_n: 300
+
+# ────────────────────────────────────────────────────────────────
+# S4 성분 분리 평가 — 인코더 x 참조 상관계수 · 원값 RMSE
+# ────────────────────────────────────────────────────────────────
 s4:
-  # 범주 판별(4분류)과 임계 δ·ε는 폐기했다 (T5). 대응 관계를 행렬로 그대로 보고한다.
-  min_consistency: 0.8               # 1위 참조 일관성 — 판정이 아니라 서술용
-  alpha: 0.05                        # Wilcoxon + Holm
+  n_seg: null                        # null 이면 해당 split 전체
 
+# ────────────────────────────────────────────────────────────────
+# S6 외부 적용 (연구계획서 기반연구 ①)
+# ────────────────────────────────────────────────────────────────
 external:
-  mimic3: {fs_src: 125, lead: "II", n_segments: 500}
+  mimic_iv: {root: "D:/data/mimic_iv_waveform/DESTINATION", lead: "II", n_segments: 500}
+  vitaldb: {root: "D:/data/VitalDB", n_segments: 500}
   galaxyppg: {source: "Polar H10 ECG", fs_src: 130, n_segments: 500}

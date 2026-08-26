@@ -1,0 +1,2 @@
+﻿run,epoch,keep_full,keep_band,rmse_to_noisy,rmse_to_clean,denoise_ok_frac,pass_keep,pass_denoise,PASS
+K8_seed42,48,0.9122879214737936,0.4838248649544885,0.15735717322779535,0.2855773519553803,1.0,False,True,False

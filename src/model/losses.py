@@ -6,10 +6,15 @@ zero reconstruction도 같은 손실 함수를 재사용하므로 함께 MSE가 
 
 | 항 | 값 | 출처 |
 |---|---|---|
-| 재구성 | `MSE(x̂, x_noisy)` | 선행 BCE를 교체 |
+| 재구성 | `MSE(x̂, x) + γ·MSE(Δx̂, Δx)` (Δ = 1차 차분) | 선행 BCE를 교체 + 차분항 추가 |
 | sparse mixing | 디코더 가중치 비대각 L1 | 선행 sep_lr = 1e-3 (mesa_ecg_bss) |
 | zero reconstruction | 전영 인코딩 → 출력 0 (MSE) | 선행 zero_lr = 1e-2 |
 | 인코딩 L2 | 각 z의 평균 제곱 | 선행 코드 하드코딩 1e-2 |
+
+**차분항(γ)**: 1차 차분에 대한 MSE를 더한다. 재구성이 저역통과형으로 감쇠하는 것을 막기 위함이다.
+차분은 주파수에 비례하는 이득을 갖는 고역강조 연산자이므로, 이 항은 고주파 오차에 더 큰 벌점을
+준다. 실측에서 재구성 스펙트럼이 입력보다 1.7–1.8배 가팔랐고 15 Hz부터 단조 하강했다.
+γ=0이면 기존 동작과 완전히 같다.
 
 sparse mixing 구현 선택: `separation_loss.py`에는 두 가지가 있고 논문마다 다른 쪽을 쓴다.
 우리는 **`WeightSeparationLossAlternative`** 를 쓴다 — ECG 실험 설정인 `mesa_ecg_bss`가
@@ -27,8 +32,10 @@ SEP_IMPLS = {"alternative": WeightSeparationLossAlternative, "blockwise": Weight
 
 class MEAELoss(nn.Module):
     def __init__(self, n_encoders: int, lambda_mixing: float, lambda_zero_recon: float,
-                 lambda_z_l2: float, sep_impl: str = "alternative", sep_norm: str = "L1"):
+                 lambda_z_l2: float, sep_impl: str = "alternative", sep_norm: str = "L1",
+                 gamma_diff: float = 0.0):
         super().__init__()
+        self.gamma_diff = gamma_diff
         if sep_impl not in SEP_IMPLS:
             raise ValueError(f"sep_impl={sep_impl!r} 는 {sorted(SEP_IMPLS)} 중 하나여야 한다.")
         self.recon = nn.MSELoss()
@@ -40,6 +47,9 @@ class MEAELoss(nn.Module):
     def forward(self, model, x: Tensor, x_pred: Tensor, zs: List[Tensor]) -> Dict[str, Tensor]:
         """항별 값을 그대로 돌려준다 — 에폭 로그에 4항을 각각 남기기 위함 (§6)."""
         recon = self.recon(x_pred, x)
+        if self.gamma_diff:                      # 1차 차분 = 고역강조. 저역통과 감쇠를 막는다
+            recon = recon + self.gamma_diff * self.recon(torch.diff(x_pred, dim=-1),
+                                                         torch.diff(x, dim=-1))
         z_l2 = sum(torch.mean(z ** 2) for z in zs)
         # 출력층(model.net.output)은 제외하고 디코더 가중치만 대상 — 선행과 동일
         mixing = self.separation(model.net.decoder)
@@ -47,6 +57,9 @@ class MEAELoss(nn.Module):
         zeros = model.zero_encoding(1, zs[0].shape[-1], x.device)
         x_zero = model.decode(zeros, zeros_train=True)
         zero_recon = self.recon(x_zero, torch.zeros_like(x_zero))
+        if self.gamma_diff:                      # 재구성과 같은 정의를 쓴다
+            zero_recon = zero_recon + self.gamma_diff * self.recon(
+                torch.diff(x_zero, dim=-1), torch.zeros_like(torch.diff(x_zero, dim=-1)))
 
         total = (recon
                  + self.lambda_z_l2 * z_l2
@@ -63,4 +76,4 @@ def build(cfg, n_encoders: int) -> MEAELoss:
     return MEAELoss(n_encoders=n_encoders, lambda_mixing=lo["lambda_mixing"],
                     lambda_zero_recon=lo["lambda_zero_recon"],
                     lambda_z_l2=lo["lambda_z_l2"], sep_impl=lo["sep_impl"],
-                    sep_norm=lo["sep_norm"])
+                    sep_norm=lo["sep_norm"], gamma_diff=lo.get("gamma_diff", 0.0))

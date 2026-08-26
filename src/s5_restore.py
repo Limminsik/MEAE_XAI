@@ -122,7 +122,7 @@ def exhaustive_map(model, ds, device, idx, pad, batch=100):
 
 
 def main(config="configs/default.yaml", run="K8_seed42", split="val", n=1000,
-         outdir="analysis/validation", figdir="analysis/validation/figures", seed_for_share=None):
+         outdir="results/03_denoising", figdir="results/03_denoising/figures", seed_for_share=None):
     cfg = load_cfg(config)
     fs, seg_len = cfg["data"]["fs"], cfg["data"]["fs"] * cfg["data"]["seg_sec"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
