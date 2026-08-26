@@ -24,12 +24,12 @@
 | `02_model.py` | 모델·학습·두 비용 함수. `--diagnose` 로 재구성 충실도 진단 |
 | `03_bss.py` | 성분 분리 + 참조 대응 분석 (지표 3종) |
 | `04_masked_denoising.py` | 마스킹 복원 평가 (전수 2^K, 지표 5종) |
-| `05_validation.py` | 외부 데이터 적용 시연 |
+| `05_validation.py` | 외부 데이터 적용 (VitalDB · MIMIC-IV · GalaxyPPG) |
 
 - 새 분석이 생기면 **그 단계 스크립트 안에** 넣는다. 새 파일을 만들지 않는다.
 - 여러 단계가 함께 쓰는 것만 `src/core.py` 로 올린다.
 - `src/` 의 나머지는 라이브러리다 — `data/`(S1 동결) · `model/`(S2 동결) ·
-  `metrics.py` · `spectral.py` · `stats.py` · `viz.py`.
+  `core.py`(공용) · `metrics.py` · `spectral.py` · `viz.py`.
 - 한글 콘솔 출력이 있으므로 `PYTHONIOENCODING=utf-8` 로 실행한다 (Windows cp949 오류).
 
 ## 산출물 규칙
@@ -38,16 +38,18 @@
 
 ```
 results/01_build/                          분절 스팟체크
-results/02_model/<run>/                    가중치·history·selection·console·pool/·plots/
+results/02_model/<run>/                    가중치·history·selection·stage1·pool/·plots/
+                      epoch_metrics/       에폭별 지표와 2단계 선정
                       fidelity/            재구성 충실도 진단
-results/03_bss/<run>/<split>/              대응표 3종·일치표·분절별 원값·그림
+results/03_bss/<run>/<split>/              대응표 3종·일치표·그림 (val · test)
 results/04_masked_denoising/<run>/<split>/ 전수 지도·기준선·단독·누적·R피크
-results/05_validation/<run>/<source>/      외부 적용
+results/05_validation/<run>/<source>/      외부 적용 (vitaldb·mimic_iv·galaxyppg)
+results/05_validation/_check/              원 파형 점검·품질 조사
 ```
 
 - 실행 이름은 `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_h128`).
   접미사가 없으면 config 그대로라는 뜻이다.
-- 본 노선이 아닌 보조 실험은 `_work/archive/experiments/`. `results/`에 섞지 않는다.
+- 본 노선이 아닌 보조 실험은 `experiments/<이름>/`. `results/`에 섞지 않는다.
 - 폐기된 실행·구버전·구코드는 `_work/archive/`로 옮긴다. 지우지 않는다.
 - 성분·인코더 표시는 **1부터** (`enc_label`). 내부 인덱스만 0-based.
 

@@ -1,0 +1,20 @@
+보조 실험 — 마스킹 순서 기준 검토. 본 노선(04)이 아니다.
+이미 산출한 03·04 결과만 다시 읽어 쓴다. 모델 추론을 하지 않는다.
+
+1) predictor_scatter.csv / predictor_corr.csv
+   단독 제거 효과(SNR_vs_M0, dB)와 03 지표(clean |r|, 잡음별 |r|,
+   잡음최대 |r|, clean - 잡음최대)의 관계. 인코더 8개가 표본이다.
+   피어슨·스피어만 상관을 함께 싣는다.
+
+2) top20_combos.csv / encoder_frequency.csv
+   SNR_중앙 기준 상위 20개 조합과, 그 안에서 각 인코더가 마스킹된 비율.
+
+3) enc4_split.csv
+   전수 256조합을 enc4 포함/제외로 갈라 지표 분포(중앙값·최소·최대)를 비교.
+
+4) cumulative_clean_asc.csv / cumulative_noise_desc.csv
+   같은 조합 집합을 서로 다른 순서로 누적 마스킹했을 때의 지표 변화.
+   asc  = clean 상관 오름차순 (clean 과 덜 닮은 인코더부터)
+   desc = 잡음 3종 최대 상관 내림차순 (04 에서 쓰던 순서)
+
+해석은 붙이지 않는다.

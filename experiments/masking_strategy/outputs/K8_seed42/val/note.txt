@@ -1,0 +1,22 @@
+04 진단 — remove-some 과 keep-one 을 나란히 산출한 것이다.
+
+1) decoder_blocks.csv / figures/decoder_blocks.png
+   디코더 각 층 가중치 |W| 를 공간축으로 합산해 K x K 블록으로 접었다.
+   행 = 출력 인코딩, 열 = 입력 인코딩. 블록 값은 그 블록의 평균 |W|.
+   비대각_대각_비 = 비대각 블록 평균 / 대각 블록 평균.
+   sparse mixing 손실이 벌하는 대상이 비대각 블록이다(출력층 제외).
+
+2) keep_one.csv
+   k번째 인코딩만 남긴 성분을 clean 과 비교했다. 지표 5종, 분절 중앙값.
+   raw    = 성분 그대로
+   scaled = alpha = <x_hat_k, x_noisy> / ||x_hat_k||^2 로 크기만 맞춘 뒤
+            (x_noisy 만 쓰므로 정답을 보지 않는다)
+
+3) removesome_vs_keepone.csv
+   같은 인코더에 대해 remove-some(그 인코더만 끈 복원)과
+   keep-one(그 인코더만 남긴 성분, 보정 후)을 나란히 둔 표.
+
+4) figures/mask_vs_keep.png
+   한 분절에서 두 연산의 파형을 clean 과 겹쳐 그린 것.
+
+해석과 처방은 붙이지 않는다.

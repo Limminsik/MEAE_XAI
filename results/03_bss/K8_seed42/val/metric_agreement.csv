@@ -4,6 +4,6 @@ enc2,bw,bw,bw,일치
 enc3,bw,bw,bw,일치
 enc4,x_clean,x_clean,x_clean,일치
 enc5,bw,x_clean,bw,불일치
-enc6,bw,bw,bw,일치
+enc6,bw,em,bw,불일치
 enc7,bw,bw,bw,일치
-enc8,bw,x_clean,bw,불일치
+enc8,x_clean,x_clean,bw,불일치

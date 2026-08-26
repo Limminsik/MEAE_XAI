@@ -1,0 +1,14 @@
+보조 실험 ⑤ — 신호 공간 뺄셈. 본 노선(04)이 아니다.
+
+  d_S        = x_hat_M0 - x_hat_{mask S}
+  x_denoised = x_noisy - beta * d_S
+
+beta1     beta = 1 고정
+beta_opt  beta* = <x_noisy, d_S> / ||d_S||^2  (x_noisy 만 쓴다)
+
+뺀양비 = ||beta * d_S|| / ||x_noisy - x_clean||
+  분모는 그 분절에 실제로 주입한 잡음 총량 Sum_t alpha_t * n_t 이다.
+  1 이면 주입량과 같은 크기를 뺐다는 뜻이고, 방향이 맞는지는 말하지 않는다.
+
+지표 5종은 clean 기준 mV 원단위, 분절 중앙값. 기준선은 x_noisy.
+최적 조합 선정은 하지 않는다. 해석과 처방도 붙이지 않는다.

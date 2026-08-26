@@ -52,7 +52,9 @@
   cumulative.csv        누적 마스킹 곡선
   rpeak_ratio.csv       R-피크 진폭비
   persegment_top.csv    주요 조건의 분절별 원값
-  figures/  exhaustive_scatter · single_mask · cumulative · rpeak_ratio
+  figures/  exhaustive_scatter   마스킹 개수 대 지표 5종
+            metric_tradeoff     지표 간 산포 (ΔSNR–R피크 / ΔSNR–MAD / CosSim–MAD)
+            single_mask · cumulative · rpeak_ratio
 """
 import argparse
 import itertools
@@ -241,6 +243,36 @@ def fig_cumulative(cum, out):
     plt.close(fig)
 
 
+def fig_tradeoff(tab, out):
+    """지표 간 산포도 — 점 하나가 조합 하나. 색은 마스킹한 인코더 수.
+
+    지표들이 서로 다른 조합을 좋다고 하는지(상충) 눈으로 확인하기 위한 것이다.
+    ΔSNR 은 ⓐ x_noisy 대비 개선량이다.
+    """
+    pairs = [("SNR_vs_noisy", "R피크_진폭비_중앙", "ΔSNR (ⓐ 대비, dB)", "R-피크 진폭비"),
+             ("SNR_vs_noisy", "MAD_중앙", "ΔSNR (ⓐ 대비, dB)", "MAD (mV)"),
+             ("CosSim_중앙", "MAD_중앙", "CosSim", "MAD (mV)")]
+    fig, ax = plt.subplots(1, 3, figsize=(16, 4.8))
+    for a, (xc, yc, xl, yl) in zip(np.atleast_1d(ax), pairs):
+        sc = a.scatter(tab[xc], tab[yc], c=tab["끈_인코더수"], cmap="viridis",
+                       s=26, alpha=.85, edgecolor="none")
+        m0 = tab[tab["끈_인코더수"] == 0]
+        if len(m0):
+            a.scatter(m0[xc], m0[yc], marker="*", s=220, color="#d62728",
+                      edgecolor="k", lw=.5, zorder=5, label="M0 (마스킹 없음)")
+            a.legend(fontsize=7.5, loc="best")
+        a.set_xlabel(xl, fontsize=9)
+        a.set_ylabel(yl, fontsize=9)
+        a.grid(alpha=.3, lw=.4)
+        a.tick_params(labelsize=8)
+    cb = fig.colorbar(sc, ax=ax, shrink=.85, pad=.015)
+    cb.set_label("마스킹한 인코더 수", fontsize=9)
+    fig.suptitle("지표 간 산포 — 점 하나가 마스킹 조합 하나 (전수 2^K, 분절 중앙값)",
+                 fontsize=12)
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+
+
 def fig_rpeak(tab, out):
     fig, ax = plt.subplots(figsize=(7.5, 4.2))
     ax.scatter(tab["끈_인코더수"], tab["R피크_진폭비_중앙"], s=16, alpha=.6, color="#1f77b4")
@@ -347,6 +379,7 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", n=None, ou
     fig_exhaustive(tab, f"{figdir}/exhaustive_scatter.png")
     fig_single(single, f"{figdir}/single_mask.png")
     fig_rpeak(tab, f"{figdir}/rpeak_ratio.png")
+    fig_tradeoff(tab, f"{figdir}/metric_tradeoff.png")
     if cum is not None:
         fig_cumulative(cum, f"{figdir}/cumulative.png")
 

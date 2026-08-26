@@ -93,6 +93,9 @@ s4:
 # S6 외부 적용 (연구계획서 기반연구 ①)
 # ────────────────────────────────────────────────────────────────
 external:
-  mimic_iv: {root: "D:/data/mimic_iv_waveform/DESTINATION", lead: "II", n_segments: 500}
-  vitaldb: {root: "D:/data/VitalDB", n_segments: 500}
-  galaxyppg: {source: "Polar H10 ECG", fs_src: 130, n_segments: 500}
+  # 표본율·단위는 실측값이다 (05_validation.py 독스트링 참조)
+  vitaldb:   {root: "D:/data/VitalDB", track: "SNUADC/ECG_II", fs_src: 500, unit: mV}
+  mimic_iv:  {root: "D:/data/mimic_iv_waveform/DESTINATION", lead: "II",
+              fs_src: 249.89, unit: mV}
+  galaxyppg: {root: "D:/data/GalaxyPPG/GalaxyPPG/Dataset", source: "Polar H10 ECG",
+              fs_src: 130, unit: raw}

@@ -1,0 +1,100 @@
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+C:\dev\meae_xai\experiments\masking_strategy\order.py:153: MatplotlibDeprecationWarning: The 'labels' parameter of boxplot() has been renamed 'tick_labels' since Matplotlib 3.9; support for the old name will be dropped in 3.11.
+  a.boxplot([ex.loc[~has, c].values, ex.loc[has, c].values],
+[순서검토] K8_seed42 · val — 기존 산출물 재활용, 모델 추론 없음
+
+① 단독 제거 효과와 03 지표
+ 인코더  ΔSNR_vs_M0  ΔSNR_vs_noisy  clean_r   bw_r   ma_r   em_r  잡음최대_r  clean빼기잡음  R피크_진폭비
+enc1      0.3849         0.1703   0.1624 0.1937 0.1955 0.2406  0.2406    -0.0782   0.8653
+enc2     -0.3530        -0.5675   0.0886 0.4032 0.3200 0.2046  0.4032    -0.3146   0.9593
+enc3     -0.3092        -0.5237   0.1312 0.5978 0.4816 0.2763  0.5978    -0.4666   0.9488
+enc4     -2.6335        -2.8481   0.6514 0.0715 0.0618 0.0638  0.0715     0.5799   0.1694
+enc5      0.0337        -0.1809   0.0881 0.3087 0.2713 0.1676  0.3087    -0.2206   0.8923
+enc6      0.0258        -0.1887   0.1060 0.3027 0.2604 0.2503  0.3027    -0.1967   0.9229
+enc7     -0.0086        -0.2232   0.0859 0.3511 0.2766 0.1827  0.3511    -0.2652   0.9258
+enc8     -0.2890        -0.5036   0.1695 0.1671 0.1386 0.1688  0.1688     0.0007   0.7642 
+
+①-보조 예측력 (인코더 8개 기준)
+     03지표  피어슨_vs_ΔSNR  스피어만_vs_ΔSNR
+  clean_r      -0.9446       -0.3333
+     bw_r       0.4419       -0.0476
+     ma_r       0.5015       -0.0476
+     em_r       0.7848        0.2143
+   잡음최대_r       0.4878       -0.0476
+clean빼기잡음      -0.8142        0.0476 
+
+② SNR_중앙 상위 20개 조합
+                 조합  끈_인코더수    마스크비트   SSD_중앙  MAD_중앙  PRD_중앙  CosSim_중앙  SNR_중앙  R피크_진폭비_중앙
+     enc1-enc6-enc7       3 10000110 222.7395  1.3135 59.2207     0.8439  0.7857      0.8658
+     enc1-enc5-enc7       3 10001010 223.7088  1.3313 58.2290     0.8549  0.7799      0.8217
+          enc1-enc5       2 10001000 222.0186  1.3092 58.1501     0.8553  0.7589      0.8216
+          enc1-enc6       2 10000100 222.3968  1.3146 59.2239     0.8421  0.7443      0.8611
+               enc1       1 10000000 223.5955  1.3287 58.8648     0.8538  0.7326      0.8653
+          enc1-enc7       2 10000010 225.0888  1.3318 58.8311     0.8546  0.7156      0.8670
+enc1-enc5-enc6-enc7       4 10001110 225.1861  1.3050 59.5845     0.8422  0.7123      0.8336
+     enc1-enc5-enc6       3 10001100 223.5364  1.3029 59.8253     0.8417  0.6986      0.8303
+     enc1-enc2-enc7       3 11000010 249.2723  1.3454 60.6484     0.8464  0.4784      0.8979
+          enc1-enc2       2 11000000 249.1803  1.3329 60.6797     0.8456  0.4745      0.8943
+     enc1-enc2-enc5       3 11001000 249.6950  1.3174 60.5428     0.8456  0.4516      0.8574
+enc1-enc2-enc5-enc7       4 11001010 250.2009  1.3278 60.7417     0.8470  0.4479      0.8594
+     enc1-enc5-enc8       3 10001001 258.8440  1.5086 60.0264     0.8452  0.4270      0.6625
+enc1-enc5-enc7-enc8       4 10001011 262.1346  1.5108 59.8895     0.8442  0.3980      0.6595
+          enc1-enc8       2 10000001 257.5956  1.5032 60.3841     0.8457  0.3958      0.6804
+     enc1-enc7-enc8       3 10000011 260.8947  1.5058 60.2639     0.8458  0.3824      0.6801
+               enc5       1 00001000 236.9307  1.2638 59.6430     0.8523  0.3814      0.8923
+          enc6-enc7       2 00000110 238.3437  1.2855 60.2932     0.8456  0.3781      0.9251
+               enc6       1 00000100 237.0199  1.2771 60.6432     0.8435  0.3735      0.9229
+          enc5-enc7       2 00001010 239.4546  1.2643 59.5021     0.8523  0.3627      0.8949 
+
+②-보조 인코더별 포함 빈도
+ 인코더  포함_횟수  포함_비율  제외_횟수
+enc1     16    0.8      4
+enc2      4    0.2     16
+enc3      0    0.0     20
+enc4      0    0.0     20
+enc5     10    0.5     10
+enc6      6    0.3     14
+enc7     10    0.5     10
+enc8      4    0.2     16 
+
+③ enc4 포함/제외 조합의 지표 분포
+     구분  조합수  SSD_중앙값   SSD_최소    SSD_최대  MAD_중앙값  MAD_최소  MAD_최대  PRD_중앙값  PRD_최소   PRD_최대  CosSim_중앙값  CosSim_최소  CosSim_최대  SNR_중앙값  SNR_최소  SNR_최대  R피크_진폭비_중앙값
+enc4 포함  128 576.9971 434.7978 1017.0005   2.2809  1.7937  2.4449  83.3585 77.0196 102.9730      0.6653    -0.6626     0.7216  -2.2931 -4.2534 -1.8088       0.1036
+enc4 제외  128 392.9685 222.0186  565.6182   1.4288  1.2452  1.6724  64.7919 58.1501  73.5466      0.8404     0.7782     0.8663  -0.0140 -1.0081  0.7857       0.8155 
+
+④ clean 상관 오름차순 누적 마스킹
+   순서: enc7 → enc5 → enc2 → enc6 → enc3 → enc1 → enc8 → enc4
+ 누적_개수 추가된_인코더                                      조합   SSD_중앙  MAD_중앙   PRD_중앙  CosSim_중앙  SNR_중앙  R피크_진폭비_중앙
+     0       -                                  M0(없음) 236.1390  1.2452  59.7103     0.8536  0.3477      0.9252
+     1    enc7                                    enc7 238.3704  1.2530  59.4415     0.8528  0.3391      0.9258
+     2    enc5                               enc5-enc7 239.4546  1.2643  59.5021     0.8523  0.3627      0.8949
+     3    enc2                          enc2-enc5-enc7 269.4508  1.2856  62.6180     0.8426 -0.0149      0.9334
+     4    enc6                     enc2-enc5-enc6-enc7 278.8201  1.3449  65.7761     0.8295 -0.2042      0.9447
+     5    enc3                enc2-enc3-enc5-enc6-enc7 526.4028  1.5143  67.6344     0.8203 -0.5944      0.9812
+     6    enc1           enc1-enc2-enc3-enc5-enc6-enc7 494.2102  1.5004  67.7326     0.8285 -0.1418      0.9521
+     7    enc8      enc1-enc2-enc3-enc5-enc6-enc7-enc8 506.5542  1.6724  73.5466     0.7782 -0.9304      0.7447
+     8    enc4 enc1-enc2-enc3-enc4-enc5-enc6-enc7-enc8 557.3950  1.7937 101.1277    -0.6626 -3.9346      0.0000 
+
+④-대조 잡음 상관 내림차순 (기존)
+   순서: enc3 → enc2 → enc7 → enc5 → enc6 → enc1 → enc8 → enc4
+ 누적_개수 추가된_인코더                                      조합   SSD_중앙  MAD_중앙   PRD_중앙  CosSim_중앙  SNR_중앙  R피크_진폭비_중앙
+     0       -                                  M0(없음) 236.1390  1.2452  59.7103     0.8536  0.3477      0.9252
+     1    enc3                                    enc3 473.3781  1.2777  63.3680     0.8573  0.0385      0.9488
+     2    enc2                               enc2-enc3 498.5325  1.3646  65.6039     0.8365 -0.2001      0.9775
+     3    enc7                          enc2-enc3-enc7 498.9257  1.3734  65.7942     0.8333 -0.2177      0.9802
+     4    enc5                     enc2-enc3-enc5-enc7 500.5332  1.4287  66.8879     0.8272 -0.3102      0.9329
+     5    enc6                enc2-enc3-enc5-enc6-enc7 526.4028  1.5143  67.6344     0.8203 -0.5944      0.9812
+     6    enc1           enc1-enc2-enc3-enc5-enc6-enc7 494.2102  1.5004  67.7326     0.8285 -0.1418      0.9521
+     7    enc8      enc1-enc2-enc3-enc5-enc6-enc7-enc8 506.5542  1.6724  73.5466     0.7782 -0.9304      0.7447
+     8    enc4 enc1-enc2-enc3-enc4-enc5-enc6-enc7-enc8 557.3950  1.7937 101.1277    -0.6626 -3.9346      0.0000 
+
+산출물 → experiments\masking_strategy\outputs\K8_seed42\val\order/

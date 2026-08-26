@@ -15,13 +15,17 @@
 | 단계 | 상태 |
 |---|---|
 | 01 데이터셋 구축 | ✅ 완료·동결 (모델 이식 포함) |
-| 02 모델·학습 | ✅ 완료 — K=8 seed 42, 에폭 48 확정 + 충실도 진단 |
-| **03 분리·대응 분석** | ✅ **종료** — 지표 3종 확정, val 산출 완료 |
-| **04 마스킹 복원 평가** | 🔧 **여기** — 전수 256조합 val 산출 완료, 최적 조합 선정은 보류 |
-| 05 외부 적용 | ⏸ 로더 미구현 — 04에서 조합 확정 후 착수 |
+| 02 모델·학습 | ✅ 완료 — K=8 seed 42, **에폭 88** 확정 + 충실도 진단 |
+| 03 분리·대응 분석 | ✅ 종료 — 지표 3종, **val · test** 산출 완료 |
+| 04 마스킹 복원 평가 | ✅ 전수 256조합 val 산출 완료. **최적 조합 선정은 보류** |
+| 05 외부 적용 | ✅ VitalDB · MIMIC-IV · GalaxyPPG 산출 완료 |
+| S7 통계·원고 | ⏸ |
 
-**다음**: 04 전수 결과 검토 → 지표 5종의 지목 조합 비교 → **선정 기준 논의·확정** →
-test 봉인 해제 → 05 외부 적용 → 통계·원고. **추가 구조·손실·K·시드 탐색 없음.**
+**다음**: 성분 분리 강화 방안 검토 (사용자). 그 뒤 통계·원고.
+**추가 구조·손실·K·시드 탐색은 하지 않는다.**
+
+보조 실험은 `experiments/masking_strategy/` 에 있다 — remove-some 대 keep-one 대조,
+신호 공간 뺄셈, 마스킹 순서 기준 검토. 본 노선이 아니며 `results/` 에 섞지 않는다.
 
 ---
 
@@ -91,7 +95,37 @@ S(t)   = max_k ρ_k(t)
 
 ---
 
-## 3. 폴더 구조
+## 3. 읽는 순서 — 어떤 `.py` 를 어떤 순서로 보는가
+
+**실제로 쓰는 코드는 번호 붙은 다섯 개뿐이다. 번호가 곧 단계 순서다.**
+각 파일 맨 위 독스트링에 그 단계의 명세(수식·규칙·산출물 목록)가 전부 들어 있다.
+
+| # | 파일 | 무엇을 하나 | 무엇이 나오나 |
+|---|---|---|---|
+| **01** | [01_build.py](01_build.py) | 원본 내려받기·검증 → 기록 단위 분할 → 10초 분절 → bw·ma·em 주입 | `data/processed/*.npz` · `results/01_build/` |
+| **02** | [02_model.py](02_model.py) | 구조 세팅 · 비용 함수 ①(학습 손실) · 비용 함수 ②(체크포인트 선택) · 학습<br>`--diagnose` 는 재구성 충실도 진단만 | `results/02_model/<run>/` (+`fidelity/`) |
+| **03** | [03_bss.py](03_bss.py) | 성분 `x̂_k` 추출 → 참조 4종과 대응 분석 (지표 3종) | `results/03_bss/<run>/<split>/` |
+| **04** | [04_masked_denoising.py](04_masked_denoising.py) | 전수 2^K 마스킹 복원 → clean 기준 채점 (지표 5종) | `results/04_masked_denoising/<run>/<split>/` |
+| **05** | [05_validation.py](05_validation.py) | 외부 데이터 적용 시연 | `results/05_validation/<run>/<source>/` |
+
+`src/` 는 위 다섯이 불러 쓰는 라이브러리다. 단계 흐름을 따라갈 때는 볼 필요가 없고,
+계산의 세부를 확인할 때만 들어간다.
+
+| 모듈 | 누가 쓰나 | 내용 |
+|---|---|---|
+| `src/data/` | 01 | 내려받기·분할·분절 생성·데이터셋 로더 (동결) |
+| `src/model/` | 02~05 | MEAE 구조·손실·선행 이식본 (동결) |
+| `src/core.py` | 02~05 | 체크포인트 로드 · 성분/재구성 추출 · 분절 내 표준화와 지표 · 표 렌더링 |
+| `src/spectral.py` | 02 | PSD·대역별 보존율·기울기·보존 곡선 |
+| `src/metrics.py` | 04 | 채점 지표 — 04의 5종 + R-피크·SNR·RMSE·SDNN |
+| `src/viz.py` | 공용 | 한글 폰트 설정 (Malgun Gothic) |
+
+**새 분석이 생기면 그 단계 스크립트 안에 넣는다.** 새 파일을 만들지 않고,
+여러 단계가 함께 쓰는 것만 `src/core.py` 로 올린다.
+
+---
+
+## 4. 폴더 구조
 
 ```
 meae_xai/
@@ -110,21 +144,25 @@ meae_xai/
 │   ├── data/{download,split,build,dataset}.py
 │   ├── model/{meae,losses,_vendor_*}.py
 │   ├── metrics.py              S5 지표 5종 · R-피크 · SNR/RMSE/SDNN
-│   └── spectral.py  stats.py  viz.py
+│   └── spectral.py  viz.py
 ├── tests/                      27개
 ├── data/                       원본·분절 (git 제외)
 │
 ├── results/               ★ 산출물 — 폴더 번호가 스크립트 번호와 같다
-│     01_build/                 분절 스팟체크 그림
-│     02_model/<run>/           가중치·history·selection·console·pool/·plots/ + fidelity/
-│     03_bss/<run>/<split>/     대응표 3종·일치표·분절별 원값·그림
-│     04_masked_denoising/<run>/<split>/   전수 지도·기준선·단독·누적·R피크
-│     05_validation/<run>/<source>/        외부 적용
+│     01_build/                 스팟체크 · 주입 부록
+│     02_model/<run>/           가중치·history·selection·stage1·pool/·plots/
+│                               + epoch_metrics/(에폭별 지표) + fidelity/(충실도 진단)
+│     03_bss/<run>/<split>/     대응표 3종·일치표·그림 (val · test)
+│     04_masked_denoising/<run>/<split>/   전수 256조합·기준선·단독·누적·R피크
+│     05_validation/<run>/<source>/        외부 적용 (vitaldb · mimic_iv · galaxyppg)
+│     05_validation/_check/     원 파형 점검 · 품질 조사
 │
-└── _work/archive/         과거 실행·구버전·구코드·보조 실험 (보존, 실행 대상 아님)
+├── experiments/           보조 실험 (본 노선 아님)
+│     masking_strategy/         remove-some 대 keep-one · 신호 공간 뺄셈 · 마스킹 순서
+└── _work/archive/         과거 실행·구버전·구코드 (보존, 실행 대상 아님)
 ```
 
-## 4. 실행
+## 5. 실행
 
 ```bash
 uv init && uv venv --python 3.9.21
@@ -133,13 +171,15 @@ uv pip install -r requirements.txt
 ```
 
 ```bash
-python 01_build.py                                   # 데이터셋 구축
+python 01_build.py                                       # 데이터셋 구축 + 주입 부록
 python -m pytest tests/ -q
-python 02_model.py --k 8 --seed 42                   # 학습
-python 02_model.py --diagnose --run K8_seed42        # 재구성 충실도 진단
-python 03_bss.py            --run K8_seed42 --split val
+python 02_model.py --k 8 --seed 42                       # 학습 (1단계 관문까지)
+python 02_model.py --epoch-metrics --run K8_seed42       # 2단계 — 에폭 선정 + 표
+python 02_model.py --diagnose     --run K8_seed42        # 재구성 충실도 진단
+python 03_bss.py              --run K8_seed42 --split val    # (--split test)
 python 04_masked_denoising.py --run K8_seed42 --split val
-python 05_validation.py     --run K8_seed42 --source mimic_iv
+python 05_validation.py --run K8_seed42 --source vitaldb     # mimic_iv · galaxyppg
+python 05_validation.py --survey --source vitaldb            # 분절 품질 점검
 ```
 
 한글 콘솔 출력이 있으므로 `PYTHONIOENCODING=utf-8` 로 실행한다 (Windows cp949 오류).
@@ -147,7 +187,7 @@ python 05_validation.py     --run K8_seed42 --source mimic_iv
 Python 3.9.21 / torch 2.8.0+cu129 / RTX 5060 Ti. `neurokit2==0.2.10` 고정
 (0.2.12는 `float | None` 문법이라 py3.9 import 실패).
 
-## 5. 외부 데이터 (S6)
+## 6. 외부 데이터 (S6)
 
 연구계획서 기반연구 ①에 명시된 데이터셋.
 
@@ -158,7 +198,7 @@ Python 3.9.21 / torch 2.8.0+cu129 / RTX 5060 Ti. `neurokit2==0.2.10` 고정
 | NSRR (shhs·wsc·nfs) | 수면 | `D:/data/{shhs,wsc,nfs}` |
 | GalaxyPPG (Polar H10 ECG) | 일상 웨어러블 | `data/GalaxyPPG` · 130 Hz |
 
-## 6. 선행 연구
+## 7. 선행 연구
 
 MIT 라이선스 코드를 무수정 이식했다 (`src/model/_vendor_*.py`, 원 저작권 고지 유지).
 
@@ -171,7 +211,7 @@ MIT 라이선스 코드를 무수정 이식했다 (`src/model/_vendor_*.py`, 원
 또한 인코딩 크기를 "너무 작으면 좋은 재구성이 불가하고 너무 크면 인코더가 특화 대신
 전체 특징 공간으로 일반화된다"고 명시한다 (재구성–분리 트레이드오프).
 
-## 7. 보조 기록
+## 8. 보조 기록
 
 본 노선에 채택하지 않은 실험. 결과 파일은 아래 위치에 보관한다.
 

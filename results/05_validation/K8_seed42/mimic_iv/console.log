@@ -1,0 +1,100 @@
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[05] K8_seed42 (에폭 88) → mimic_iv  재학습 없음
+  진폭 정합: 분절마다 SD 를 학습 입력 중앙값 0.4707 mV 에 맞춘다
+  p10014354_81739927_0008: 20분절 채택  (버림 )
+  p10019003_87033314_0005: 20분절 채택  (버림 )
+  p10020306_83404654_0001: 20분절 채택  (버림 포화 1)
+  p10039708_83411188_0005: 20분절 채택  (버림 )
+  p10079700_85594648_0001: 20분절 채택  (버림 포화 26)
+  p10082591_84050536_0002: 20분절 채택  (버림 )
+  p10100546_83268087_0001: 20분절 채택  (버림 포화 5 · R피크 2 · RR 3)
+  p10112163_88501826_0008: 20분절 채택  (버림 nan 1 · 포화 1)
+  p10126957_82924339_0007: 20분절 채택  (버림 RR 1)
+  p10209410_84248019_0005: 20분절 채택  (버림 포화 3)
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+  총 200분절 · 원 표본율 [249.89]
+
+=== 05 mimic_iv · 200분절 · 성분 대 입력/M0 ===
+① |r| 평균±SD
+               입력        M0재구성
+enc1  0.270±0.198  0.316±0.200
+enc2  0.077±0.102  0.097±0.121
+enc3  0.218±0.178  0.273±0.191
+enc4  0.384±0.217  0.491±0.184
+enc5  0.053±0.062  0.070±0.079
+enc6  0.154±0.154  0.193±0.171
+enc7  0.078±0.076  0.098±0.088
+enc8  0.201±0.128  0.253±0.132 
+
+② RMSE_norm 평균±SD
+               입력        M0재구성
+enc1  1.200±0.184  1.162±0.197
+enc2  1.375±0.091  1.360±0.111
+enc3  1.242±0.158  1.195±0.177
+enc4  1.095±0.216  0.994±0.200
+enc5  1.415±0.057  1.418±0.072
+enc6  1.319±0.149  1.300±0.178
+enc7  1.371±0.068  1.364±0.083
+enc8  1.266±0.111  1.221±0.114 
+
+③ MAD 평균±SD
+               입력        M0재구성
+enc1  6.121±2.164  6.083±1.917
+enc2  7.021±1.639  7.208±1.373
+enc3  6.371±1.830  6.492±1.556
+enc4  6.313±1.889  5.445±1.305
+enc5  7.030±2.192  7.143±1.974
+enc6  6.457±1.763  6.705±1.636
+enc7  6.874±1.776  7.081±1.591
+enc8  6.885±1.968  6.853±1.706 
+
+④ 스펙트럼 특성
+    대상  중심주파수_Hz  0.5-5Hz  5-15Hz  15-25Hz  25-40Hz  40-60Hz  60-90Hz
+    입력    9.0703   0.4189  0.3464   0.1346   0.0199   0.0076   0.0010
+M0 재구성    6.7875   0.4750  0.3265   0.1018   0.0147   0.0005   0.0001
+  enc1    1.0490   0.7908  0.0061   0.0002   0.0000   0.0000   0.0000
+  enc2    0.8713   0.4426  0.0008   0.0000   0.0000   0.0000   0.0000
+  enc3    0.4838   0.3504  0.0004   0.0000   0.0000   0.0000   0.0000
+  enc4    6.4327   0.5060  0.4032   0.0652   0.0055   0.0002   0.0000
+  enc5    0.7165   0.3220  0.0030   0.0005   0.0001   0.0000   0.0000
+  enc6    0.7574   0.6002  0.0011   0.0000   0.0000   0.0000   0.0000
+  enc7    0.7330   0.3533  0.0012   0.0001   0.0000   0.0000   0.0000
+  enc8    4.3308   0.6498  0.2077   0.0298   0.0015   0.0001   0.0000 
+
+산출물 → results\05_validation\K8_seed42\mimic_iv/

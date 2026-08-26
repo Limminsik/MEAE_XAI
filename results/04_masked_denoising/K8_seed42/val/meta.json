@@ -1,6 +1,6 @@
 {
   "run": "K8_seed42",
-  "epoch": 48,
+  "epoch": 88,
   "split": "val",
   "n_seg": 900,
   "K": 8,
@@ -9,8 +9,8 @@
     "enc3",
     "enc2",
     "enc7",
-    "enc6",
     "enc5",
+    "enc6",
     "enc1",
     "enc8",
     "enc4"

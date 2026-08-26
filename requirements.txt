@@ -15,3 +15,4 @@ tqdm
 ipykernel
 pyarrow
 pytest
+vitaldb==1.5.8

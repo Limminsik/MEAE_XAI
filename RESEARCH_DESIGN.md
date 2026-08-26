@@ -53,14 +53,15 @@ meae_xai/
 │   ├── data/{download,split,build,dataset}.py      §4
 │   ├── model/{meae,losses,_vendor_*}.py            §5
 │   ├── metrics.py                  §9 지표 5종 · R-피크 · SNR/RMSE/SDNN
-│   └── spectral.py  stats.py  viz.py
+│   └── spectral.py  viz.py
 ├── tests/   data/raw/  data/processed/   (data 는 git 제외)
 │
 ├── results/       ★ 폴더 번호 = 스크립트 번호
 │     01_build/  02_model/<run>/(+fidelity/)  03_bss/<run>/<split>/
 │     04_masked_denoising/<run>/<split>/      05_validation/<run>/<source>/
 │
-└── _work/archive/    과거 실행·구버전·구코드·보조 실험 (보존, 실행 대상 아님)
+├── experiments/masking_strategy/   보조 실험 (본 노선 아님)
+└── _work/archive/    과거 실행·구버전·구코드 (보존, 실행 대상 아님)
 ```
 
 실행 이름 = `K<인코더수>_seed<시드>` + 오버라이드 접미사(`_lz0`, `_h128`). 접미사가 없으면 config 그대로다.
@@ -181,44 +182,46 @@ L = MSE(x̂, x_noisy) + λ_m·L_mix + λ_o·‖D(0)‖² + λ_z·Σ_k mean(z_k²
 ## 7. 02 — 비용 함수 ② 체크포인트 선택 (`02_model.py`)
 
 ```
-x̂_k    = D(0,…,z_k,…,0)                     k번째 인코딩만 남긴 재구성, crop 후 중앙 3600
-ρ_k(t) = median_{s∈V} |ρ(x̂_k, x_clean)|     V = val의 앞 val_n(300) 분절, 전 에폭 고정
-S(t)   = max_k ρ_k(t)
+x̂_k     = D(0,…,z_k,…,0)                      k번째 인코딩만 남긴 재구성, crop 후 중앙 3600
+ρ_k(r)  = mean_{s∈V} |ρ(x̂_k^(s), r^(s))|      V = 검증 전체 900분절
+S(t)    = (1/4) Σ_{r ∈ {clean, bw, ma, em}} max_k ρ_k(r)
 
 1단계  C  = { t : L_recon^val(t) ≤ recon_ratio × min_τ L_recon^val(τ) }     recon_ratio = 1.5
 2단계  t* = argmax_{t∈C} S(t)
 ```
 
-- `eval_every`(2) 에폭 간격으로 산출하고, **학습 종료 후 전체 이력을 일괄 판정**한다.
+- **S는 참조 4종 전부를 반영한다.** 참조마다 그 참조를 가장 잘 잡는 인코더의 평균 상관을 구하고,
+  넷을 평균한다. 심장(clean) 하나가 아니라 **그 에폭 모델의 전반적 분리 상태**를 본다.
+- **집계 구간과 상관 정의는 §8 보고 표와 같다**(검증 전체, 분절 내 표준화 후 분절 간 평균) —
+  선택 기준과 보고가 어긋나면 안 된다.
+- 1단계는 학습 중 `eval_every`(2)에폭 간격으로 기록해 후보 가중치를 `pool/`에 남긴다.
+  2단계는 **학습 종료 후** `02_model.py --epoch-metrics` 가 후보 전체에 적용하고,
+  선택된 체크포인트를 `<run>.pt` 로 확정한다 — 03·04·05가 그 파일을 읽는다.
+  S를 매 에폭 계산하지 않는 이유: 검증 전체에서 성분을 다 뽑아야 하는 값이라 학습이 크게 느려진다.
 - 후보 구간의 가중치를 보관한다 — 지표를 다시 손보더라도 **재학습 없이 재선택**할 수 있게.
 - 배율 민감도 **{1.2, 1.5, 2.0}** 를 함께 산출해 `selection.json`에 남긴다.
 - 1단계가 없으면 미수렴 시점이 선택된다. 성분이 전부 완만한 곡선인 단계에서는 참조 상관이
   부풀려지기 때문이다.
-- `x_clean`은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다(§0 원칙 4).
+- 참조(clean·bw·ma·em)는 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다(§0 원칙 4).
+
+### 선정 근거 산출물 (`02_model.py --epoch-metrics`)
+
+후보 에폭 전부에 대해 **성분 ↔ 참조 평가 표**를 저장한다. 지표 하나 = 파일 하나이고,
+한 에폭이 인코더 8행을 차지하며 열은 참조 4종(평균과 SD를 나란히)이다.
+`results/02_model/<run>/epoch_metrics/` — `corr_by_epoch.csv` · `rmse_norm_by_epoch.csv` ·
+`mad_by_epoch.csv` · `epoch_summary.csv` · `top5_by_S.csv` · `selection.json` ·
+`figures/epoch_metrics.png`.
+
+`epoch_summary.csv`에는 `S`와 함께 **참조별 기여**(`S기여_clean` 등 네 열)를 싣는다 —
+어느 참조가 그 에폭의 S를 끌어올렸는지 분해해 볼 수 있다.
 
 이 선택은 선행이 "마지막 체크포인트가 최선이 아닐 수 있으니 가능한 한 많은 체크포인트를 평가하라"고
 권고하며 **수동으로** 하던 작업을 정량화한 것이다.
 
-### 배율 민감도 기록 (K8_seed42, val 900분절)
+### 배율 민감도
 
-**사전 등록한 배율 1.5를 유지한다.** 1.2가 고르는 에폭 88과 실물을 대조한 결과를 근거로 남긴다.
-가중치는 `pool/`에 보관돼 있어 재학습 없이 대조했다 (`src/compare_epochs.py`,
-산출물 `results/01_train/K8_seed42/epoch_compare/`).
-
-| | 에폭 48 (배율 1.5·2.0) | 에폭 88 (배율 1.2) |
-|---|---|---|
-| clean 최대 인코더 | enc4 | enc4 |
-| bw·ma·em 최대 인코더 | enc3 / enc3 / enc3 | enc3 / enc3 / enc3 |
-| clean \|r\| | 0.641 | 0.651 |
-| clean 기여 % | 42.95 | 43.73 |
-| 보존율 전대역 | 0.912 | 0.874 |
-| 15–25 / 25–40 Hz | 0.585 / 0.172 | 0.538 / 0.212 |
-| R-피크 진폭비 | 0.921 | 0.891 |
-| 잔차–clean | 0.230 | 0.255 |
-| 기울기차 | −2.879 | −2.532 |
-
-역할 구조(어느 인코더가 어느 참조와 1위인가)가 동일하고 지표 차이가 미미하므로,
-배율은 결과를 보고 옮기지 않는다.
+배율 **{1.2, 1.5, 2.0}** 의 후보 집합 범위를 `selection.json`에 함께 남긴다.
+사전 등록값은 **1.5** 이며, 결과를 보고 옮기지 않는다.
 
 **조기 종료**: `L_recon^val`, patience 30. **DataLoader를 쓰지 않는다** — 분절 전량을 램에 올리고
 (train 5,760 × 3,600 float32 ≈ 83 MB) 시드 고정 인덱스 셔플만 한다. 워커 시드 문제가 사라진다.
@@ -426,7 +429,7 @@ RMSE_norm 최소 참조, MAD 최소 참조가 같은지. 산출물 `metric_agree
 | 지표 일치 여부 | `metric_agreement.csv` |
 | 대응 히트맵 | `figures/fig1_correspondence.png` |
 | **겹침 격자 8×4** | `figures/fig_overlay_grid.png` |
-| 기초 성분 파형 (적층) | `figures/components_bw_{high,mid,low}.png` |
+| **기초 성분 그림** (입력·재구성·성분 K·참조 4) | `figures/components_{대표,SNR낮음,SNR중간,SNR높음}.png` |
 | 분절별 원값 CSV (부호 포함) | `corr_persegment.csv` · `rmse_norm_persegment.csv` · `mad_persegment.csv` |
 | MAD 최대 편차 발생 시점 분포 | `figures/mad_argmax_hist.png` |
 | 참조 간 상관·스펙트럼 · 기여 분해 | `reference_correlation.csv` · `reference_spectrum.csv` · `stage1_contribution.csv` |
@@ -462,7 +465,7 @@ SSD·PRD(RMSE_norm과 순위 동일) · N 기반 p값.
 | ①②-보조 통합표 (ρ̄·σ·r²·RMSE_norm·MAD·energy_ratio) | `stage1_matrix.csv` + `stage1_matrix_note.txt` |
 | ② 참조 간 상관·스펙트럼 | `reference_correlation.csv`, `reference_spectrum.csv` |
 | ③ 기여 분해 (다중 회귀, 서술용) | `stage1_contribution.csv` |
-| ④ 성분 파형 적층 그림 · 분절별 \|r\| 히스토그램 | `fig_components_by_k.png`, `hist_enc*.png` |
+| ④ **기초 성분 그림**(입력·재구성·성분 K·참조 4) · 분절별 \|ρ\| 분포 | `figures/components_*.png`, `hist_all.png` |
 | ⑤ 인코더별 Wilcoxon + Holm, 효과크기 r=Z/√N | `stage1_stats.csv` |
 | ⑥ 마스킹 규칙 | **`configs/noise_encoders.yaml`** (S5·S6가 읽는 유일한 산출물) |
 
@@ -549,26 +552,59 @@ MAD는 03의 MAD와 이름만 같다 — **여기는 표준화하지 않은 mV �
 
 ---
 
-## 10. 05 — 외부 적용 시연 (`05_validation.py`)
+## 10. 05 — 외부 적용 (`05_validation.py`)
 
 **목적은 성능 검증이 아니라 적용 가능성 시연이다.** 정답이 없으므로 정량 성능을 주장하지 않는다.
-연구계획서 기반연구 ①에 명시된 데이터셋을 쓴다.
+02에서 확정한 체크포인트를 **재학습 없이** 적용해 성분 분해가 다른 데이터에서도 일어나는지 본다.
+자기지도로 학습했으므로 참조 없이 적용된다는 점이 여기서 실증된다.
 
-| 데이터 | 환경 | 처리 |
+### 데이터 (실측 규격)
+
+| 데이터 | 환경 | ECG 소스 | 표본율 → 360 Hz | 단위 |
+|---|---|---|---|---|
+| **VitalDB** | 수술실 | `SNUADC/ECG_II` | 500 Hz · `18/25` 정확 | mV |
+| **MIMIC-IV Waveform** | 중환자실 | 유도 II | 249.89 Hz · `36/25` (359.84 Hz, 오차 0.045%) | mV |
+| **GalaxyPPG** | 일상 웨어러블 | Polar H10 `ECG.csv` | 130 Hz · `36/13` 정확 | **µV** → `/1000` |
+
+MIMIC-IV 헤더의 `516x4` 는 프레임당 4샘플을 뜻한다 — `smooth_frames=False` 로 읽어야
+네이티브 249.89 Hz 가 나온다. GalaxyPPG 단위는 데이터셋 README 가 `ecg (int, μV)` 로 명시한다.
+NSRR(shhs·wsc·nfs)은 사용하지 않는다.
+
+### 전처리 — 품질 선별 (결과를 보기 전에 정한다)
+
+| 기준 | 값 | 근거 |
 |---|---|---|
-| **MIMIC-IV Waveform** (유도 II) | 중환자실 | 249.9 → 360 Hz 리샘플 |
-| **VitalDB** | 수술실 | 원 표본율 확인 후 360 Hz 리샘플 |
-| **NSRR** (shhs·wsc·nfs) | 수면 | 원 표본율 확인 후 360 Hz 리샘플 |
-| **GalaxyPPG의 Polar H10 ECG** | 일상 웨어러블 (실제 motion artifact) | 130 → 360 Hz `resample_poly(x, 36, 13)` |
+| 기록 앞부분 건너뛰기 | **10분** | 전극 부착·장비 안정화 구간. VitalDB 기록 1의 앞 10초가 포화 구간이었다 |
+| 포화비 상한 | **0.005** | 창의 상·하한 1% 안에 몰린 표본 비율. VitalDB 40기록 2,400창 조사에서 80.5%가 남고 40기록 전부에서 창이 확보된다 |
+| 평탄비 상한 | 0.05 | 인접 표본 차이가 0에 가까운 비율 |
+| R-피크 | 10초에 **5개 이상** | 30 bpm 하한 |
+| 심박수 | **30 ~ 200 bpm** | |
+| RR 변동계수 | ≤ 0.5 | 검출이 흐트러진 창을 거른다 |
 
-GalaxyPPG 주의: Galaxy Watch는 PPG 담당이고 **ECG는 Polar H10 흉부 스트랩**이다. 가슴 전극이라
-MIT-BIH MLII와 도메인이 가깝다. CC-BY 4.0. 단위가 mV인지 raw인지 확인 후 변환.
+**진폭 정합** — 모델은 mV 원값을 받도록 학습됐고 정규화 단계가 없다(S1 동결). 그 전제는
+MIT-BIH 안에서만 성립하므로, 분절마다 SD를 학습 입력 중앙값(0.4707 mV)에 맞춰 상수배한 뒤
+통과시킨다. 배율은 `segments.csv` 에 남는다.
 
-**절차**: 리샘플·단위 정합 → 성분 분해 → `noise_encoders.yaml` 그대로 마스킹 → 전후 제시.
-**재학습·재판별 금지**(§0 원칙 6).
+### 참조가 없다 — 무엇과 비교하는가
 
-**출력**: `results/04_external/fig2_external.png` — 데이터셋별 대표 사례 2~3개,
-각 사례마다 [원 분절 → 성분 분해 → 복원 → 스펙트럼 전후]
+외부 데이터의 잡음은 이미 섞여 들어온 것이라 clean·bw·ma·em 처럼 따로 떼어 낸 파형이 없다.
+그래서 §8의 4열 표는 만들 수 없다. 대신 **성분 ↔ 그 데이터의 입력 신호**, 그리고 **M0 재구성**과
+비교한다. 지표 정의·집계는 §8과 같다.
+
+**NSTDB 잡음 조각을 참조로 붙이지 않는다.** 외부 데이터에 실제로 섞인 잡음과 무관한 파형이라
+상관값이 파형 일치를 뜻하지 않는다. test 600분절에서 참조를 일부러 어긋나게 짝지어 확인했다 —
+clean 은 0.625 → 0.058 로 무너지지만 bw 는 0.579 → 0.336 으로 절반 넘게 남는다.
+
+성분이 심전도 형태인지 잡음 성격인지는 **스펙트럼 특성**(중심주파수·대역 전력비)으로 따로 싣는다.
+파형을 맞대지 않으므로 참조 없이 말할 수 있다.
+
+### 산출물 `results/05_validation/<run>/<source>/`
+
+`corr_matrix.csv` · `rmse_norm_matrix.csv` · `mad_matrix.csv` (8행 × 입력·M0) ·
+`spectrum.csv` · `segments.csv`(HR·정합배율) · `note.txt` · `console.log` ·
+`figures/components_top1~10.png`(재구성 유사도 상위) · `figures/spectrum.png`
+
+점검용 `--survey` 모드는 창마다 품질 지표를 산출해 `results/05_validation/_check/` 에 남긴다.
 
 ---
 
@@ -610,14 +646,16 @@ MIT-BIH MLII와 도메인이 가깝다. CC-BY 4.0. 단위가 mV인지 raw인지 
 
 ```
 01  데이터셋 구축                    ✅ 완료·동결 (모델 이식 포함)
-02  학습 (K=8, seed 42) + 충실도 진단  ✅ 완료 — 에폭 48 확정
-03  분리·참조 대응 분석               ✅ 종료 — 지표 3종 확정, val 산출 완료
-04  마스킹 복원 평가                  🔧 전수 256조합 val 산출 완료
-    → ★지표 5종의 지목 조합 비교 보고 → **선정 기준 논의·확정** (승인 전 선정 금지)
-T7-0 ★사용자 승인 — test 봉인 해제. 승인 전 해제 금지
-05  외부 적용 시연
-S7  통계 → 원고 수치 정리
+02  학습 + 충실도 진단 + 에폭 선정    ✅ 완료 — K=8 seed 42, 에폭 88 확정
+03  분리·참조 대응 분석               ✅ 종료 — val · test 산출 완료
+04  마스킹 복원 평가                  ✅ 전수 256조합 val 산출 완료
+    → 지표 5종이 서로 다른 조합을 지목(4종 불일치). **최적 조합 선정은 보류**
+05  외부 적용                         ✅ VitalDB · MIMIC-IV · GalaxyPPG 산출 완료
+S7  통계 → 원고 수치 정리             ⏸
 ```
+
+보조 실험 `experiments/masking_strategy/` — remove-some 대 keep-one 대조, 신호 공간 뺄셈,
+마스킹 순서 기준 검토. 본 노선이 아니며 결과를 `results/` 에 섞지 않는다.
 
 ★ = 사용자 확인 없이 다음 단계로 진행하지 않는다.
 **추가 구조·손실·K·시드 탐색은 하지 않는다.** 모델 탐색은 종료됐다.
@@ -631,7 +669,7 @@ S7  통계 → 원고 수치 정리
 - 원본 데이터는 절대 수정하지 않는다. 커밋 단위 = 태스크.
 - 성분·인코더 표시는 **1부터** (`enc_label`). 내부 인덱스만 0-based.
 - 폐기된 실행·구버전은 `_work/archive/`로 옮긴다. 지우지 않는다.
-- 본 노선이 아닌 실험은 `_work/archive/`에 둔다. `results/`에 섞지 않는다.
+- 본 노선이 아닌 실험은 `experiments/<이름>/`에 둔다. `results/`에 섞지 않는다.
 
 ## 15. 선행 저장소
 
@@ -644,3 +682,36 @@ S7  통계 → 원고 수치 정리
 
 후속 저장소 README: "학습 후 어느 인코더가 원하는 소스를 만드는지 **수동 검사(manual inspection)** 가
 필요하다." → 우리의 참조 기반 자동·정량 판별(S4)이 대체하는 지점.
+
+---
+
+## 16. 결정 이력
+
+확정된 결정과 그 사유를 시간순으로 남긴다. **폐기된 정의는 여기 남기지 않는다** —
+본문에서 지우고, 아래에는 "무엇으로 확정했는가"만 적는다.
+
+### 2026-08-26 — 비용 함수 ② 의 S 정의 확정
+
+**확정 내용**
+
+```
+ρ_k(r) = mean_{s∈V} |ρ(x̂_k^(s), r^(s))|      V = 검증 전체 900분절
+S(t)   = (1/4) Σ_{r ∈ {clean, bw, ma, em}} max_k ρ_k(r)
+```
+
+**사유** — 두 가지다.
+
+1. **보고 표와의 일관성.** 선택 기준과 §8 보고 표가 집계 방식이 달라 에폭 순위가 뒤집혔다.
+   기준은 보고와 같은 구간·같은 상관 정의를 써야 한다.
+2. **모델 전체의 분리 상태 반영.** 심장(clean) 하나만 보면 잡음 쪽 분리가 기준에서 빠진다.
+   참조 4종 각각에서 최고 인코더의 평균 상관을 구해 넷을 평균하면,
+   "이 에폭의 모델이 네 참조를 전반적으로 얼마나 잡아내는가"가 된다.
+
+**확정 시점** — 후보 에폭별 표(`epoch_metrics/`)를 산출한 뒤, **어느 에폭이 선택될지 보기 전**에
+정의를 먼저 고정하고 그 다음에 적용했다.
+
+**1단계 관문은 그대로다** — `val_recon ≤ 1.5 × min`, 배율 사전 등록값 1.5 유지.
+
+**영향 범위** — 선택 에폭이 바뀌면 03·04 산출물을 새 체크포인트로 재실행한다.
+후보 구간 가중치가 `pool/`에 전부 보관돼 있어 재학습은 필요 없다.
+

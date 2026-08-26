@@ -1,69 +1,69 @@
-C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
   WeightNorm.apply(module, name, dim)
 [K8_seed42] device=cuda K=8 seed=42 hidden=64 train=5760 val=900 V=300
   L = MSE + 0.01*L_mix + 0.01*|D(0)|^2 + 0.001*sum|z|^2/h
   C = { L_recon^val <= 1.5 x min },  t* = argmax S,  2에폭 간격
   ep  1 L=0.39776 rec=0.35942 mix=3.574 | val_rec=0.12668 S=0.055(enc3) 4s
   ep  2 L=0.25835 rec=0.22035 mix=3.553 | val_rec=0.10343 S=0.059(enc4) 4s
-  ep  3 L=0.23749 rec=0.20068 mix=3.480 | val_rec=0.10537 4s
+  ep  3 L=0.23749 rec=0.20068 mix=3.480 | val_rec=0.10537 3s
   ep  4 L=0.22343 rec=0.18769 mix=3.391 | val_rec=0.09528 S=0.054(enc4) 4s
-  ep  5 L=0.20937 rec=0.17538 mix=3.258 | val_rec=0.09167 4s
+  ep  5 L=0.20937 rec=0.17538 mix=3.258 | val_rec=0.09167 3s
   ep  6 L=0.19842 rec=0.16576 mix=3.139 | val_rec=0.08145 S=0.071(enc4) 4s
-  ep  7 L=0.18983 rec=0.15859 mix=3.014 | val_rec=0.08575 4s
+  ep  7 L=0.18983 rec=0.15859 mix=3.014 | val_rec=0.08575 3s
   ep  8 L=0.19548 rec=0.16524 mix=2.911 | val_rec=0.08291 S=0.087(enc4) 4s
-  ep  9 L=0.18943 rec=0.16022 mix=2.814 | val_rec=0.08484 4s
+  ep  9 L=0.18943 rec=0.16022 mix=2.814 | val_rec=0.08484 3s
   ep 10 L=0.17593 rec=0.14765 mix=2.726 | val_rec=0.07326 S=0.073(enc4) 4s
-  ep 11 L=0.16582 rec=0.13863 mix=2.625 | val_rec=0.07047 4s
+  ep 11 L=0.16582 rec=0.13863 mix=2.625 | val_rec=0.07047 3s
   ep 12 L=0.15845 rec=0.13223 mix=2.529 | val_rec=0.06749 S=0.114(enc4) 4s
-  ep 13 L=0.14962 rec=0.12419 mix=2.453 | val_rec=0.06574 4s
+  ep 13 L=0.14962 rec=0.12419 mix=2.453 | val_rec=0.06574 3s
   ep 14 L=0.13849 rec=0.11381 mix=2.381 | val_rec=0.06311 S=0.102(enc4) 4s
-  ep 15 L=0.13307 rec=0.10903 mix=2.319 | val_rec=0.05869 4s
+  ep 15 L=0.13307 rec=0.10903 mix=2.319 | val_rec=0.05869 3s
   ep 16 L=0.12448 rec=0.10098 mix=2.265 | val_rec=0.05354 S=0.168(enc4) 4s
-  ep 17 L=0.11673 rec=0.09381 mix=2.207 | val_rec=0.04954 4s
+  ep 17 L=0.11673 rec=0.09381 mix=2.207 | val_rec=0.04954 3s
   ep 18 L=0.11091 rec=0.08859 mix=2.150 | val_rec=0.05062 S=0.288(enc4) 4s
-  ep 19 L=0.10843 rec=0.08659 mix=2.100 | val_rec=0.04186 4s
+  ep 19 L=0.10843 rec=0.08659 mix=2.100 | val_rec=0.04186 3s
   ep 20 L=0.10300 rec=0.08165 mix=2.053 | val_rec=0.04390 S=0.357(enc4) 4s
-  ep 21 L=0.09993 rec=0.07902 mix=2.008 | val_rec=0.04413 4s
-  ep 22 L=0.09429 rec=0.07378 mix=1.968 | val_rec=0.03835 S=0.427(enc4) 4s
-  ep 23 L=0.08811 rec=0.06802 mix=1.928 | val_rec=0.03496 4s
-  ep 24 L=0.09252 rec=0.07276 mix=1.895 | val_rec=0.03573 S=0.515(enc4) 4s
-  ep 25 L=0.08775 rec=0.06820 mix=1.872 | val_rec=0.03391 4s
+  ep 21 L=0.09993 rec=0.07902 mix=2.008 | val_rec=0.04413 3s
+  ep 22 L=0.09429 rec=0.07378 mix=1.968 | val_rec=0.03835 S=0.427(enc4) 3s
+  ep 23 L=0.08811 rec=0.06802 mix=1.928 | val_rec=0.03496 3s
+  ep 24 L=0.09252 rec=0.07276 mix=1.895 | val_rec=0.03573 S=0.515(enc4) 3s
+  ep 25 L=0.08775 rec=0.06820 mix=1.872 | val_rec=0.03391 3s
   ep 26 L=0.08147 rec=0.06220 mix=1.845 | val_rec=0.02975 S=0.556(enc4) 4s
-  ep 27 L=0.07761 rec=0.05869 mix=1.811 | val_rec=0.03298 4s
+  ep 27 L=0.07761 rec=0.05869 mix=1.811 | val_rec=0.03298 3s
   ep 28 L=0.07694 rec=0.05828 mix=1.784 | val_rec=0.03049 S=0.584(enc4) 4s
   ep 29 L=0.07599 rec=0.05756 mix=1.762 | val_rec=0.03367 4s
   ep 30 L=0.07490 rec=0.05669 mix=1.739 | val_rec=0.03051 S=0.604(enc4) 4s
-  ep 31 L=0.07169 rec=0.05370 mix=1.717 | val_rec=0.02729 4s
+  ep 31 L=0.07169 rec=0.05370 mix=1.717 | val_rec=0.02729 3s
   ep 32 L=0.06950 rec=0.05172 mix=1.696 | val_rec=0.02856 S=0.608(enc4) 4s
-  ep 33 L=0.07062 rec=0.05307 mix=1.673 | val_rec=0.02622 4s
+  ep 33 L=0.07062 rec=0.05307 mix=1.673 | val_rec=0.02622 3s
   ep 34 L=0.07079 rec=0.05342 mix=1.654 | val_rec=0.03079 S=0.623(enc4) 4s
-  ep 35 L=0.06414 rec=0.04694 mix=1.638 | val_rec=0.02717 4s
+  ep 35 L=0.06414 rec=0.04694 mix=1.638 | val_rec=0.02717 3s
   ep 36 L=0.06651 rec=0.04950 mix=1.620 | val_rec=0.02624 S=0.658(enc4) 4s
-  ep 37 L=0.06219 rec=0.04535 mix=1.603 | val_rec=0.02569 4s
+  ep 37 L=0.06219 rec=0.04535 mix=1.603 | val_rec=0.02569 3s
   ep 38 L=0.06070 rec=0.04407 mix=1.582 | val_rec=0.02489 S=0.648(enc4) 4s
   ep 39 L=0.06056 rec=0.04412 mix=1.562 | val_rec=0.02281 3s
   ep 40 L=0.05878 rec=0.04251 mix=1.546 | val_rec=0.02350 S=0.646(enc4) 4s
   ep 41 L=0.05801 rec=0.04193 mix=1.528 | val_rec=0.02404 3s
   ep 42 L=0.05671 rec=0.04080 mix=1.511 | val_rec=0.02476 S=0.614(enc4) 4s
   ep 43 L=0.05579 rec=0.04006 mix=1.494 | val_rec=0.02294 3s
-  ep 44 L=0.05839 rec=0.04279 mix=1.481 | val_rec=0.02509 S=0.626(enc4) 3s
-  ep 45 L=0.05571 rec=0.04020 mix=1.472 | val_rec=0.02953 3s
-  ep 46 L=0.05500 rec=0.03963 mix=1.458 | val_rec=0.02217 S=0.646(enc4) 3s
+  ep 44 L=0.05839 rec=0.04279 mix=1.481 | val_rec=0.02509 S=0.626(enc4) 4s
+  ep 45 L=0.05571 rec=0.04020 mix=1.472 | val_rec=0.02953 4s
+  ep 46 L=0.05500 rec=0.03963 mix=1.458 | val_rec=0.02217 S=0.646(enc4) 4s
   ep 47 L=0.05319 rec=0.03798 mix=1.443 | val_rec=0.02193 3s
   ep 48 L=0.05098 rec=0.03594 mix=1.427 | val_rec=0.02050 S=0.678(enc4) 4s
-  ep 49 L=0.05093 rec=0.03606 mix=1.411 | val_rec=0.02004 3s
-  ep 50 L=0.05346 rec=0.03872 mix=1.398 | val_rec=0.02312 S=0.628(enc4) 3s
+  ep 49 L=0.05093 rec=0.03606 mix=1.411 | val_rec=0.02004 4s
+  ep 50 L=0.05346 rec=0.03872 mix=1.398 | val_rec=0.02312 S=0.628(enc4) 4s
   ep 51 L=0.04813 rec=0.03345 mix=1.392 | val_rec=0.02006 3s
-  ep 52 L=0.04507 rec=0.03048 mix=1.383 | val_rec=0.01900 S=0.655(enc4) 3s
+  ep 52 L=0.04507 rec=0.03048 mix=1.383 | val_rec=0.01900 S=0.655(enc4) 4s
   ep 53 L=0.04449 rec=0.02995 mix=1.378 | val_rec=0.01830 3s
-  ep 54 L=0.04422 rec=0.02973 mix=1.373 | val_rec=0.01947 S=0.650(enc4) 3s
-  ep 55 L=0.04465 rec=0.03019 mix=1.371 | val_rec=0.01861 3s
-  ep 56 L=0.04411 rec=0.02969 mix=1.367 | val_rec=0.01977 S=0.650(enc4) 3s
+  ep 54 L=0.04422 rec=0.02973 mix=1.373 | val_rec=0.01947 S=0.650(enc4) 4s
+  ep 55 L=0.04465 rec=0.03019 mix=1.371 | val_rec=0.01861 4s
+  ep 56 L=0.04411 rec=0.02969 mix=1.367 | val_rec=0.01977 S=0.650(enc4) 4s
   ep 57 L=0.04347 rec=0.02908 mix=1.364 | val_rec=0.01854 3s
   ep 58 L=0.04369 rec=0.02934 mix=1.361 | val_rec=0.01813 S=0.650(enc4) 4s
   ep 59 L=0.04335 rec=0.02902 mix=1.359 | val_rec=0.01780 3s
   ep 60 L=0.04359 rec=0.02929 mix=1.356 | val_rec=0.01860 S=0.652(enc4) 4s
-  ep 61 L=0.04347 rec=0.02919 mix=1.354 | val_rec=0.01825 4s
+  ep 61 L=0.04347 rec=0.02919 mix=1.354 | val_rec=0.01825 3s
   ep 62 L=0.04310 rec=0.02884 mix=1.351 | val_rec=0.01835 S=0.648(enc4) 4s
   ep 63 L=0.04313 rec=0.02890 mix=1.349 | val_rec=0.01790 3s
   ep 64 L=0.04314 rec=0.02894 mix=1.346 | val_rec=0.01869 S=0.649(enc4) 4s
@@ -78,7 +78,7 @@ C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: Futur
   ep 73 L=0.04193 rec=0.02795 mix=1.325 | val_rec=0.01751 3s
   ep 74 L=0.04258 rec=0.02863 mix=1.323 | val_rec=0.01806 S=0.659(enc4) 4s
   ep 75 L=0.04227 rec=0.02834 mix=1.321 | val_rec=0.01800 3s
-  ep 76 L=0.04188 rec=0.02797 mix=1.318 | val_rec=0.01832 S=0.645(enc4) 3s
+  ep 76 L=0.04188 rec=0.02797 mix=1.318 | val_rec=0.01832 S=0.645(enc4) 4s
   ep 77 L=0.04246 rec=0.02857 mix=1.317 | val_rec=0.01875 3s
   ep 78 L=0.04211 rec=0.02825 mix=1.314 | val_rec=0.01744 S=0.656(enc4) 4s
   ep 79 L=0.04169 rec=0.02786 mix=1.311 | val_rec=0.01743 3s
@@ -86,46 +86,46 @@ C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: Futur
   ep 81 L=0.04233 rec=0.02854 mix=1.307 | val_rec=0.01830 3s
   ep 82 L=0.04168 rec=0.02792 mix=1.304 | val_rec=0.01752 S=0.638(enc4) 4s
   ep 83 L=0.04103 rec=0.02729 mix=1.301 | val_rec=0.01771 3s
-  ep 84 L=0.04146 rec=0.02775 mix=1.299 | val_rec=0.01783 S=0.650(enc4) 3s
+  ep 84 L=0.04146 rec=0.02775 mix=1.299 | val_rec=0.01783 S=0.650(enc4) 4s
   ep 85 L=0.04105 rec=0.02737 mix=1.297 | val_rec=0.01774 3s
   ep 86 L=0.04092 rec=0.02726 mix=1.294 | val_rec=0.01710 S=0.645(enc4) 4s
   ep 87 L=0.04094 rec=0.02731 mix=1.292 | val_rec=0.01785 3s
   ep 88 L=0.04141 rec=0.02779 mix=1.290 | val_rec=0.01750 S=0.664(enc4) 4s
   ep 89 L=0.04107 rec=0.02748 mix=1.288 | val_rec=0.01750 3s
-  ep 90 L=0.04068 rec=0.02712 mix=1.285 | val_rec=0.01782 S=0.658(enc4) 4s
+  ep 90 L=0.04068 rec=0.02712 mix=1.285 | val_rec=0.01782 S=0.658(enc4) 3s
   ep 91 L=0.04050 rec=0.02697 mix=1.282 | val_rec=0.01734 3s
-  ep 92 L=0.04030 rec=0.02679 mix=1.280 | val_rec=0.01725 S=0.652(enc4) 4s
+  ep 92 L=0.04030 rec=0.02679 mix=1.280 | val_rec=0.01725 S=0.652(enc4) 3s
   ep 93 L=0.04069 rec=0.02721 mix=1.278 | val_rec=0.01770 3s
   ep 94 L=0.04044 rec=0.02697 mix=1.276 | val_rec=0.01719 S=0.650(enc4) 4s
   ep 95 L=0.04039 rec=0.02695 mix=1.273 | val_rec=0.01717 3s
   ep 96 L=0.04025 rec=0.02684 mix=1.271 | val_rec=0.01738 S=0.650(enc4) 4s
   ep 97 L=0.04046 rec=0.02707 mix=1.269 | val_rec=0.01811 3s
-  ep 98 L=0.04026 rec=0.02689 mix=1.266 | val_rec=0.01732 S=0.649(enc4) 3s
+  ep 98 L=0.04026 rec=0.02689 mix=1.266 | val_rec=0.01732 S=0.649(enc4) 4s
   ep 99 L=0.03996 rec=0.02663 mix=1.264 | val_rec=0.01749 3s
-  ep100 L=0.04034 rec=0.02703 mix=1.261 | val_rec=0.01822 S=0.650(enc4) 3s
+  ep100 L=0.04034 rec=0.02703 mix=1.261 | val_rec=0.01822 S=0.650(enc4) 4s
   ep101 L=0.03938 rec=0.02609 mix=1.259 | val_rec=0.01798 3s
   ep102 L=0.03936 rec=0.02608 mix=1.258 | val_rec=0.01680 S=0.649(enc4) 3s
   ep103 L=0.03947 rec=0.02619 mix=1.258 | val_rec=0.01721 3s
   ep104 L=0.03920 rec=0.02593 mix=1.257 | val_rec=0.01734 S=0.649(enc4) 3s
   ep105 L=0.03915 rec=0.02589 mix=1.257 | val_rec=0.01725 3s
-  ep106 L=0.03935 rec=0.02609 mix=1.256 | val_rec=0.01697 S=0.650(enc4) 3s
+  ep106 L=0.03935 rec=0.02609 mix=1.256 | val_rec=0.01697 S=0.650(enc4) 4s
   ep107 L=0.03946 rec=0.02620 mix=1.256 | val_rec=0.01795 3s
-  ep108 L=0.03915 rec=0.02590 mix=1.256 | val_rec=0.01686 S=0.648(enc4) 3s
+  ep108 L=0.03915 rec=0.02590 mix=1.256 | val_rec=0.01686 S=0.648(enc4) 4s
   ep109 L=0.03903 rec=0.02578 mix=1.255 | val_rec=0.01670 3s
-  ep110 L=0.03909 rec=0.02584 mix=1.255 | val_rec=0.01707 S=0.645(enc4) 3s
+  ep110 L=0.03909 rec=0.02584 mix=1.255 | val_rec=0.01707 S=0.645(enc4) 4s
   ep111 L=0.03908 rec=0.02584 mix=1.255 | val_rec=0.01720 3s
-  ep112 L=0.03914 rec=0.02590 mix=1.255 | val_rec=0.01788 S=0.642(enc4) 3s
+  ep112 L=0.03914 rec=0.02590 mix=1.255 | val_rec=0.01788 S=0.642(enc4) 4s
   ep113 L=0.03916 rec=0.02592 mix=1.254 | val_rec=0.01739 3s
   ep114 L=0.03907 rec=0.02584 mix=1.254 | val_rec=0.01693 S=0.651(enc4) 4s
   ep115 L=0.03913 rec=0.02590 mix=1.254 | val_rec=0.01711 3s
-  ep116 L=0.03915 rec=0.02592 mix=1.254 | val_rec=0.01664 S=0.649(enc4) 3s
+  ep116 L=0.03915 rec=0.02592 mix=1.254 | val_rec=0.01664 S=0.649(enc4) 4s
   ep117 L=0.03942 rec=0.02619 mix=1.253 | val_rec=0.01654 3s
-  ep118 L=0.03913 rec=0.02591 mix=1.253 | val_rec=0.01802 S=0.646(enc4) 3s
+  ep118 L=0.03913 rec=0.02591 mix=1.253 | val_rec=0.01802 S=0.646(enc4) 4s
   ep119 L=0.03888 rec=0.02565 mix=1.253 | val_rec=0.01669 3s
   ep120 L=0.03899 rec=0.02578 mix=1.252 | val_rec=0.01676 S=0.648(enc4) 4s
   ep121 L=0.03889 rec=0.02567 mix=1.252 | val_rec=0.01651 3s
   ep122 L=0.03925 rec=0.02604 mix=1.252 | val_rec=0.01770 S=0.645(enc4) 4s
-  ep123 L=0.03891 rec=0.02570 mix=1.251 | val_rec=0.01721 4s
+  ep123 L=0.03891 rec=0.02570 mix=1.251 | val_rec=0.01721 3s
   ep124 L=0.03895 rec=0.02574 mix=1.251 | val_rec=0.01695 S=0.647(enc4) 4s
   ep125 L=0.03886 rec=0.02565 mix=1.251 | val_rec=0.01729 3s
   ep126 L=0.03914 rec=0.02593 mix=1.251 | val_rec=0.01730 S=0.647(enc4) 4s
@@ -133,7 +133,7 @@ C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: Futur
   ep128 L=0.03900 rec=0.02580 mix=1.250 | val_rec=0.01694 S=0.648(enc4) 4s
   ep129 L=0.03873 rec=0.02554 mix=1.250 | val_rec=0.01656 3s
   ep130 L=0.03906 rec=0.02587 mix=1.249 | val_rec=0.01770 S=0.647(enc4) 4s
-  ep131 L=0.03901 rec=0.02583 mix=1.249 | val_rec=0.01700 4s
+  ep131 L=0.03901 rec=0.02583 mix=1.249 | val_rec=0.01700 3s
   ep132 L=0.03919 rec=0.02601 mix=1.249 | val_rec=0.01662 S=0.651(enc4) 4s
   ep133 L=0.03898 rec=0.02580 mix=1.249 | val_rec=0.01659 3s
   ep134 L=0.03888 rec=0.02571 mix=1.248 | val_rec=0.01700 S=0.651(enc4) 4s
@@ -145,13 +145,13 @@ C:\dev\meae_xai\.venv\lib\site-packages\torch\nn\utils\weight_norm.py:144: Futur
   ep140 L=0.03883 rec=0.02567 mix=1.246 | val_rec=0.01827 S=0.641(enc4) 4s
   ep141 L=0.03881 rec=0.02566 mix=1.246 | val_rec=0.01711 3s
   ep142 L=0.03879 rec=0.02564 mix=1.246 | val_rec=0.01665 S=0.650(enc4) 4s
-  ep143 L=0.03924 rec=0.02609 mix=1.245 | val_rec=0.01806 4s
+  ep143 L=0.03924 rec=0.02609 mix=1.245 | val_rec=0.01806 3s
   ep144 L=0.03888 rec=0.02573 mix=1.245 | val_rec=0.01673 S=0.650(enc4) 4s
-  ep145 L=0.03918 rec=0.02604 mix=1.245 | val_rec=0.02017 4s
+  ep145 L=0.03918 rec=0.02604 mix=1.245 | val_rec=0.02017 3s
   ep146 L=0.03902 rec=0.02588 mix=1.244 | val_rec=0.01655 S=0.648(enc4) 4s
-  ep147 L=0.03876 rec=0.02563 mix=1.244 | val_rec=0.01690 4s
-  ep148 L=0.03878 rec=0.02565 mix=1.244 | val_rec=0.01719 S=0.650(enc4) 4s
-  ep149 L=0.03887 rec=0.02574 mix=1.244 | val_rec=0.01673 4s
+  ep147 L=0.03876 rec=0.02563 mix=1.244 | val_rec=0.01690 3s
+  ep148 L=0.03878 rec=0.02565 mix=1.244 | val_rec=0.01719 S=0.650(enc4) 3s
+  ep149 L=0.03887 rec=0.02574 mix=1.244 | val_rec=0.01673 3s
   ep150 L=0.03902 rec=0.02589 mix=1.243 | val_rec=0.01763 S=0.649(enc4) 4s
   ep151 L=0.03894 rec=0.02582 mix=1.243 | val_rec=0.01707 3s
   조기 종료 (val_recon 30에폭 정체)

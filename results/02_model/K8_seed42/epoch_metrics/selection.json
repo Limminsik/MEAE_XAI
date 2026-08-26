@@ -1,0 +1,89 @@
+{
+  "run": "K8_seed42",
+  "split": "val",
+  "n_seg": 900,
+  "rule": "S(t) = mean over 참조 4종 of [ max_k ( mean_s |rho_k(r)| ) ], 검증 전체",
+  "stage1": "val_recon <= 1.5 x min  (pool 구성에 반영돼 있다)",
+  "n_candidates": 55,
+  "candidate_range": [
+    40,
+    150
+  ],
+  "selected_epoch": 88,
+  "S": 0.5018,
+  "S기여": {
+    "x_clean": 0.6514,
+    "bw": 0.5978,
+    "ma": 0.4816,
+    "em": 0.2763
+  },
+  "val_recon": 0.0175,
+  "checkpoint": "K8_seed42.pt  (pool/ep0088.pt 복사)",
+  "top5": [
+    {
+      "에폭": 88,
+      "val_recon": 0.0175,
+      "S": 0.5018,
+      "S기여_x_clean": 0.6514,
+      "S기여_bw": 0.5978,
+      "S기여_ma": 0.4816,
+      "S기여_em": 0.2763,
+      "corr_x_clean_최고인코더": "enc4",
+      "corr_bw_최고인코더": "enc3",
+      "corr_ma_최고인코더": "enc3",
+      "corr_em_최고인코더": "enc3"
+    },
+    {
+      "에폭": 78,
+      "val_recon": 0.0174,
+      "S": 0.5016,
+      "S기여_x_clean": 0.6459,
+      "S기여_bw": 0.6,
+      "S기여_ma": 0.4839,
+      "S기여_em": 0.2766,
+      "corr_x_clean_최고인코더": "enc4",
+      "corr_bw_최고인코더": "enc3",
+      "corr_ma_최고인코더": "enc3",
+      "corr_em_최고인코더": "enc3"
+    },
+    {
+      "에폭": 68,
+      "val_recon": 0.0186,
+      "S": 0.5014,
+      "S기여_x_clean": 0.6439,
+      "S기여_bw": 0.6001,
+      "S기여_ma": 0.4847,
+      "S기여_em": 0.2769,
+      "corr_x_clean_최고인코더": "enc4",
+      "corr_bw_최고인코더": "enc3",
+      "corr_ma_최고인코더": "enc3",
+      "corr_em_최고인코더": "enc3"
+    },
+    {
+      "에폭": 74,
+      "val_recon": 0.0181,
+      "S": 0.5009,
+      "S기여_x_clean": 0.6472,
+      "S기여_bw": 0.5989,
+      "S기여_ma": 0.4811,
+      "S기여_em": 0.2765,
+      "corr_x_clean_최고인코더": "enc4",
+      "corr_bw_최고인코더": "enc3",
+      "corr_ma_최고인코더": "enc3",
+      "corr_em_최고인코더": "enc3"
+    },
+    {
+      "에폭": 66,
+      "val_recon": 0.0172,
+      "S": 0.5008,
+      "S기여_x_clean": 0.6432,
+      "S기여_bw": 0.6002,
+      "S기여_ma": 0.483,
+      "S기여_em": 0.2766,
+      "corr_x_clean_최고인코더": "enc4",
+      "corr_bw_최고인코더": "enc3",
+      "corr_ma_최고인코더": "enc3",
+      "corr_em_최고인코더": "enc3"
+    }
+  ]
+}

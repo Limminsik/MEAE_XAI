@@ -1,0 +1,60 @@
+c:\dev\meae_xai\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[02] 후보 에폭 55개 × val 900분절 — 지표 3종 산출
+  ep  40  S 0.4902   x_clean 0.614  bw 0.597  ma 0.476  em 0.274
+  ep  42  S 0.4844   x_clean 0.597  bw 0.597  ma 0.469  em 0.274
+  ep  46  S 0.4955   x_clean 0.633  bw 0.598  ma 0.476  em 0.275
+  ep  48  S 0.4989   x_clean 0.641  bw 0.602  ma 0.477  em 0.275
+  ep  50  S 0.4946   x_clean 0.625  bw 0.601  ma 0.476  em 0.276
+  ep  52  S 0.4975   x_clean 0.642  bw 0.598  ma 0.475  em 0.275
+  ep  54  S 0.4957   x_clean 0.640  bw 0.593  ma 0.475  em 0.274
+  ep  56  S 0.4982   x_clean 0.638  bw 0.599  ma 0.480  em 0.276
+  ep  58  S 0.4980   x_clean 0.641  bw 0.596  ma 0.480  em 0.275
+  ep  60  S 0.4991   x_clean 0.641  bw 0.599  ma 0.480  em 0.277
+  ep  62  S 0.4984   x_clean 0.643  bw 0.596  ma 0.479  em 0.275
+  ep  64  S 0.4992   x_clean 0.641  bw 0.600  ma 0.480  em 0.276
+  ep  66  S 0.5008   x_clean 0.643  bw 0.600  ma 0.483  em 0.277
+  ep  68  S 0.5014   x_clean 0.644  bw 0.600  ma 0.485  em 0.277
+  ep  70  S 0.4970   x_clean 0.640  bw 0.594  ma 0.480  em 0.274
+  ep  72  S 0.4989   x_clean 0.640  bw 0.599  ma 0.481  em 0.275
+  ep  74  S 0.5009   x_clean 0.647  bw 0.599  ma 0.481  em 0.277
+  ep  76  S 0.4985   x_clean 0.636  bw 0.600  ma 0.482  em 0.276
+  ep  78  S 0.5016   x_clean 0.646  bw 0.600  ma 0.484  em 0.277
+  ep  80  S 0.4994   x_clean 0.643  bw 0.598  ma 0.482  em 0.275
+  ep  82  S 0.4980   x_clean 0.634  bw 0.600  ma 0.481  em 0.276
+  ep  84  S 0.4999   x_clean 0.641  bw 0.599  ma 0.483  em 0.276
+  ep  86  S 0.4980   x_clean 0.638  bw 0.597  ma 0.481  em 0.275
+  ep  88  S 0.5018   x_clean 0.651  bw 0.598  ma 0.482  em 0.276
+  ep  90  S 0.4995   x_clean 0.644  bw 0.597  ma 0.481  em 0.276
+  ep  92  S 0.4985   x_clean 0.640  bw 0.598  ma 0.481  em 0.275
+  ep  94  S 0.4983   x_clean 0.640  bw 0.596  ma 0.483  em 0.275
+  ep  96  S 0.4968   x_clean 0.640  bw 0.596  ma 0.478  em 0.274
+  ep  98  S 0.4979   x_clean 0.641  bw 0.596  ma 0.480  em 0.275
+  ep 100  S 0.4961   x_clean 0.640  bw 0.593  ma 0.478  em 0.273
+  ep 102  S 0.4983   x_clean 0.638  bw 0.599  ma 0.481  em 0.275
+  ep 104  S 0.4960   x_clean 0.634  bw 0.596  ma 0.479  em 0.275
+  ep 106  S 0.4976   x_clean 0.639  bw 0.596  ma 0.480  em 0.275
+  ep 108  S 0.4980   x_clean 0.639  bw 0.597  ma 0.481  em 0.275
+  ep 110  S 0.4977   x_clean 0.637  bw 0.598  ma 0.480  em 0.275
+  ep 112  S 0.4956   x_clean 0.636  bw 0.594  ma 0.478  em 0.274
+  ep 114  S 0.4967   x_clean 0.636  bw 0.596  ma 0.480  em 0.275
+  ep 116  S 0.4990   x_clean 0.639  bw 0.598  ma 0.483  em 0.276
+  ep 118  S 0.4993   x_clean 0.640  bw 0.598  ma 0.483  em 0.276
+  ep 120  S 0.4977   x_clean 0.638  bw 0.598  ma 0.480  em 0.275
+  ep 122  S 0.4949   x_clean 0.633  bw 0.593  ma 0.479  em 0.273
+  ep 124  S 0.4978   x_clean 0.635  bw 0.598  ma 0.482  em 0.276
+  ep 126  S 0.4955   x_clean 0.634  bw 0.595  ma 0.480  em 0.274
+  ep 128  S 0.5004   x_clean 0.642  bw 0.600  ma 0.483  em 0.276
+  ep 130  S 0.4977   x_clean 0.638  bw 0.597  ma 0.480  em 0.275
+  ep 132  S 0.4969   x_clean 0.637  bw 0.595  ma 0.481  em 0.275
+  ep 134  S 0.4988   x_clean 0.640  bw 0.598  ma 0.482  em 0.275
+  ep 136  S 0.4984   x_clean 0.637  bw 0.598  ma 0.483  em 0.276
+  ep 138  S 0.4962   x_clean 0.637  bw 0.594  ma 0.480  em 0.274
+  ep 140  S 0.4967   x_clean 0.632  bw 0.598  ma 0.481  em 0.276
+  ep 142  S 0.4977   x_clean 0.638  bw 0.596  ma 0.481  em 0.275
+  ep 144  S 0.5001   x_clean 0.640  bw 0.600  ma 0.484  em 0.277
+  ep 146  S 0.4971   x_clean 0.639  bw 0.596  ma 0.480  em 0.274
+  ep 148  S 0.4968   x_clean 0.637  bw 0.595  ma 0.481  em 0.274
+  ep 150  S 0.4972   x_clean 0.638  bw 0.596  ma 0.480  em 0.274
+
+산출물 → results\02_model\K8_seed42\epoch_metrics/
