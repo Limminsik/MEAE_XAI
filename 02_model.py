@@ -590,7 +590,6 @@ def fig_epoch_metrics(summ, hist, sel, out, new_best, corr_tab=None):
     ratio = sel["ratio"]
     best = new_best
     lo = sel["min_val_recon"]
-    ev = hist.dropna(subset=["S"])
     cols = {"x_clean": "#2ca02c", "bw": "#d62728", "ma": "#ff7f0e", "em": "#9467bd"}
     fig, ax = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 

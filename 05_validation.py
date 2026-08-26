@@ -30,16 +30,19 @@ NSTDB 잡음 조각을 참조로 붙이는 방식은 쓰지 않는다. 외부 �
 ────────────────────────────────────────────────────────────────────────
   vitaldb     SNUADC/ECG_II        500 Hz, mV        → 18/25 로 정확히 360 Hz
   mimic_iv    유도 II              249.89 Hz, mV     → 36/25 (359.84 Hz, 오차 0.045%)
-  galaxyppg   Polar H10 ECG.csv    130 Hz, raw       → 36/13 로 정확히 360 Hz
+  galaxyppg   Polar H10 ECG.csv    130 Hz, µV        → 36/13 로 정확히 360 Hz
+                                   단위는 데이터셋 README 가 `ecg (int, µV)` 로 명시 → /1000
 
-분절 선정은 **사전 규칙**이다 — 지표를 보지 않는다.
-  NaN 포함 · 표준편차 0에 가까운 평탄 구간 · 진폭이 비정상적으로 큰 구간을 버리고,
-  각 기록의 앞에서부터 순서대로 필요한 개수만 취한다.
+분절 선정은 **사전 규칙**이다 — 지표를 보지 않는다. 다음을 버린다.
+  기록 앞 10분 · NaN · 평탄비 > 0.05 · 포화비 > 0.005 · R-피크 < 5 ·
+  심박수가 30~200 bpm 밖 · RR 변동계수 > 0.5
+  남은 것 중 각 기록의 앞에서부터 순서대로 필요한 개수만 취한다.
+  포화비 상한은 VitalDB 40기록 2,400창을 조사해 80.5% 가 남는 값으로 정했다.
 
 **진폭 정합** — 모델은 mV 원값을 그대로 받도록 학습됐고 정규화 단계가 없다(S1 동결).
-그 전제는 MIT-BIH 안에서만 성립한다. 외부 데이터는 규모가 달라(VitalDB 실측 SD 중앙
-0.186 mV 대 학습 입력 0.534 mV, 0.35배) 분절마다 상수배해 학습 때 본 규모로 맞춘 뒤
-통과시킨다. 배율은 `segments.csv` 의 `정합배율` 열에 남는다. `--no-scale` 로 끌 수 있다.
+그 전제는 MIT-BIH 안에서만 성립한다. 외부 데이터는 규모가 다르므로 분절마다 상수배해
+학습 입력 SD 중앙값(0.4707 mV)에 맞춘 뒤 통과시킨다.
+배율은 `segments.csv` 의 `정합배율` 열에 남는다. `--no-scale` 로 끌 수 있다.
 
 ────────────────────────────────────────────────────────────────────────
 산출물  results/05_validation/<run>/<source>/
@@ -328,7 +331,7 @@ def fig_components(comps, inp, rec, i, out, title, unit):
 
 # ---------------------------------------------------------------- main
 def main(config="configs/default.yaml", run="K8_seed42", source="vitaldb",
-         n_records=5, n_seg=200, scale=True, n_fig=10, outdir=None):
+         n_records=10, n_seg=200, scale=True, n_fig=10, outdir=None):
     cfg = load_cfg(config)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     outdir = outdir or os.path.join("results", "05_validation", run, source)
@@ -341,7 +344,7 @@ def main(config="configs/default.yaml", run="K8_seed42", source="vitaldb",
     model = model.to(device)
     K = model.n_encoders
     ix = enc_names(K)
-    unit = "raw" if source == "galaxyppg" else "mV"
+    unit = "mV"                                  # 세 소스 모두 mV 로 맞춰 읽는다
     print(f"[05] {run} (에폭 {ck['epoch']}) → {source}  재학습 없음")
 
     tsd = training_sd(cfg) if scale else None
@@ -390,7 +393,7 @@ def main(config="configs/default.yaml", run="K8_seed42", source="vitaldb",
     spec = spectrum(comps, X, rec, ix, outdir)
     fig_spectrum(comps, X, rec, ix, f"{figdir}/spectrum.png", source)
 
-    # ---- 그림 분절: 재구성이 입력과 가장 닮은 3개 (결과 기반임을 제목에 밝힌다)
+    # ---- 그림 분절: 재구성이 입력과 가장 닮은 n_fig 개 (결과 기반임을 제목에 밝힌다)
     score = np.abs(pearson(rec[:, None], X[:, None])[:, 0, 0])
     top = list(np.argsort(-score)[:n_fig])
     for rank, i in enumerate(top, 1):
@@ -404,8 +407,12 @@ def main(config="configs/default.yaml", run="K8_seed42", source="vitaldb",
             f"05 외부 적용 — {source}, {run} (에폭 {ck['epoch']}), 재학습 없음.\n\n"
             f"분절 {len(X)}개, 원 표본율 {sorted(fs_seen)} Hz -> {FS} Hz 리샘플, "
             f"10초(3600표본), 단위 {unit}.\n"
-            "분절 선정은 사전 규칙이다 - NaN / 평탄 / 비정상 진폭 구간을 버리고\n"
-            "각 기록의 앞에서부터 순서대로 취했다. 지표를 보지 않았다.\n"
+            "분절 선정은 사전 규칙이다 - 기록 앞 %g분 / NaN / 평탄비 > %g /\n"
+            "포화비 > %g / R-피크 < %d / 심박수가 %g~%g bpm 밖 / RR 변동계수 > %g\n"
+            "인 창을 버리고, 남은 것 중 각 기록의 앞에서부터 순서대로 취했다.\n"
+            "지표를 보지 않았다.\n"
+            % (SKIP_MIN, FLAT_MAX, CLIP_MAX, MIN_PEAKS,
+               HR_RANGE[0], HR_RANGE[1], RR_CV_MAX)
             + (f"진폭 정합: 분절마다 SD 를 학습 입력 중앙값 {tsd:.4f} mV 에 맞췄다.\n"
                "  모델은 mV 원값을 그대로 받도록 학습됐고 정규화 단계가 없다(S1 동결).\n"
                "  그 전제는 MIT-BIH 안에서만 성립한다. 배율은 segments.csv 에 있다.\n\n"
@@ -420,7 +427,8 @@ def main(config="configs/default.yaml", run="K8_seed42", source="vitaldb",
             "  잡음과 무관한 파형이라 상관값이 파형 일치를 뜻하지 않는다.\n\n"
             "spectrum.csv 의 중심주파수와 대역 전력비는 파형을 맞대지 않고 계산하므로\n"
             "참조 없이도 성분의 주파수 성격을 말할 수 있다.\n\n"
-            "그림의 분절은 재구성이 입력과 가장 닮은 3개다 - 결과를 보고 고른 사례다.\n\n"
+            f"그림의 분절은 재구성이 입력과 가장 닮은 {len(top)}개다 - "
+            "결과를 보고 고른 사례다.\n\n"
             "정량 성능은 주장하지 않는다. 해석도 붙이지 않는다.\n")
 
     pd.set_option("display.width", 240)
@@ -541,7 +549,8 @@ if __name__ == "__main__":
     p.add_argument("--config", default="configs/default.yaml")
     p.add_argument("--run", default="K8_seed42")
     p.add_argument("--source", default="vitaldb", choices=list(LOADERS))
-    p.add_argument("--n-records", dest="n_records", type=int, default=5)
+    p.add_argument("--n-records", dest="n_records", type=int, default=10,
+                   help="기록 수 - 보고한 결과는 10기록 x 20분절 = 200분절")
     p.add_argument("--n-seg", dest="n_seg", type=int, default=200)
     p.add_argument("--no-scale", dest="scale", action="store_false",
                    help="진폭 정합 없이 원값 그대로 넣는다")

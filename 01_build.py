@@ -50,7 +50,6 @@ def appendix(cfg):
     manifest.csv 에 분절마다 기록된 주입 파라미터(추첨 SNR·배율·잡음 원본 시작점)를
     모아 분포와 요약표로 보여 준다. 합격/불합격 판정은 두지 않는다.
     """
-    import numpy as np
     import pandas as pd
     from src.viz import plt
 

@@ -1,5 +1,4 @@
 """T4 단위 테스트 — 지표 (RESEARCH_DESIGN.md §11 test_metrics)."""
-import json
 import os
 
 import numpy as np

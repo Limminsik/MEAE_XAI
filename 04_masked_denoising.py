@@ -66,7 +66,7 @@ import pandas as pd
 import torch
 
 from src import metrics
-from src.core import enc_names, load_ckpt
+from src.core import load_ckpt
 from src.data.build import load_cfg
 from src.data.dataset import load
 from src.model import meae

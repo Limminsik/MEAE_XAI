@@ -103,10 +103,10 @@ S(t)   = max_k ρ_k(t)
 | # | 파일 | 무엇을 하나 | 무엇이 나오나 |
 |---|---|---|---|
 | **01** | [01_build.py](01_build.py) | 원본 내려받기·검증 → 기록 단위 분할 → 10초 분절 → bw·ma·em 주입 | `data/processed/*.npz` · `results/01_build/` |
-| **02** | [02_model.py](02_model.py) | 구조 세팅 · 비용 함수 ①(학습 손실) · 비용 함수 ②(체크포인트 선택) · 학습<br>`--diagnose` 는 재구성 충실도 진단만 | `results/02_model/<run>/` (+`fidelity/`) |
+| **02** | [02_model.py](02_model.py) | 구조 세팅 · 비용 함수 ①(학습 손실) · 비용 함수 ②(체크포인트 선택) · 학습<br>`--epoch-metrics` 는 후보 에폭 일괄 평가, `--diagnose` 는 재구성 충실도 진단 | `results/02_model/<run>/` (+`epoch_metrics/` · `fidelity/`) |
 | **03** | [03_bss.py](03_bss.py) | 성분 `x̂_k` 추출 → 참조 4종과 대응 분석 (지표 3종) | `results/03_bss/<run>/<split>/` |
 | **04** | [04_masked_denoising.py](04_masked_denoising.py) | 전수 2^K 마스킹 복원 → clean 기준 채점 (지표 5종) | `results/04_masked_denoising/<run>/<split>/` |
-| **05** | [05_validation.py](05_validation.py) | 외부 데이터 적용 시연 | `results/05_validation/<run>/<source>/` |
+| **05** | [05_validation.py](05_validation.py) | 외부 ECG 3종에 재학습 없이 적용 → 성분 분해 | `results/05_validation/<run>/<source>/` |
 
 `src/` 는 위 다섯이 불러 쓰는 라이브러리다. 단계 흐름을 따라갈 때는 볼 필요가 없고,
 계산의 세부를 확인할 때만 들어간다.
@@ -116,8 +116,8 @@ S(t)   = max_k ρ_k(t)
 | `src/data/` | 01 | 내려받기·분할·분절 생성·데이터셋 로더 (동결) |
 | `src/model/` | 02~05 | MEAE 구조·손실·선행 이식본 (동결) |
 | `src/core.py` | 02~05 | 체크포인트 로드 · 성분/재구성 추출 · 분절 내 표준화와 지표 · 표 렌더링 |
-| `src/spectral.py` | 02 | PSD·대역별 보존율·기울기·보존 곡선 |
-| `src/metrics.py` | 04 | 채점 지표 — 04의 5종 + R-피크·SNR·RMSE·SDNN |
+| `src/spectral.py` | 02 · 05 | PSD·대역별 보존율·기울기·보존 곡선 |
+| `src/metrics.py` | 04 · 05 | 채점 지표 — 04의 5종 + R-피크·SNR·RMSE·SDNN |
 | `src/viz.py` | 공용 | 한글 폰트 설정 (Malgun Gothic) |
 
 **새 분석이 생기면 그 단계 스크립트 안에 넣는다.** 새 파일을 만들지 않고,
@@ -137,7 +137,7 @@ meae_xai/
 │                               `--diagnose` 로 재구성 충실도 진단
 ├── 03_bss.py                   성분 분리 + 참조 대응 분석 (지표 3종)
 ├── 04_masked_denoising.py      마스킹 복원 평가 (전수 2^K, 지표 5종)
-├── 05_validation.py            외부 데이터 적용 시연
+├── 05_validation.py            외부 ECG 3종 적용 (재학습 없음)
 │
 ├── src/                        위 다섯이 공유하는 라이브러리
 │   ├── core.py                 체크포인트 로드·성분 추출·표준화 지표·표 렌더링
@@ -191,12 +191,14 @@ Python 3.9.21 / torch 2.8.0+cu129 / RTX 5060 Ti. `neurokit2==0.2.10` 고정
 
 연구계획서 기반연구 ①에 명시된 데이터셋.
 
-| 데이터 | 환경 | 경로 · 규격 |
-|---|---|---|
-| MIMIC-IV Waveform | 중환자실 | `D:/data/mimic_iv_waveform` · ECG 249.9 Hz, 유도 II |
-| VitalDB | 수술실 | `D:/data/VitalDB` |
-| NSRR (shhs·wsc·nfs) | 수면 | `D:/data/{shhs,wsc,nfs}` |
-| GalaxyPPG (Polar H10 ECG) | 일상 웨어러블 | `data/GalaxyPPG` · 130 Hz |
+| 데이터 | 환경 | 경로 | 채널 · 표본율 · 단위 | 360 Hz 변환 |
+|---|---|---|---|---|
+| VitalDB | 수술실 | `D:/data/VitalDB` | `SNUADC/ECG_II` · 500 Hz · mV | `18/25` 정확 |
+| MIMIC-IV Waveform | 중환자실 | `D:/data/mimic_iv_waveform/DESTINATION` | 유도 II · 249.89 Hz · mV | `36/25` (오차 0.045%) |
+| GalaxyPPG (Polar H10) | 일상 웨어러블 | `D:/data/GalaxyPPG/.../Dataset` | `ECG.csv` · 130 Hz · µV → `/1000` | `36/13` 정확 |
+
+MIMIC-IV 헤더의 `516x4` 는 프레임당 4샘플이라는 뜻이다 — `smooth_frames=False` 로 읽어야
+네이티브 249.89 Hz 가 나온다. NSRR 은 쓰지 않는다.
 
 ## 7. 선행 연구
 

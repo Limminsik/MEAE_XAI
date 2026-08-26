@@ -6,14 +6,13 @@
   · 체크포인트 로드          load_ckpt
   · 성분·재구성 추출         component_bank · reconstruct
   · 분절 내 표준화와 지표    znorm · pearson · aggregate · rmse_norm_matrix · mad_matrix
-  · 표 렌더링                top_idx · mark · render · persegment
+  · 표 렌더링                top_idx · mark · render
 
 모든 계산은 **crop 후 중앙 3600 구간**에서 한다.
 """
 import os
 
 import numpy as np
-import pandas as pd
 import torch
 
 from .data.dataset import REF_KEYS
@@ -158,18 +157,6 @@ def render(m, sd, flag, fmt="{:.3f}"):
     tag = {0: "", 1: " [1]", 2: " [2]"}
     return [[f"{fmt.format(m[k, r])}±{fmt.format(sd[k, r])}{tag[flag[k, r]]}"
              for r in range(m.shape[1])] for k in range(m.shape[0])]
-
-
-def persegment(arr, name, idx, ix, ds, cols=REF_KEYS):
-    """(S, K, R) 을 분절별 긴 표로 편다. 집계 전 원값을 그대로 남기기 위한 것."""
-    w = len(ix) * len(cols)
-    return pd.DataFrame({
-        "분절": np.repeat(idx, w),
-        "record_id": np.repeat([ds.meta[int(i)]["record_id"] for i in idx], w),
-        "seg_idx": np.repeat([ds.meta[int(i)]["seg_idx"] for i in idx], w),
-        "인코더": np.tile(np.repeat(ix, len(cols)), len(idx)),
-        "참조": np.tile(list(cols), len(idx) * len(ix)),
-        name: arr.reshape(-1)})
 
 
 def enc_names(K):

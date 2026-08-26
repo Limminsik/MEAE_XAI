@@ -230,7 +230,6 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=Non
 
     # 표시는 열별 — |r|는 상위 2, RMSE·MAD는 하위 2
     for name, (mu, sd, high) in stats.items():
-        flag = mark(mu, 2, largest=high)
         rows = []
         for k in range(K):
             cell = {}

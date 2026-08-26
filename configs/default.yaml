@@ -97,5 +97,5 @@ external:
   vitaldb:   {root: "D:/data/VitalDB", track: "SNUADC/ECG_II", fs_src: 500, unit: mV}
   mimic_iv:  {root: "D:/data/mimic_iv_waveform/DESTINATION", lead: "II",
               fs_src: 249.89, unit: mV}
-  galaxyppg: {root: "D:/data/GalaxyPPG/GalaxyPPG/Dataset", source: "Polar H10 ECG",
-              fs_src: 130, unit: raw}
+  galaxyppg: {root: "D:/data/GalaxyPPG/GalaxyPPG/Dataset", source: "Polar H10 ECG",  # ecg 열은 µV — 로더에서 /1000
+              fs_src: 130, unit: uV}
