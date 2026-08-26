@@ -351,8 +351,35 @@ RMSE̅_kr = mean_s RMSE_kr^(s)
 산출물 `rmse_norm_matrix.csv` (K×4, `RMSE̅ ± σ`) · `rmse_norm_persegment.csv`.
 **표 렌더링 시 행별 최솟값을 표시한다**(낮을수록 유사). 값에 대한 해석·명명은 붙이지 않는다.
 
-**MAD**도 같은 표준화·같은 차이 신호를 쓰되 RMS 대신 `max_i|ã[i] − r̃[i]|`를 취한다.
-두 지표 모두 부호 정렬을 하지 않으므로 반대 위상은 값이 커진다.
+#### [S4-03] MAD 산출 명세 (확정)
+
+구조는 S4-01·S4-02와 같다.
+
+**1단계 — 분절 내 표준화** (S4-02와 동일) `ã = (x̂_k − mean)/std`, `r̃ = (r − mean)/std`
+
+**2단계 — 분절 내 MAD**
+
+```
+MAD_kr^(s) = max_i | ã[i] − r̃[i] |
+```
+
+**3단계 — 분절 간 집계**
+
+```
+MAD̅_kr = mean_s MAD_kr^(s)
+σ_kr    = std_s  MAD_kr^(s)      (ddof=1)
+```
+
+구간은 패딩 제외 중앙 N=3600, 분절은 val 900, **단위는 표준편차**.
+산출물 `mad_matrix.csv` (K×4, `MAD̅ ± σ`) · `mad_persegment.csv`(분절별 값 + argmax 표본·초) ·
+`figures/mad_argmax_hist.png` — **최대 편차 발생 시점의 분포**(분절별 argmax 위치 히스토그램).
+MAD가 어느 구간에서 발생하는지 확인하기 위한 것이다.
+
+**표 렌더링 시 행별 최솟값을 표시한다**(낮을수록 유사).
+**각주**: 값이 낮을수록 유사하며, 참조 파형의 첨도에 영향받으므로 **열 내 비교에 적합**하다.
+값에 대한 해석·명명은 붙이지 않는다.
+
+S4-02·S4-03 모두 부호 정렬을 하지 않으므로 반대 위상은 값이 커진다.
 
 **그림 규칙**: 성분 파형 그림은 전 성분을 **공통 y축**으로 그린다(성분마다 축을 따로 잡으면
 크기가 작은 성분이 크게 보여 비교가 안 된다). y축 단위를 명기한다 — 성분·참조는 z-정규화
@@ -365,6 +392,7 @@ RMSE̅_kr = mean_s RMSE_kr^(s)
 | ① 인코더 × 참조 대응표 (ρ̄ ± σ) | `corr_matrix.csv`, `fig1_correspondence.png` |
 | ①-보조 분절별 원값 (부호 포함) · 부호 양수 비율 | `corr_persegment.csv`, `corr_sign.csv` |
 | ② 정규화 RMSE 대응표 (RMSE̅ ± σ) | `rmse_norm_matrix.csv`, `rmse_norm_persegment.csv` |
+| ③ MAD 대응표 (MAD̅ ± σ) · 최대 편차 시점 분포 | `mad_matrix.csv`, `mad_persegment.csv`, `fig mad_argmax_hist.png` |
 | ①②-보조 통합표 (ρ̄·σ·r²·RMSE_norm·MAD·energy_ratio) | `stage1_matrix.csv` + `stage1_matrix_note.txt` |
 | ② 참조 간 상관·스펙트럼 | `reference_correlation.csv`, `reference_spectrum.csv` |
 | ③ 기여 분해 (다중 회귀, 서술용) | `stage1_contribution.csv` |

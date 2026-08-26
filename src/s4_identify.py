@@ -171,16 +171,23 @@ def rmse_norm_matrix(comps, refs):
     return out
 
 
-def mad_matrix(comps, refs):
-    """표준화 후 국소 최대 편차. (n, K, R) 분절별 `max_i |ã[i] − r̃[i]|`.
+def mad_matrix(comps, refs, with_argmax=False):
+    """S4-03 — 국소 최대 편차. (n, K, R) 분절별 `max_i |ã[i] − r̃[i]|`. 단위는 표준편차.
 
-    S4-02와 같은 표준화·같은 차이 신호를 쓰되 RMS 대신 최댓값을 취한다.
-    정규화 후에도 ρ와 독립인 유일한 지표다."""
+    1단계 표준화는 S4-02와 같고, 2단계에서 RMS 대신 최댓값을 취한다.
+    정규화 후에도 ρ와 독립인 유일한 지표다.
+
+    with_argmax=True 이면 최대 편차가 **어느 표본에서** 났는지도 (n, K, R) 로 함께 준다.
+    """
     zc, zr = znorm(comps), znorm(refs)
     out = np.empty((zc.shape[0], zc.shape[1], zr.shape[1]))
-    for k in range(zc.shape[1]):
-        out[:, k, :] = np.abs(zc[:, k, None, :] - zr).max(-1)
-    return out
+    pos = np.empty(out.shape, dtype=np.int64) if with_argmax else None
+    for k in range(zc.shape[1]):          # (n,K,R,T) 를 한 번에 만들면 수백 MB가 된다
+        d = np.abs(zc[:, k, None, :] - zr)
+        out[:, k, :] = d.max(-1)
+        if with_argmax:
+            pos[:, k, :] = d.argmax(-1)
+    return (out, pos) if with_argmax else out
 
 
 def metric_matrices(comps, refs):
@@ -318,6 +325,30 @@ def fig_components(comps, refs, x_noisy, i, out, title, fs):
     plt.close(fig)
 
 
+def fig_mad_argmax(pos, out, fs, T, bins=40):
+    """S4-03 — 최대 편차 발생 시점의 분포. MAD가 분절의 어느 구간에서 나는지 확인용."""
+    K, R = pos.shape[1], pos.shape[2]
+    t = pos / fs
+    fig, ax = plt.subplots(K, R, figsize=(3.0 * R, 1.5 * K), sharex=True, sharey="row")
+    ax = np.atleast_2d(ax)
+    for k in range(K):
+        for r in range(R):
+            a = ax[k, r]
+            a.hist(t[:, k, r], bins=bins, range=(0, T / fs), color="#1f77b4", alpha=.8)
+            a.grid(alpha=.25, lw=.3)
+            a.tick_params(labelsize=6)
+            if k == 0:
+                a.set_title(list(REF_KEYS)[r], fontsize=9)
+            if r == 0:
+                a.set_ylabel(enc_label(k), fontsize=8)
+    for a in ax[-1]:
+        a.set_xlabel("최대 편차 발생 시점 (초)", fontsize=7)
+    fig.suptitle("MAD 최대 편차가 발생한 시점의 분절별 분포 (val 전체)", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+
+
 def fig_hist(cm, k, out):
     fig, ax = plt.subplots(figsize=(8, 4))
     for j, name in enumerate(REF_KEYS):
@@ -350,7 +381,9 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
 
     # ① 대응표 — S4-01 명세. 모두 z-정규화 후 값이다
     rho = pearson(comps, refs)                       # (S, K, R) 부호 있는 원값
-    cm, rn, mad = metric_matrices(comps, refs)
+    cm = np.abs(rho)
+    rn = rmse_norm_matrix(comps, refs)
+    mad, mad_arg = mad_matrix(comps, refs, with_argmax=True)
     rbar, rsd, pos = aggregate(rho)
     ix = [enc_label(k) for k in range(K)]
 
@@ -377,6 +410,18 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
         f"{outdir}/rmse_norm_matrix.csv", encoding="utf-8-sig")
     persegment(rn, "rmse_norm", idx, ix, ds).to_csv(
         f"{outdir}/rmse_norm_persegment.csv", index=False, encoding="utf-8-sig")
+
+    # ---- S4-03 MAD. 단위는 표준편차. 역시 행별 **최솟값**을 표시한다
+    md_bar, md_sd = mad.mean(0), mad.std(0, ddof=1)
+    pd.DataFrame([[f"{md_bar[k, r]:.4f} ± {md_sd[k, r]:.4f}" for r in range(len(REF_KEYS))]
+                  for k in range(K)], columns=list(REF_KEYS),
+                 index=pd.Index(ix, name="인코더")).to_csv(
+        f"{outdir}/mad_matrix.csv", encoding="utf-8-sig")
+    md_per = persegment(mad, "mad", idx, ix, ds)
+    md_per["argmax_표본"] = mad_arg.reshape(-1)
+    md_per["argmax_초"] = (mad_arg.reshape(-1) / fs).round(4)
+    md_per.to_csv(f"{outdir}/mad_persegment.csv", index=False, encoding="utf-8-sig")
+    fig_mad_argmax(mad_arg, f"{figdir}/mad_argmax_hist.png", fs, comps.shape[-1])
 
     mat = pd.DataFrame(rbar, columns=list(REF_KEYS), index=ix)
     sd = pd.DataFrame(rsd, columns=[f"{c}_sd" for c in REF_KEYS], index=ix)
@@ -412,8 +457,14 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
             "3단계 분절 간 집계 — mean_s RMSE, std_s RMSE (ddof=1).\n"
             "표 렌더링은 행별 **최솟값**을 표시한다 (낮을수록 유사).\n"
             "\n"
-            "MAD — 같은 표준화·같은 차이 신호에서 RMS 대신 max_i |a~[i] - r~[i]| 를 취한다.\n"
-            "  정규화 후에도 rho 와 독립인 유일한 지표로 국소 최대 편차를 포착한다.\n"
+            "[S4-03] MAD 산출 명세  (mad_matrix.csv / mad_persegment.csv)\n"
+            "1단계 표준화는 S4-02와 같다. 2단계에서 RMS 대신 max_i |a~[i] - r~[i]| 를 취하고,\n"
+            "3단계로 mean_s / std_s (ddof=1) 집계한다. 단위는 표준편차.\n"
+            "표 렌더링은 행별 **최솟값**을 표시한다.\n"
+            "각주: 값이 낮을수록 유사하며, 참조 파형의 첨도에 영향받으므로 열 내 비교에 적합하다.\n"
+            "정규화 후에도 rho 와 독립인 유일한 지표로 국소 최대 편차를 포착한다.\n"
+            "최대 편차가 발생한 시점의 분포는 figures/mad_argmax_hist.png 에 싣는다\n"
+            "  (분절별 argmax 위치 히스토그램. MAD가 어느 구간에서 나는지 확인용).\n"
             "원값 RMSE는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.\n"
             "\n"
             "표본 수(N=3600) 기반 p값은 산출하지 않는다 — 시간적 자기상관 때문에\n"
@@ -469,11 +520,14 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val",
     print(pd.DataFrame({c: [f"{rn_bar[k, j]:.3f}±{rn_sd[k, j]:.3f}"
                             f"{'*' if j == rn_bar[k].argmin() else ' '}" for k in range(K)]
                         for j, c in enumerate(REF_KEYS)}, index=ix).to_string(), "\n")
-    md_bar, md_sd = mad.mean(0), mad.std(0, ddof=1)
-    print("③ 인코더 × 참조 MAD 평균 (±SD)   국소 최대 편차 — |ρ|과 독립. * = 행별 최솟값")
+    print("[S4-03] 분절 내 표준화 → 분절 내 max|차이| → 분절 간 평균±SD(ddof=1). "
+          "단위는 표준편차\n")
+    print("③ 인코더 × 참조 MAD 평균 (±SD)   * = 행별 최솟값")
     print(pd.DataFrame({c: [f"{md_bar[k, j]:.3f}±{md_sd[k, j]:.3f}"
                             f"{'*' if j == md_bar[k].argmin() else ' '}" for k in range(K)]
-                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string(), "\n")
+                        for j, c in enumerate(REF_KEYS)}, index=ix).to_string())
+    print("   각주: 값이 낮을수록 유사하며, 참조 파형의 첨도에 영향받으므로 열 내 비교에 적합.")
+    print("   최대 편차 발생 시점 분포 → figures/mad_argmax_hist.png\n")
     print("④ 참조 간 |r| — 분리 한계의 독립 근거")
     print(ref_df.to_string(index=False))
     print(spec_df.to_string(index=False), "\n")
