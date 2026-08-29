@@ -4,9 +4,9 @@
 seeds: [42]                          # 주 분석 시드. 다중 시드 반복은 수행하지 않는다
 
 paths:
-  mitdb: "data/raw/mit-bih-arrhythmia-database-1.0.0"
-  nstdb: "data/mit-bih-noise-stress-test-database-1.0.0"
-  galaxyppg: "data/GalaxyPPG/GalaxyPPG/Dataset"
+  mitdb: "../data/raw/mit-bih-arrhythmia-database-1.0.0"      # baseline 원본 (읽기 전용)
+  nstdb: "../data/mit-bih-noise-stress-test-database-1.0.0"
+  galaxyppg: "../data/GalaxyPPG/GalaxyPPG/Dataset"
   processed: "../data/processed"      # baseline 데이터를 **읽기 전용**으로 쓴다
 
 # ────────────────────────────────────────────────────────────────
@@ -22,10 +22,8 @@ data:
   noise_split_ratio: 0.7             # 잡음 레코드 앞 70% = train, 뒤 30% = val·test
   noise_snr_range_db: [0, 12]        # 잡음별 독립 균등추첨
 
-  # 선행 인코더 깊이 8(MaxPool 2배 x 8 = 256배) → 입력이 256의 배수여야 한다.
-  # 3600 -> 3840 = 256 x 15. 모든 상관·지표는 중앙 3600을 크롭한 뒤 계산한다.
-  pad_to: 3840
-  pad_each: 120
+  # 패딩은 설정하지 않는다 — 인코더 깊이(len(channels))에서 유도된다 (meae.fit_pad).
+  # 깊이 4(압축률 16)면 3600 이 16의 배수라 패딩이 없다. 모든 지표는 중앙 3600 크롭.
 
   split:
     unit: "record"                   # 기록(환자) 단위만. 분절 단위는 누수
@@ -38,15 +36,16 @@ data:
 # ────────────────────────────────────────────────────────────────
 model:
   n_encoders: 4                      # 지도학습: 참조 4종에 하나씩 배정한다
-  channels: [32, 32, 64, 64, 128, 128, 256, 256]   # 인코더당 c // K
-                                     #   **길이가 곧 인코더 깊이**다. 깊이 D 면 MaxPool 2배가
-                                     #   D번 걸려 압축률 2^D. 8개 = 256배(선행 기본값).
-                                     #   6개 = 64배, 5개 = 32배. 패딩은 여기서 유도된다.
-  dilations: null                    # 블록별 dilation. null 이면 전부 1 (원본과 동일).
+  channels: [32, 32, 64, 64]         # **확정 모델 C16** — 인코더당 c // K.
+                                     #   길이가 곧 인코더 깊이다. 깊이 D 면 MaxPool 2배가
+                                     #   D번 걸려 압축률 2^D. 4개 = 16배 (확정),
+                                     #   선행 기본값은 8개 = 256배였다. 패딩은 여기서 유도.
+  dilations: [1, 1, 4, 32]           # **확정 모델 C16** — 블록별 dilation.
                                      #   층을 빼면 수용영역이 줄어든다(깊이 8 → 3316표본
-                                     #   = 9.21초, 깊이 6 → 820표본 = 2.28초). bw 의 느린
-                                     #   출렁임을 보려면 그만큼이 필요하므로 dilation 으로
-                                     #   보전한다. 실제 수용영역은 학습 로그와 stage1.json 에.
+                                     #   = 9.21초, 깊이 4 · 전부 1 → 404표본). bw 의 느린
+                                     #   출렁임을 보려면 그만큼이 필요해 dilation 으로
+                                     #   보전한다 — 이 조합이 정확히 3316표본 = 9.21초다.
+                                     #   null 이면 전부 1 (선행 원본과 동일).
   hidden: 64                         # 인코딩 채널 = hidden // K
   skip_levels: null                  # 잔차 연결로 쓸 인코더 블록 번호 목록 (0부터).
                                      #   null 이면 잔차 없음 — 기존과 완전히 같은 경로다.

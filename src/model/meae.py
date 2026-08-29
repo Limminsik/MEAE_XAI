@@ -67,12 +67,12 @@ def enc_label(k: int) -> str:
 
 
 def pad(x: Tensor, pad_each: int) -> Tensor:
-    """(B, C, 3600) → (B, C, 3840). 대칭 제로 패딩."""
+    """(B, C, L) → (B, C, L+2·pad_each). 대칭 제로 패딩."""
     return F.pad(x, (pad_each, pad_each), mode="constant", value=0.0) if pad_each else x
 
 
 def crop(x: Tensor, pad_each: int) -> Tensor:
-    """(B, C, 3840) → (B, C, 3600). 패딩 구간 제거. 지표 계산 전에 반드시 거친다."""
+    """패딩 구간 제거. 지표 계산 전에 반드시 거친다."""
     return x[..., pad_each:x.shape[-1] - pad_each] if pad_each else x
 
 

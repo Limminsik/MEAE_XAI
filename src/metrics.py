@@ -1,36 +1,18 @@
-"""S5 채점 지표 (RESEARCH_DESIGN.md §8).
+"""지표 라이브러리 — 네 묶음이다.
 
-전부 **clean 참조 기준**이다 (S4는 잡음 참조, S5는 clean 참조 — 혼동 주의).
-비교 대상은 외부 기법이 아니라 **마스킹 전(x_noisy) vs 마스킹 후(복원)** 다.
+  [S5]   복원 채점 5종 (SSD·MAD·PRD·CosSim·SNR).  clean 참조, **mV 원단위**
+  [S4]   성분 정렬 확장 (F1·r_QRS·대역 에너지).  분절 내 표준화 계열과 함께 쓴다
+  [S6]   신호 품질 지수 SQI 5종 + ECGMeanCoef.  **참값이 필요 없다**
+  [비교선] 고전 디노이징 3종 (대역통과 · 웨이블릿 임계값 · 웨이블릿+기저선제거)
 
-입력은 **크롭된 원 구간 3600 샘플**이어야 한다. 모델 출력은 3840이므로
+입력은 **크롭된 원 구간 3600 샘플**이어야 한다. 모델 출력은 패딩된 길이이므로
 `src.model.meae.crop()`을 반드시 먼저 거친다. 패딩 0 구간이 들어오면 지표가 왜곡된다.
-`score()`는 길이를 검사해 어긋나면 막는다.
 """
-from typing import Dict, Optional, Sequence
+from typing import Dict, Sequence
 
 import numpy as np
 
-TOL_MS = 150.0          # R-피크 매칭 허용오차 (§8)
-_MIN_PEAKS_FOR_SDNN = 3  # RR 2개 이상 있어야 표준편차가 정의된다
-
-
-def snr_db(clean: np.ndarray, est: np.ndarray) -> float:
-    """`10log10(var(clean) / mean((est-clean)**2))`.
-
-    §4-4 주입과 같은 정의 — 신호는 분산(DC 제외), 잡음(잔차)은 mean(·**2).
-    """
-    clean = np.asarray(clean, dtype=np.float64)
-    resid = np.asarray(est, dtype=np.float64) - clean
-    p_noise = float(np.mean(resid ** 2))
-    if p_noise == 0.0:
-        return float("inf")
-    return float(10.0 * np.log10(float(np.var(clean)) / p_noise))
-
-
-def rmse(clean: np.ndarray, est: np.ndarray) -> float:
-    d = np.asarray(est, dtype=np.float64) - np.asarray(clean, dtype=np.float64)
-    return float(np.sqrt(np.mean(d ** 2)))
+TOL_MS = 150.0          # R-피크 매칭 허용오차 (S5 · bSQI)
 
 
 # ---------------------------------------------------------------- [S5] 지표 5종
@@ -130,63 +112,6 @@ def rpeak_prf(detected, reference, fs: int, tol_ms: float = TOL_MS) -> Dict[str,
             "precision": prec, "recall": rec, "f1": f1}
 
 
-def sdnn_ms(peaks: Sequence[int], fs: int) -> float:
-    """RR 간격의 표준편차 (ms). RR이 2개 미만이면 NaN."""
-    p = np.sort(np.asarray(peaks, dtype=np.float64))
-    if len(p) < _MIN_PEAKS_FOR_SDNN:
-        return float("nan")
-    rr = np.diff(p) / fs * 1000.0
-    return float(np.std(rr, ddof=1))
-
-
-def score(clean: np.ndarray, est: np.ndarray, rpeaks_ref: Sequence[int], fs: int,
-          seg_len: Optional[int] = None, tol_ms: float = TOL_MS) -> Dict[str, float]:
-    """단일 채점 진입점 — 신호 하나를 clean 참조로 채점한다.
-
-    마스킹 전은 `est = x_noisy`, 마스킹 후는 `est = 복원 신호`로 같은 함수를 호출한다.
-    SDNN은 est에서 검출한 피크 vs **MIT-BIH 주석 피크**를 비교한다.
-    """
-    clean = np.asarray(clean, dtype=np.float64).ravel()
-    est = np.asarray(est, dtype=np.float64).ravel()
-    if clean.shape != est.shape:
-        raise ValueError(f"길이 불일치: clean {clean.shape} vs est {est.shape}")
-    if seg_len is not None and len(clean) != seg_len:
-        raise ValueError(
-            f"길이 {len(clean)} != {seg_len}. 모델 출력(3840)을 crop()으로 "
-            f"중앙 {seg_len}으로 자른 뒤 채점해야 한다 (§8).")
-
-    peaks = detect_rpeaks(est, fs)
-    prf = rpeak_prf(peaks, rpeaks_ref, fs, tol_ms)
-    sdnn_est, sdnn_ref = sdnn_ms(peaks, fs), sdnn_ms(rpeaks_ref, fs)
-    return {"snr_db": snr_db(clean, est), "rmse": rmse(clean, est),
-            "n_peaks_det": int(len(peaks)), "n_peaks_ref": int(len(rpeaks_ref)),
-            **prf,
-            "sdnn_est_ms": sdnn_est, "sdnn_ref_ms": sdnn_ref,
-            "sdnn_abs_err_ms": abs(sdnn_est - sdnn_ref)}
-
-
-def score_pair(clean, x_before, x_after, rpeaks_ref, fs, seg_len=None,
-               tol_ms: float = TOL_MS) -> Dict[str, float]:
-    """마스킹 전/후를 한 번에 채점하고 개선량까지 계산한다 (§8의 표 한 줄)."""
-    b = score(clean, x_before, rpeaks_ref, fs, seg_len, tol_ms)
-    a = score(clean, x_after, rpeaks_ref, fs, seg_len, tol_ms)
-    out = {f"before_{k}": v for k, v in b.items()}
-    out.update({f"after_{k}": v for k, v in a.items()})
-    out["snr_improvement_db"] = a["snr_db"] - b["snr_db"]
-    out["rmse_reduction"] = b["rmse"] - a["rmse"]
-    out["f1_gain"] = a["f1"] - b["f1"]
-    out["sdnn_err_reduction_ms"] = b["sdnn_abs_err_ms"] - a["sdnn_abs_err_ms"]
-    return out
-
-
-# ================================================================
-# [S4 확장] 성분 평가 지표 3종 — F1 · r_QRS · 대역 에너지
-#
-# 역할이 다르다. |r|/RMSE_norm/MAD 하나로는 아래 두 상태가 구분되지 않는다.
-#   "심장이 없다"                  F1 낮음
-#   "박동은 있는데 형태가 덜 맞는다"  F1 높고 r_QRS 낮음
-# 대역 에너지는 그 차이가 **어느 대역 혼입에서 오는지**를 설명한다.
-# ================================================================
 S4_TOL_MS = 50.0            # F1 매칭 허용오차. S5의 TOL_MS(150)와 목적이 다르다
 QRS_BAND = (5.0, 15.0)      # QRS 에너지가 모이는 대역. bw(<1)·T파(<5)·ma 고주파부(>20) 배제
 MIN_REF_PEAKS = 3           # 10초에 3박동 미만이면 검출 실패로 보고 그 분절을 뺀다

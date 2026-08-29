@@ -1,92 +1,82 @@
-"""06 — 임상 형태 지표 대조. x_clean(참값) · x_noisy(처리 전) · A 성분차감(처리 후).
+"""06 — 활용 효과. 두 층으로 본다.
 
-    python 06_ablation.py --run K4_seed42 --split test
+    python 06_ablation.py --run C16_seed42 --split test
 
-디노이징의 효과를 **임상에서 실제로 재는 값**으로 확인한다. 파형 지표(|r|·RMSE·SNR)는
-04·05에 있고, 여기서는 그 파형에서 뽑은 진단 지표가 참값과 얼마나 맞는지를 본다.
+파형이 닮았다는 것과 진단값이 맞는다는 것은 다르다. 파형 지표(|r|·RMSE·SNR)는 04·05 에
+있고, 여기서는 **신호 품질**과 **임상에서 실제로 재는 값**을 본다.
 
-────────────────────────────────────────────────────────────────────────
-대상 셋
-────────────────────────────────────────────────────────────────────────
-    참값     x_clean
-    처리 전   x_noisy
-    처리 후   B 재구성 = D(z_clean, 0, 0, 0) — 잡음 인코딩 3개를 0으로 치환
+대상 셋 — x_clean(참값) · x_noisy(처리 전) · **B 재구성**(처리 후)
+  B = D(z_clean, 0, 0, 0). A(성분차감)는 `--method A` 로 쓸 수 있으나 기본이 아니다 —
+  원본 x_noisy 를 유지한 채 모델 추정치만 빼므로 처리 전과 출발선이 같지 않다.
 
-            A(x_noisy - ŝ_bw - ŝ_ma - ŝ_em)는 `--method A` 로 쓸 수 있으나 기본이 아니다.
-            A 는 원본 x_noisy 를 그대로 유지한 채 모델 추정치만 빼므로 처리 전과 출발선이
-            같지 않다 — 모델이 아무것도 못 뽑아도 x_noisy 만큼은 보장된다.
+════════════════════════════════════════════════════════════════════════
+① 신호 품질 지수 (SQI) — **참값이 필요 없다**
+════════════════════════════════════════════════════════════════════════
+x_noisy 와 B 에서 **각각 독립으로** 잰다. 이 층이 x_clean 의존을 우회한다 —
+MIT-BIH 원본도 완전한 참값이 아니라는 한계에 대한 독립적 근거다.
 
-────────────────────────────────────────────────────────────────────────
-기준점을 공유한다 — 이 실험의 핵심 설계
-────────────────────────────────────────────────────────────────────────
-R-피크는 **x_clean 에서 한 번 검출**해 세 신호에 **똑같이** 적용한다.
+  basSQI       P(0-1Hz) / P(0-40Hz)          기저선 대역 비중.  **낮을수록** 좋다
+  pSQI         P(5-20Hz) / P(0-62.5Hz)       QRS 대역 비중.    높을수록
+  kSQI         첨도 = m4 / m2^2               잡음 없는 QRS 일수록 높다 (통상 5 이상)
+  bSQI         |R1 & R2| / |R1 | R2|          두 검출기의 박동 일치 (허용 150 ms)
+  ECGMeanCoef  mean_b corr(박동_b, 평균 템플릿)  박동 형태의 일관성
 
-신호마다 따로 검출하면 "박동을 찾았는가"(검출 오차)와 "찾은 자리에서 잰 값이 맞는가"
-(측정 오차)가 섞인다. 여기서 보려는 것은 뒤쪽이다 — 기준점을 고정하면 박동이 1:1 로
-짝지어져 **박동별 오차**를 낼 수 있고, 남는 차이는 온전히 파형 왜곡에서 온다.
+bSQI 는 neurokit · pantompkins1985 두 검출기를 쓴다. 10초 분절에 박동이 12~13개뿐이라
+값이 이산적이다 — 분별력은 있으나 해상도가 거칠다.
 
-검출 성능 자체는 04·05 의 F1 에 있다.
+════════════════════════════════════════════════════════════════════════
+② 임상 형태 지표 — 참값 기준
+════════════════════════════════════════════════════════════════════════
+**기준점을 공유한다 — 핵심 설계.** R-피크는 x_clean 에서 한 번 검출해 세 신호에 똑같이
+적용한다. 신호마다 따로 검출하면 "박동을 찾았는가"(검출 오차)와 "찾은 자리에서 잰 값이
+맞는가"(측정 오차)가 섞인다. 기준점을 고정하면 박동이 1:1 로 짝지어져 **박동별 오차**를
+낼 수 있고, 남는 차이는 온전히 파형 왜곡에서 온다. 검출 성능 자체는 03 의 F1 에 있다.
+분절 가장자리 400 ms 안쪽 박동은 창이 잘려 뺀다.
 
-────────────────────────────────────────────────────────────────────────
-지표 두 층 — ① SQI(참값 불필요) · ② 임상 형태 지표(참값 대비 오차)
-────────────────────────────────────────────────────────────────────────
-① ST 분절 편위 — ST60 · ST80 (mV)
-    **무엇인가**  QRS 가 끝나는 지점(J 점)에서 60 ms, 80 ms 뒤의 신호 높이를 기저선
-    (PQ 구간) 대비로 잰 값이다. 위로 올라가면 ST 상승, 아래로 내려가면 ST 하강이라
-    부르고, **심근경색과 허혈 진단의 핵심 지표**다.
+    기저선  = mean(x[R-80ms : R-40ms])          PR 구간, 등전위선
+    J점     = R + 40ms                           (QRS 종료점 검출은 잡음에 불안정)
 
-    **어떻게 재나**
-        기저선  PR 구간 [R-80ms, R-40ms] 의 평균 — 등전위선으로 삼는다
-        J 점    R + 40 ms 로 근사한다 (QRS 종료점 검출은 잡음에서 특히 불안정하다)
-        측정    ST60 = x[J+60ms] - 기저선,  ST80 = x[J+80ms] - 기저선
+    ST60    = x[J+60ms] - 기저선                 [mV]   심근경색·허혈 진단의 핵심
+    ST80    = x[J+80ms] - 기저선                 [mV]
+    R진폭   = max(x[R+-50ms]) - 기저선            [mV]   심실 비대 판정 등
+    QRS면적 = sum|x[R-50ms:R+60ms] - 기저선|/fs*1000   [mV*ms]
 
-    **왜 여기서 보나**  기저선 대비로 재므로 기저선이 흔들리면 그대로 틀린다.
-    bw(기저선 변동)가 정확히 그 기저선을 흔든다.
+**ST 는 기저선 대비로 재므로 기저선이 흔들리면 그대로 틀린다 — bw 가 정확히 그 기저선을
+흔든다.** 반면 R진폭·QRS면적은 기저선과 R피크가 ~100 ms 밖에 떨어져 있지 않아 느린 잡음이
+**빼면 상쇄된다**(bw 기여 0.0085 mV, 신호 SD 의 1/20). 원래 잡음에 둔감한 지표라 얻을 것이
+적고, 대신 재구성 오차가 그대로 얹힌다.
 
-② QT 간격 — **제외한다**
-    Q 파 시작부터 T 파 끝까지의 시간이고 길어지면 부정맥 위험이 있는 지표지만, 여기서는
-    싣지 않는다. 상용 ECG 판독 프로그램 간 QT 측정 차이가 6-10 ms 인데 우리 절대오차는
-    47-64 ms 였다. **지표 자체의 판별력이 없다** — T 종료점 검출이 참값에서도 흔들리기
-    때문이다. 분할 코드(`delineate`)는 남겨 두되 집계에서 뺀다.
-
-③ QRS 진폭·면적 — R진폭 (mV) · QRS면적 (mV·ms)
-    **무엇인가**  R 파의 높이와 QRS 복합체 아래 면적이다. 둘 다 **심실 비대 판정** 등에
-    쓰인다.
-
-    **어떻게 재나**
-        R 진폭   max(x[R±50ms]) - 기저선
-        QRS 면적  sum |x[R-50ms : R+60ms] - 기저선| / fs * 1000
-
-    **왜 여기서 보나**  진폭이 곧 지표라 잡음이 그대로 오차가 된다. 계산이 단순한 것이
-    장점이다.
+**QT·QTc 는 제외한다.** 상용 ECG 판독 프로그램 간 QT 측정 차이가 6-10 ms 인데 우리
+절대오차는 47-64 ms 였다. **지표 자체의 판별력이 없다** — T 종료점 검출이 참값에서도
+흔들리기 때문이다. 되살리려면 neurokit2 `ecg_delineate`(dwt)로 R_Onset·T_Offset 을 찾으면 된다.
 
 ────────────────────────────────────────────────────────────────────────
 집계
 ────────────────────────────────────────────────────────────────────────
 박동별 오차 = (처리 전 또는 처리 후 값) - (참값). 부호를 살린 편향과 절댓값을 함께 본다.
-분절 안에서 잰 뒤 **박동 전체**로 모아 중앙값·평균±SD·분위수를 내고, 기록별 표도 낸다.
-
-읽는 법은 단순하다 — **표와 그림의 값은 모두 오차다. 작아졌으면 참값(x_clean)에 더
-가까워진 것이다.** 예를 들어
+**표와 그림의 값은 모두 오차다. 작아졌으면 참값에 더 가까워진 것이다.**
 
     x_clean 에서 잰 ST60 = 0.05 mV   (참값)
     x_noisy 에서 잰 ST60 = 0.18 mV   -> 오차 |0.18 - 0.05| = 0.13 mV
-    A 성분차감에서 잰 ST60 = 0.11 mV  -> 오차 |0.11 - 0.05| = 0.06 mV
+    B 재구성에서 잰 ST60  = 0.11 mV   -> 오차 |0.11 - 0.05| = 0.06 mV
 
 `개선된_박동비율` 은 박동 단위로 처리 후 절대오차가 처리 전보다 작아진 비율이다.
+입력 SNR 구간별·기록별 분해도 낸다 — "언제 유효한가".
+
+`--from-05 <05의 segments.csv>` 를 주면 05 에서 그림으로 본 그 분절들만 평가한다.
 
 값에 대한 해석·판정은 붙이지 않는다.
 
 ────────────────────────────────────────────────────────────────────────
 산출물  results/06_ablation/<run>/<split>/
 ────────────────────────────────────────────────────────────────────────
-    sqi_summary.csv       ① SQI 4종 — 계열별 중앙값·평균±SD (참값 불필요)
-    beats.csv             ② 박동 × 계열 — 지표 원값 (기록·분절·박동 위치 포함)
-    metric_summary.csv    지표별 집계 — 참값·처리 전·처리 후의 값과 오차
-    error_by_record.csv   기록별 절대오차 중앙값, 처리 전/후 나란히
-    breakdown.csv         입력 SNR 구간별·기록별 분해 — 언제 유효한가
-    figures/sqi_compare.png     ① SQI 계열별 분포와 분절별 이동
-    figures/error_compare.png   ② 지표별 절대오차 분포와 기록별 변화
+  sqi_summary.csv       ① SQI 5종 — 계열별 중앙값·평균
+  beats.csv             ② 박동 x 계열 — 지표 원값 (기록·분절·박동 위치·입력SNR)
+  metric_summary.csv    ② 지표별 집계 — 값·편향·절대오차·개선 비율
+  error_by_record.csv   ② 기록별 절대오차 중앙값
+  breakdown.csv         입력 SNR 구간별·기록별 분해
+  figures/sqi_compare.png     ① 처리 전/후 분포와 분절별 이동
+  figures/error_compare.png   ② 절대오차 분포와 기록별 변화
 """
 import argparse
 import os
@@ -123,12 +113,8 @@ def _ms(v, fs):
     return int(round(v / 1000.0 * fs))
 
 
-def beat_measures(sig, peaks, fs, waves=None):
-    """박동마다 지표를 잰다. 창이 분절 밖으로 나가면 그 박동은 NaN.
-
-    `waves` 는 참값에서 얻은 파형 분할이다 — QT 는 신호마다 다시 분할해 재므로
-    호출부가 그 신호의 분할을 넘긴다.
-    """
+def beat_measures(sig, peaks, fs):
+    """박동마다 지표를 잰다. 창이 분절 밖으로 나가면 그 박동은 NaN."""
     L = len(sig)
     b0, b1 = _ms(BASE_MS[0], fs), _ms(BASE_MS[1], fs)
     j = _ms(J_MS, fs)
@@ -150,26 +136,6 @@ def beat_measures(sig, peaks, fs, waves=None):
         row["QRS면적_mVms"] = float(np.abs(sig[r + q0:r + q1] - base).sum()) / fs * 1000.0
         rows.append(row)
     return rows
-
-
-def delineate(sig, peaks, fs):
-    """QRS 시작점·T 종료점. 실패하면 NaN 으로 채운다 (잡음에서 흔한 일이다)."""
-    out = {"onset": np.full(len(peaks), np.nan), "offset": np.full(len(peaks), np.nan)}
-    if len(peaks) < 3:
-        return out
-    try:
-        import neurokit2 as nk
-        _, w = nk.ecg_delineate(np.asarray(sig, dtype=np.float64),
-                                rpeaks={"ECG_R_Peaks": np.asarray(peaks)},
-                                sampling_rate=fs, method="dwt", show=False)
-        on = np.asarray(w.get("ECG_R_Onsets", []), dtype=np.float64)
-        off = np.asarray(w.get("ECG_T_Offsets", []), dtype=np.float64)
-        n = min(len(peaks), len(on), len(off))
-        out["onset"][:n] = on[:n]
-        out["offset"][:n] = off[:n]
-    except Exception:
-        pass
-    return out
 
 
 @torch.no_grad()
@@ -212,13 +178,18 @@ def fig_sqi(q, out, run, split, n_seg):
     ax = np.atleast_2d(ax)
     cols = {SERIES[0]: "#1f77b4", SERIES[1]: "#000", SERIES[2]: "#c44e52"}
     for c, k in enumerate(keys):
-        vals = [q[k][s][~np.isnan(q[k][s])] for s in SERIES]
-        hi = float(np.nanpercentile(np.concatenate(vals), 98))
-        lo = float(np.nanpercentile(np.concatenate(vals), 2))
+        # 상자는 **처리 전·후 둘만** 그린다 — 이 층의 요지는 참값이 필요 없다는 것이다.
+        # 참값은 방향을 읽을 기준선으로만 남긴다 (가로 점선).
+        vals = [q[k][s][~np.isnan(q[k][s])] for s in SERIES[1:]]
+        allv = np.concatenate(vals + [q[k][SERIES[0]][~np.isnan(q[k][SERIES[0]])]])
+        hi = float(np.nanpercentile(allv, 98))
+        lo = float(np.nanpercentile(allv, 2))
         a = ax[0, c]
-        a.boxplot([np.clip(v, lo, hi) for v in vals], showfliers=False, widths=.55,
-                  tick_labels=["참값", "처리 전", "처리 후"])
-        a.axhline(np.nanmedian(q[k][SERIES[0]]), color="#1f77b4", ls="--", lw=1)
+        a.boxplot([np.clip(v, lo, hi) for v in vals], showfliers=False, widths=.5,
+                  tick_labels=["처리 전", "처리 후"])
+        a.axhline(np.nanmedian(q[k][SERIES[0]]), color="#1f77b4", ls="--", lw=1.2,
+                  label="참값 중앙값")
+        a.legend(fontsize=7, loc="best")
         a.set_title(f"{k}   {dirn.get(k, '높을수록 좋다')}" + NL
                     + f"전 {np.nanmedian(q[k][SERIES[1]]):.3f} → "
                     f"후 {np.nanmedian(q[k][SERIES[2]]):.3f} "
@@ -296,7 +267,7 @@ def fig_error(beats, err_rec, out, run, split, n_beat, n_rec):
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K4_seed42", split="test", n=None,
+def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
          outdir=None, from05=None, method="B"):
     global SERIES
     SERIES = (SERIES[0], SERIES[1], LABELS[method])
@@ -460,7 +431,7 @@ def main(config="configs/default.yaml", run="K4_seed42", split="test", n=None,
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="K4_seed42")
+    p.add_argument("--run", default="C16_seed42")
     p.add_argument("--split", default="test")
     p.add_argument("--n", type=int, default=None)
     p.add_argument("--from-05", dest="from05", default=None,

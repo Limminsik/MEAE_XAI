@@ -1,60 +1,61 @@
-"""04 — 마스킹 복원 평가 (RESEARCH_DESIGN.md §9). [S5]
+"""04 — 디노이징 성능.
 
-03에서 확정한 모델의 **인코딩만 마스킹**해 복원하고, 그 결과를 clean 참조로 채점한다.
-가중치를 다시 학습하지 않는 **추론 시점 조작**이다 (§0 원칙 1).
+03 에서 확정한 모델의 **인코딩만 마스킹**해 복원하고, 그 결과를 x_clean 으로 채점한다.
+가중치를 다시 학습하지 않는 **추론 시점 조작**이다.
 
-    python 04_masked_denoising.py --run K8_seed42 --split val
-
-────────────────────────────────────────────────────────────────────────
-전수 조합
-────────────────────────────────────────────────────────────────────────
-2^K = 256개 마스킹 조합 × 해당 split 전체 분절. 최적 조합 선정은 **하지 않는다** —
-전수 결과를 먼저 보고, 지표 5종이 각각 어느 조합을 지목하는지 표로 제시한 뒤
-일치 여부를 확인하고 선정 기준을 따로 논의해 정한다.
+    python 04_masked_denoising.py --run C16_seed42 --split test --three-ways
 
 ────────────────────────────────────────────────────────────────────────
-비교 구조 — 기준은 x_clean, **mV 원단위**(표준화하지 않는다)
+비교 대상 — 기준은 x_clean, **mV 원단위**(표준화하지 않는다)
 ────────────────────────────────────────────────────────────────────────
-    ⓐ x_noisy          처리 전
-    ⓑ M0 복원          마스킹 없이 재구성만 거친 상태
-    ⓒ 각 마스킹 조합   최종
+  B  마스킹 재구성   D(z_1, 0, 0, 0)                        **주 결과**
+  a  입력           x_noisy                                 기준선
+  대역통과 0.5-40Hz  Butterworth 4차 + filtfilt              비교 (고전)
+  웨이블릿 임계값     sym8 level 5, universal threshold       비교 (고전)
+  웨이블릿+기저선제거  sym8 level 7, 근사계수 제거 + 임계값      비교 (고전)
+  A  성분 차감       x_noisy - s_bw - s_ma - s_em            보조 (성분 추정 검증)
+  b  M0 재구성       D(z_1, z_2, z_3, z_4)                   참고
 
-    ⓒ − ⓐ = 전체 개선량      ⓒ − ⓑ = 마스킹 순효과
+**B 를 중심으로 본다.** A 는 원본 x_noisy 를 유지한 채 모델 추정치만 빼므로, 모델이
+아무것도 못 뽑아도 x_noisy 만큼은 보장된다. 신호 전체를 디코더가 새로 그려야 하는 B 와
+출발선이 같지 않다. C(마스킹 디코드)는 K=4 에서 B 와 같은 연산이라 최대 절대차를 함께 싣는다.
 
-세 상태를 각각 clean과 비교한다. ⓑ를 따로 두는 이유: 개선량 중 어디까지가 재구성 자체의
-몫이고 어디부터가 마스킹의 몫인지 갈라야 하기 때문이다.
+a·b 를 두는 이유: 개선량 중 어디까지가 재구성 자체의 몫이고 어디부터가 마스킹의 몫인지
+갈라야 한다.
+
+**고전 비교선 두 가지 주의**
+  1. DC 오프셋을 되돌린다. 0.5 Hz 고역통과와 근사계수 제거는 x_clean 이 가진 기저
+     오프셋(중앙값 -0.283 mV)까지 지운다. **입력의 평균**을 되돌린다 — 참값을 쓰지
+     않으므로 누수가 없다.
+  2. 웨이블릿 임계값 단독은 bw 를 못 없앤다. 임계값이 세부계수(고주파)만 건드리는데
+     기저선 변동은 근사계수에 있다. 근사계수를 함께 버린 변형을 따로 싣는다.
 
 ────────────────────────────────────────────────────────────────────────
-지표 5종 (DeepFilter·MECG-E 표준 세트)
+지표 — 주 2종 + 보조 5종
 ────────────────────────────────────────────────────────────────────────
-    SSD     Σ(est−clean)²                       낮을수록 유사
-    MAD     max|est−clean|                      낮을수록 유사   (S4의 MAD와 달리 mV 원단위)
-    PRD     100·√(Σ(est−clean)²/Σclean²)  [%]   낮을수록 유사
-    CosSim  코사인 유사도                        높을수록 유사
-    ΔSNR    10log10(var(clean)/mean(잔차²))      높을수록 유사
+  주   SNR      10log10(var(clean) / mean(잔차^2))  [dB]      높을수록
+       dSNR     SNR(추정) - SNR(x_noisy)                      높을수록. **개선량**
+       PRD      100 sqrt(sum(d^2) / sum(clean^2))  [%]        낮을수록
+  보조 corr · RMSE · SSD · MAD(mV 원단위) · CosSim
 
-────────────────────────────────────────────────────────────────────────
-부수 산출
-────────────────────────────────────────────────────────────────────────
-  · 단독 마스킹 8개 — 인코더를 하나씩만 껐을 때의 개별 효과
-  · 누적 곡선 — 03의 잡음 유사도 순으로 하나씩 추가 마스킹했을 때의 지표 변화
-  · R-피크 진폭비(복원/clean) — 형태 훼손 감시
+**분해** — 입력 SNR 구간별·기록별로 같은 지표를 다시 집계한다(`breakdown.csv`).
+"언제 유효한가"가 여기서 나온다.
+
+전수 조합(2^K)은 `--three-ways` 없이 부르면 나온다. 최적 조합 선정은 하지 않는다.
 
 값에 대한 해석·명명은 붙이지 않는다.
 
 ────────────────────────────────────────────────────────────────────────
 산출물  results/04_masked_denoising/<run>/<split>/
 ────────────────────────────────────────────────────────────────────────
-  exhaustive.csv        256조합 × 지표 5종 (중앙값·평균±SD) + ⓐ·ⓑ 대비 델타
-  baseline.csv          ⓐ x_noisy · ⓑ M0 의 지표
-  best_by_metric.csv    지표별 최적 조합과 일치 여부
-  single_mask.csv       단독 마스킹 8개
-  cumulative.csv        누적 마스킹 곡선
-  rpeak_ratio.csv       R-피크 진폭비
-  persegment_top.csv    주요 조건의 분절별 원값
-  figures/  exhaustive_scatter   마스킹 개수 대 지표 5종
-            metric_tradeoff     지표 간 산포 (ΔSNR–R피크 / ΔSNR–MAD / CosSim–MAD)
-            single_mask · cumulative · rpeak_ratio
+  three_ways.csv        7상태 x 지표 8종 (구분 열에 역할 표시)
+  breakdown.csv         입력 SNR 구간별·기록별 재집계
+  three_ways_note.txt   정의와 B/C 실측 절대차
+  figures/three_ways.png          적층 — 다섯 상태를 세로로
+  figures/three_ways_overlay.png  x_clean 위에 처리 전/후를 겹치고 각각의 잔차
+
+  (--three-ways 없이) exhaustive.csv · baseline.csv · best_by_metric.csv ·
+  single_mask.csv · cumulative.csv · rpeak_ratio.csv · persegment_top.csv
 """
 import argparse
 import itertools
@@ -303,7 +304,7 @@ def fig_rpeak(tab, out):
 
 
 # ================================================================
-# [version4] 복원 세 방식 나란히
+# 복원 비교 — 마스킹·차감·고전
 #
 # NL — 줄바꿈 상수. 이 파일을 스크립트로 고칠 때 이스케이프가 깨지는 사고를 피한다.
 #
@@ -321,7 +322,7 @@ def fig_rpeak(tab, out):
 NL = chr(10)
 
 
-def three_ways(config="configs/default.yaml", run="K4_seed42", split="val",
+def three_ways(config="configs/default.yaml", run="C16_seed42", split="val",
                n=None, outdir=None):
     cfg = load_cfg(config)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -514,7 +515,7 @@ def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab):
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K8_seed42", split="val", n=None, outdir=None):
+def main(config="configs/default.yaml", run="C16_seed42", split="val", n=None, outdir=None):
     cfg = load_cfg(config)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     outdir = outdir or os.path.join("results", "04_masked_denoising", run, split)
@@ -631,7 +632,7 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", n=None, ou
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="K4_seed42")
+    p.add_argument("--run", default="C16_seed42")
     p.add_argument("--split", default="val")
     p.add_argument("--n", type=int, default=None)
     p.add_argument("--outdir", default=None)

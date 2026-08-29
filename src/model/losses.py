@@ -80,7 +80,7 @@ def build(cfg, n_encoders: int) -> MEAELoss:
 
 
 # ================================================================
-# [version4 전용] 지도 손실
+# 지도 손실
 #
 #   L      = (1/L)‖x̂ − x_noisy‖²  +  λ_sup · L_sup
 #

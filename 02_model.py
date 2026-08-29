@@ -34,33 +34,21 @@ enc4 em (`loss.supervise`). 결과를 자기지도 결과와 같은 줄에 놓�
 ────────────────────────────────────────────────────────────────────────
 비용 함수 ② — 체크포인트 선택 기준
 ────────────────────────────────────────────────────────────────────────
-    x̂_k  = D(0,…,z_k,…,0)                  k번째 인코딩만 남긴 재구성, 중앙 3600 크롭
-    ρ_k(r) = mean_{s∈V} |ρ(x̂_k^(s), r^(s))|   V = 검증 전체 900분절
-    S(t)   = mean over 참조 4종 of [ max_k ρ_k(r) ]
-
-    **지도학습의 선택 기준은 성분 정렬 손실이다** — 답을 직접 주므로 대리 지표가 필요 없다.
+    **선택 기준은 성분 정렬 손실 자체다** — 답을 직접 주므로 대리 지표가 필요 없다.
 
         C  = { t : L_sup^val(t) ≤ ratio × min_τ L_sup^val(τ) },  ratio = 1.5   (후보 보관용)
         t* = argmin_t L_sup^val(t)
 
-    S와 val_recon 은 계속 기록하지만 선택에는 쓰지 않는다 (자기지도 결과와의 대조용).
+    S(성분 <-> x_clean 상관의 최댓값)와 val_recon 은 계속 기록하지만 선택에는 쓰지 않는다.
 
-    S는 심장(clean) 하나가 아니라 **참조 4종 전부**를 반영한다 — 그 에폭의 모델이
-    네 신호를 전반적으로 얼마나 잡아내는가다. 집계 구간·상관 정의는 03 보고 표와 같다.
-
-    1단계는 학습 중 `eval_every`(2)에폭 간격으로 기록하고, 2단계는 **학습 종료 후**
-    후보 전체에 대해 `--epoch-metrics` 로 일괄 산출한다.
-    x_clean·bw·ma·em은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다 (§0 원칙 4).
-
-산출물: `experiments/02_model/<그룹>/<run>/` — `--group` 으로 묶는다
-        탐색은 전부 experiments 다. `results/` 는 **최종 선정 모델 하나** 전용이라
+산출물: `<out-root>/02_model/<그룹>/<run>/` — `--group` 으로 묶는다
+        탐색은 전부 experiments(기본값)다. `results/` 는 **최종 선정 모델 하나** 전용이라
         확정한 뒤에만 `--out-root results` 로 돌린다.
     학습        `<run>.pt` · `history.csv` · `stage1.json` · `console.log` ·
-                `pool/`(후보 가중치) · `plots/`(에폭 그림 2종)
-    자동 평가    `metrics/`(성분 정렬 지표 6종·그림) · `restore/`(복원 세 방식)
-                 학습이 끝나면 항상 함께 낸다. `--no-eval` 로만 끈다.
-    --epoch-metrics   `epoch_metrics/`(후보별 평가 표) · `selection.json`
-    --diagnose        `fidelity/`(재구성 충실도 진단)
+                `pool/`(후보 가중치) · `plots/`(에폭 그림 2종: 적층 · 배정 쌍 겹침)
+    자동 평가    `metrics/`(성분 정렬) · `restore/`(복원)  — 학습이 끝나면 항상 함께 낸다.
+                 `--no-eval` 로만 끈다.
+    --diagnose  `fidelity/`(재구성 충실도 진단 — 서술 지표)
 
 `results/` 전체가 **최종 선정 모델 하나** 전용이다. 탐색 단계의 학습·지표·그림은 모두
 `experiments/` 안에 있고, 각 런의 지표는 그 런 폴더 안(`metrics/`·`restore/`)에 있다.
@@ -286,12 +274,7 @@ def _plot_pairs(model, val, cfg, device, path, idx=0, epoch=None):
 
 
 def select(history, ratio):
-    """[version4] 성분 정렬 손실 L_sup^val 로 후보 집합 C를 만들고 최소점을 고른다.
-
-    2단계(S 최대화)는 학습 중에 할 수 없다. S가 검증 전체에서 성분을 다 뽑아야 나오는
-    값이라 매 에폭 계산하면 학습이 크게 느려지기 때문이다. 후보 가중치를 보관해 두고
-    학습이 끝난 뒤 `epoch_metrics()` 가 2단계를 적용한다.
-    """
+    """성분 정렬 손실 L_sup^val 로 후보 집합 C를 만들고 최소점을 고른다."""
     # 후보는 **체크포인트가 저장된 에폭**(판정 에폭)뿐이다. 판정하지 않은 에폭은
     # pool/ 에 가중치가 없어 뽑아도 불러올 수 없다.
     ev = [h for h in history if h.get("S") is not None]
@@ -647,7 +630,7 @@ def fig_keep(f, curve, out, fmax=90):
     plt.close(fig)
 
 
-def diagnose(config="configs/default.yaml", run="K8_seed42", split="val", n=900,
+def diagnose(config="configs/default.yaml", run="C16_seed42", split="val", n=900,
              outdir=None):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
@@ -707,204 +690,6 @@ def diagnose(config="configs/default.yaml", run="K8_seed42", split="val", n=900,
 #
 #   이 표는 서술·투명성용이며 **선정 규칙을 바꾸지 않는다.**
 #   표를 보고 에폭을 손으로 고르면 기준 이동이 된다.
-# ================================================================
-METRICS = ("corr", "rmse_norm", "mad")
-
-
-def _pool_epochs(run_dir):
-    """pool/ 에 남아 있는 에폭 번호 (오름차순)."""
-    d = os.path.join(run_dir, "pool")
-    if not os.path.isdir(d):
-        raise SystemExit(f"[02] {d} 없음 — 먼저 학습해야 한다")
-    return sorted(int(f[2:6]) for f in os.listdir(d) if f.endswith(".pt"))
-
-
-def epoch_metrics(config="configs/default.yaml", run="K8_seed42", split="val",
-                  n=None, outdir=None):
-    cfg = load_cfg(config)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    run_dir = os.path.join("results", "02_model", run)
-    outdir = outdir or os.path.join(run_dir, "epoch_metrics")
-    figdir = os.path.join(outdir, "figures")
-    os.makedirs(figdir, exist_ok=True)
-
-    hist = pd.read_csv(os.path.join(run_dir, "history.csv"), encoding="utf-8-sig")
-    p1 = os.path.join(run_dir, "stage1.json")
-    if not os.path.exists(p1):                       # 구 파일명 호환
-        p1 = os.path.join(run_dir, "selection.json")
-    with open(p1, encoding="utf-8") as f:
-        sel = json.load(f)
-    ds = load(cfg, split)
-    idx = np.arange(len(ds) if n is None else min(n, len(ds)))
-    epochs = _pool_epochs(run_dir)
-    refs_c = list(REF_KEYS)
-    print(f"[02] 후보 에폭 {len(epochs)}개 × {split} {len(idx)}분절 — 지표 3종 산출")
-
-    rows_of = {m: [] for m in METRICS}
-    summary = []
-    for e in epochs:
-        model, _ = load_ckpt(cfg, os.path.join(run_dir, "pool", f"ep{e:04d}.pt"))
-        model = model.to(device)
-        comps, refs = component_bank(model, ds, device, idx)
-        K = comps.shape[1]
-        ix = enc_names(K)
-        rbar, rsd, _ = aggregate(pearson(comps, refs))
-        # 비용 함수 ② 의 S — 참조 4종 각각에서 최고 인코더의 평균 상관을 구하고, 그 넷을 평균한다.
-        # 심장 하나가 아니라 **모델 전체의 분리 상태**를 반영한다.
-        per_ref = rbar.max(0)                                  # 참조별 max_k [mean_s |ρ_k|]
-        S_new = float(per_ref.mean())
-        vals = {"corr": (rbar, rsd)}
-        for name, arr in (("rmse_norm", rmse_norm_matrix(comps, refs)),
-                          ("mad", mad_matrix(comps, refs))):
-            vals[name] = (arr.mean(0), arr.std(0, ddof=1))
-        for m, (mu, sd) in vals.items():
-            for k in range(K):
-                # 평균과 SD 를 한 행에 나란히 둔다 — 값과 산포는 같이 봐야 한다
-                cell = {}
-                for j, c in enumerate(refs_c):
-                    cell[c] = mu[k, j]
-                    cell[f"{c}_sd"] = sd[k, j]
-                rows_of[m].append({"에폭": e, "인코더": ix[k], **cell})
-
-        h = hist[hist.epoch == e]
-        row = {"에폭": e,
-               "val_recon": float(h.val_recon.iloc[0]) if len(h) else np.nan,
-               "S": S_new,
-               **{f"S기여_{c}": float(per_ref[j]) for j, c in enumerate(refs_c)}}
-        # 참조별로 어느 인코더가 1위인지 — 지표마다 방향이 다르다
-        for m, (mu, _sd) in vals.items():
-            best = mu.argmax(0) if m == "corr" else mu.argmin(0)
-            for j, c in enumerate(refs_c):
-                row[f"{m}_{c}_최고인코더"] = ix[int(best[j])]
-                row[f"{m}_{c}_값"] = float(mu[int(best[j]), j])
-        summary.append(row)
-        print(f"  ep{e:4d}  S {S_new:.4f}   " +
-              "  ".join(f"{c} {per_ref[j]:.3f}" for j, c in enumerate(refs_c)), flush=True)
-
-    for m in METRICS:
-        pd.DataFrame(rows_of[m]).round(4).to_csv(
-            f"{outdir}/{m}_by_epoch.csv", index=False, encoding="utf-8-sig")
-    summ = pd.DataFrame(summary).round(4)
-
-    # ---- 비용 함수 ② 2단계. 1단계 관문(배율 1.5)은 pool 구성으로 이미 반영돼 있다.
-    win = summ.loc[summ["S"].idxmax()]
-    summ["선택여부"] = ["선택" if e == int(win["에폭"]) else "" for e in summ["에폭"]]
-    summ.to_csv(f"{outdir}/epoch_summary.csv", index=False, encoding="utf-8-sig")
-
-    scols = ["에폭", "val_recon", "S"] + [f"S기여_{c}" for c in refs_c]         + [f"corr_{c}_최고인코더" for c in refs_c]
-    top5 = summ.nlargest(5, "S")[scols]
-    top5.to_csv(f"{outdir}/top5_by_S.csv", index=False, encoding="utf-8-sig")
-
-    # 선택된 체크포인트를 본 가중치로 확정한다 — 03·04·05 가 이 파일을 읽는다
-    best_pt = os.path.join(run_dir, "pool", f"ep{int(win['에폭']):04d}.pt")
-    shutil.copyfile(best_pt, os.path.join(run_dir, f"{run}.pt"))
-
-    chosen = {
-        "run": run, "split": split, "n_seg": int(len(idx)),
-        "rule": ("S(t) = mean over 참조 4종 of [ max_k ( mean_s |rho_k(r)| ) ], "
-                 "검증 전체"),
-        "stage1": f"val_recon <= {sel['ratio']} x min  (pool 구성에 반영돼 있다)",
-        "n_candidates": int(len(summ)),
-        "candidate_range": [int(summ["에폭"].min()), int(summ["에폭"].max())],
-        "selected_epoch": int(win["에폭"]),
-        "S": float(win["S"]),
-        "S기여": {c: float(win[f"S기여_{c}"]) for c in refs_c},
-        "val_recon": float(win["val_recon"]),
-        "checkpoint": f"{run}.pt  (pool/ep{int(win['에폭']):04d}.pt 복사)",
-        "top5": top5.to_dict("records")}
-    with open(os.path.join(run_dir, "selection.json"), "w", encoding="utf-8") as f:
-        json.dump(chosen, f, ensure_ascii=False, indent=2)
-
-    fig_epoch_metrics(summ, hist, sel, f"{figdir}/epoch_metrics.png",
-                      new_best=int(win["에폭"]),
-                      corr_tab=pd.DataFrame(rows_of["corr"]))
-
-    note = """후보 에폭별 성분<->참조 평가 표와 체크포인트 선택 — 비용 함수 ② 2단계.
-
-1단계(재구성 손실 관문)는 학습 중에 적용해 후보 가중치를 pool/ 에 남긴다.
-2단계는 여기서 한다:
-
-    rho_k(r) = mean_s |rho( x_hat_k, r )|          검증 {nseg}분절, 성분·참조를 분절 내 표준화
-    S(t)     = mean over 참조 4종 of [ max_k rho_k(r) ]
-    t*       = argmax_(t in C) S(t)
-
-S 는 심장(clean) 하나가 아니라 참조 4종 전부를 반영한다 — 그 에폭의 모델이 네 신호를
-전반적으로 얼마나 잡아내는가다. 집계 구간과 상관 정의는 03 보고 표와 같다.
-선택된 체크포인트는 {run}.pt 로 복사되며 03·04·05 가 그 파일을 읽는다.
-
-대상   pool/ 의 배율 {ratio} 후보 {ncand}개 (에폭 {e0}~{e1}, {every}에폭 간격)
-구간   {split} {nseg}분절, 패딩 제외 중앙 3600 표본
-
-표 — 지표 하나 = 파일 하나. 행 (에폭, 인코더) x 열 (참조 4종의 평균과 SD, ddof=1)
-  corr_by_epoch.csv        분절 내 Pearson 절댓값 -> 분절 간 평균 (높을수록 유사)
-  rmse_norm_by_epoch.csv   표준화 신호 차이의 RMS -> 분절 간 평균 (낮을수록 유사)
-  mad_by_epoch.csv         그 차이의 최댓값       -> 분절 간 평균 (낮을수록 유사)
-  epoch_summary.csv        에폭당 1행 — S, 참조별 S 기여, 참조별 최고 인코더와 값
-  top5_by_S.csv            S 상위 5개
-  ../selection.json        선택 결과와 규칙 (가중치 옆)
-  figures/epoch_metrics.png
-""".format(nseg=len(idx), run=run, ratio=sel["ratio"], ncand=len(epochs),
-           e0=epochs[0], e1=epochs[-1], every=sel["eval_every"], split=split)
-    with open(f"{outdir}/epoch_metrics_note.txt", "w", encoding="utf-8") as f:
-        f.write(note)
-
-    pd.set_option("display.width", 260)
-    print(f"\n산출물 → {outdir}/")
-    return summ
-
-
-def fig_epoch_metrics(summ, hist, sel, out, new_best, corr_tab=None):
-    """에폭축 3행 그림 — 관문 / 참조별 최고 |r| / 인코더별 clean |r|."""
-    ratio = sel["ratio"]
-    best = new_best
-    lo = sel["min_val_recon"]
-    cols = {"x_clean": "#2ca02c", "bw": "#d62728", "ma": "#ff7f0e", "em": "#9467bd"}
-    fig, ax = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
-
-    a = ax[0]
-    a.plot(hist.epoch, hist.val_recon, lw=1, color="#1f77b4", label="val_recon")
-    a.axhline(lo, color="#888", ls=":", lw=1, label=f"최소 {lo:.5f}")
-    a.axhline(ratio * lo, color="#d62728", ls="--", lw=1.2,
-              label=f"{ratio}× 관문 {ratio * lo:.5f}")
-    a.axvspan(summ["에폭"].min(), summ["에폭"].max(), color="#2ca02c", alpha=.08,
-              label=f"후보 구간 ({len(summ)}개)")
-    a.set_ylabel("L_recon^val")
-    a.set_title("① 1단계 관문 — 재구성 손실", fontsize=10, loc="left")
-    a.legend(fontsize=7.5, ncol=2)
-
-    a = ax[1]
-    for c in REF_KEYS:
-        a.plot(summ["에폭"], summ[f"corr_{c}_값"], "o-", ms=3, lw=1.1,
-               color=cols[c], label=f"{c} 최고 |r|")
-    a.set_ylabel("|r|")
-    a.set_title("② 참조별 최고 인코더의 |r| — 검증 전체", fontsize=10, loc="left")
-    a.legend(fontsize=7.5, ncol=3)
-
-    a = ax[2]
-    if corr_tab is not None:
-        for enc, g in corr_tab.groupby("인코더", sort=False):
-            a.plot(g["에폭"], g["x_clean"], lw=1, label=enc)
-    a.set_ylabel("clean |r| (평균)")
-    a.set_xlabel("에폭")
-    a.set_title("③ 인코더별 clean 상관 — 어느 인코더가 언제 심장 성분을 잡는가",
-                fontsize=10, loc="left")
-    a.legend(fontsize=7, ncol=4)
-
-    for a in ax:
-        a.axvline(best, color="#d62728", lw=1.2, ls="--", alpha=.55)
-        a.grid(alpha=.3, lw=.4)
-        a.tick_params(labelsize=8)
-    ax[0].annotate(f"선택 에폭 {best}", (best, ax[0].get_ylim()[1]),
-                   xytext=(4, -12), textcoords="offset points",
-                   fontsize=9, color="#d62728", alpha=.8)
-    fig.suptitle(f"후보 에폭별 선정 근거 — {sel['run']} (배율 {ratio}, 후보 {len(summ)}개)\n"
-                 "S(t) = 참조 4종 각각의 max_k [ mean_s |ρ_k(r)| ] 를 평균,  검증 전체",
-                 fontsize=12)
-    fig.tight_layout()
-    fig.savefig(out, bbox_inches="tight")
-    plt.close(fig)
-
-
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
@@ -915,9 +700,7 @@ if __name__ == "__main__":
                    help="성분 파형 그림 저장 간격(에폭). 1 = 모든 에폭")
     p.add_argument("--diagnose", action="store_true",
                    help="학습 대신 재구성 충실도 진단만 수행")
-    p.add_argument("--epoch-metrics", dest="epoch_metrics", action="store_true",
-                   help="후보 에폭별 성분<->참조 평가 표를 산출한다 (학습 없음)")
-    p.add_argument("--run", default="K8_seed42")
+    p.add_argument("--run", default="C16_seed42")
     p.add_argument("--split", default="val")
     p.add_argument("--n", type=int, default=900)
     p.add_argument("--hidden", type=int, default=None)
@@ -947,9 +730,7 @@ if __name__ == "__main__":
     p.add_argument("--no-eval", dest="no_eval", action="store_true",
                    help="학습 후 정량 지표 자동 산출을 건너뛴다")
     a = p.parse_args()
-    if a.epoch_metrics:
-        epoch_metrics(a.config, a.run, a.split, a.n)
-    elif a.diagnose:
+    if a.diagnose:
         diagnose(a.config, a.run, a.split, a.n)
     else:
         if a.k is None or a.seed is None:

@@ -1,21 +1,18 @@
 """05 — 보고용 겹침 그림.
 
-    python 05_figure.py --run K4_seed42 --split val
+    python 05_figure.py --run C16_seed42 --split test
 
 **같은 분절**에 대해 두 장면을 한 그림에 둔다.
 
     위 칸   x_clean 과 x_noisy 겹침          처리 전 — 무엇이 얹혀 있었나
-    아래 칸  x_clean 과 A 성분차감 겹침       처리 후 — 무엇이 남았나
+    아래 칸  x_clean 과 **B 복원** 겹침       처리 후 — 무엇이 남았나
 
 두 칸의 y 범위를 같게 잡는다. 그래야 "잡음이 얼마나 줄었나"를 눈금이 아니라 파형으로
 읽을 수 있다. 원하면 `--residual` 로 각 칸 아래에 잔차를 같은 범위로 덧붙인다.
 
-A 성분차감은 04와 **같은 정의**다.
-
-    A = x_noisy - ŝ_bw - ŝ_ma - ŝ_em
-
-성분 ŝ_k 는 `model.component(x, k)` — 다른 인코딩을 0으로 치환해 디코드한 것이고,
+B 는 04와 **같은 정의**다 — 잡음 인코딩 3개를 0으로 치환한 재구성 D(z_1, 0, 0, 0).
 배정은 `loss.supervise` (enc1 x_clean · enc2 bw · enc3 ma · enc4 em) 를 따른다.
+`--method A` 로 성분차감(x_noisy - s_bw - s_ma - s_em)을 그릴 수도 있으나 기본이 아니다.
 
 분절 선정은 **복원의 corr 순위**로 한다 — 결과를 보고 고른 사례이므로 제목에 그 사실과
 순위·백분위를 함께 적는다. 기본은 상위 4 · 중간 4 · 하위 4, 모두 12장이다.
@@ -113,7 +110,7 @@ def fig_pair(clean, noisy, rest, t, out, head, residual=False, label="B 재구�
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K4_seed42", split="val", n=None,
+def main(config="configs/default.yaml", run="C16_seed42", split="val", n=None,
          seg=None, residual=False, outdir=None, method="B"):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
@@ -187,7 +184,7 @@ def main(config="configs/default.yaml", run="K4_seed42", split="val", n=None,
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="K4_seed42")
+    p.add_argument("--run", default="C16_seed42")
     p.add_argument("--split", default="val")
     p.add_argument("--n", type=int, default=None)
     p.add_argument("--seg", nargs="*", default=None,

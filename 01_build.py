@@ -1,25 +1,17 @@
-"""01 — 데이터셋 구축 (RESEARCH_DESIGN.md §4). 완료·동결.
+"""01 — 데이터 스팟체크. **이 갈래는 데이터를 만들지 않는다.**
 
-MIT-BIH Arrhythmia(참조 ECG)와 NSTDB(실측 잡음)를 내려받아 검증하고, 기록 단위로 분할한 뒤,
-10초 비중첩 분절마다 bw·ma·em 세 잡음을 SNR 무작위로 주입해 실험용 데이터셋을 만든다.
-
-    python 01_build.py                       # 전체 (내려받기 → 분할 → 생성 → 스팟체크)
-    python 01_build.py --skip-download
-
-스팟체크만 다시 그릴 때 (데이터 재생성 없음)
+baseline 데이터(`../data/processed`)를 읽기 전용으로 쓰므로, 여기서는 그 분절이 실제로
+어떻게 생겼는지 그림으로 확인하는 일만 한다. 재생성이 필요하면 baseline 갈래에서 한다.
 
     python 01_build.py --spotcheck                      # split 마다 무작위 1개
     python 01_build.py --spotcheck 100_0114 231_0018    # 기록_분절 지정
     python 01_build.py --spotcheck --record 100 --from 110 --n 5
-                                                        # 한 기록의 연속 window 5개
-    python 01_build.py --appendix                       # 주입 부록만 다시 만들기
 
-산출
-  data/processed/{train,val,test}.npz   분절당 x_clean·x_noisy·bw·ma·em·rpeaks·meta
-  data/processed/split.json             기록 단위 분할 고정
-  results/01_build/                     스팟체크 그림 · 주입 부록
+그림은 분절마다 두 장이다.
+    <split>_<기록>_<분절>.png           적층 — x_clean · bw · ma · em · x_noisy
+    <split>_<기록>_<분절>_overlay.png   겹침 — x_clean 위에 x_noisy, 아래에 잡음 합
 
-구현은 `src/data/{download,split,build}.py` 에 있다 — S1은 동결이므로 그대로 호출만 한다.
+산출물: results/01_build/
 """
 import argparse
 import glob

@@ -1,59 +1,62 @@
-"""03 — 블라인드 소스 분리 결과의 참조 대응 평가 (RESEARCH_DESIGN.md §8).
+"""03 — 성분 <-> 참조 대응 평가.
 
 **여기는 최종 선정 모델 하나 전용이다.**
 
 02 에서 여러 설정을 돌려 본 결과(성분 정렬 지표·복원·그림)는 모두 그 런 폴더 안
-`experiments/02_model/<그룹>/<run>/metrics/` 에 있다. `results/` 는 최종 하나 전용이다. 그것들을 보고 **모델 하나를 고른 뒤**,
+`experiments/02_model/<그룹>/<run>/metrics/` 에 있다. 그것들을 보고 **모델 하나를 고른 뒤**,
 여기서 그 하나만 test 로 확인한다. 이후 04·05·06·07 은 모두 이 모델을 쓴다.
 
-    python 03_bss.py --run d1_1차차분/K4_g150 --split test --final
+    python 03_bss.py --run C16_seed42 --split test --final
 
-`--final` 을 주면 선정 기록(`selected.json`)을 남긴다 — 어느 런의 몇 번째 에폭인지,
-언제 고정했는지. 04 이후는 그 파일이 가리키는 모델을 쓰면 된다.
+`--final` 을 주면 선정 기록(`results/03_bss/selected.json`)을 남긴다 — 어느 런의 몇 번째
+에폭인지, 손실 계수가 무엇이었는지, 언제 고정했는지.
 
-성분 `x̂_k = D(0,…,z_k,…,0)` 를 뽑아 **실제 주입한 참조 4종**과의 대응을 표로 만든다.
-
+성분 `s_k = D(0,...,z_k,...,0)` 를 뽑아 **실제 주입한 참조 4종**과의 대응을 표로 만든다.
 선행 연구는 실제 소스 파형을 알 수 없어 심박수 같은 파생 지표로 간접 평가했다.
 본 연구는 주입 성분을 개별 보존하므로 **파형을 직접 대조**할 수 있다.
+
+배정이 미리 정해져 있으므로(enc1 x_clean / enc2 bw / enc3 ma / enc4 em)
+**대각이 주 지표**이고 비대각은 누출 확인용이다.
 
 ────────────────────────────────────────────────────────────────────────
 주 지표 4종 — 성분과 참조를 각각 **분절 내 표준화**(평균 0, SD 1)한 뒤 산출
 ────────────────────────────────────────────────────────────────────────
-[S4-01] |r|        분절 내 Pearson 절댓값 → 분절 간 평균 ± SD (ddof=1)
-                   부호 반전은 무관이 아니라 반대 위상의 일치이므로 절댓값을 쓴다.
-[S4-02] RMSE_norm  표준화 신호 차이의 RMS `sqrt(mean_i (ã−r̃)²)` → 평균 ± SD
-                   부호 정렬을 하지 않으므로 반대 위상은 값이 커진다.
-[S4-03] MAD        같은 차이 신호의 최댓값 `max_i |ã−r̃|` → 평균 ± SD. 단위는 표준편차.
-                   참조 파형의 첨도에 영향받으므로 열 내 비교에 적합하다.
+  |r|         분절 내 Pearson 절댓값 -> 분절 간 평균 +- SD (ddof=1).  높을수록
+              부호 반전은 무관이 아니라 반대 위상의 일치이므로 절댓값을 쓴다.
+  RMSE_norm   표준화 신호 차이의 RMS `sqrt(mean_i (a-r)^2)`.          낮을수록
+  MAD         같은 차이의 최댓값 `max_i |a-r|`. 단위는 표준편차.       낮을수록
+  F1          성분의 R-피크 <-> 참조 피크 매칭 (허용 50 ms).           높을수록
+              참조 피크가 3개 미만인 분절은 뺀다.
 
-원값 RMSE는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.
-SSD·PRD는 RMSE와 순위가 같으므로 여기서는 싣지 않는다(04에서 원단위로 쓴다).
+보조
+  누출비       max_{j != b(k)} |r|_kj / |r|_k,b(k).  낮을수록. 1 을 넘으면 배정된
+              소스보다 다른 소스를 더 담았다는 뜻이다.
+  대역 에너지   Welch PSD 의 vlf/lf/qrs/hf 전력 비율. 방향성 지표가 아니라 진단 도구다.
+  r_QRS       5-15 Hz 통과 후 |r|. 잡음 성분에서는 뜻이 없으므로 **clean 행에만** 싣는다.
 
-**표시는 열별**이다. |r|는 열 상위 2, RMSE·MAD는 열 하위 2. `[1]`=1위, `[2]`=2위.
-잡음 3종을 "잡음 최대"로 요약하지 않고 4열을 그대로 싣는다.
+원값 RMSE 는 폐기했다 — 성분의 절대 크기가 임의 스케일이라 순위가 뒤집힌다.
 
 **하지 않는 것**: 표본 수(N=3600) 기반 p값(시간적 자기상관으로 독립 관측 가정 불성립) ·
-인코더에 참조 이름 붙이기 · 값에 대한 해석·판정 · 순열 검정 · 코히런스 · 대역 분해.
+인코더에 참조 이름 붙이기(배정으로 이미 정해져 있다) · 순열 검정 · 코히런스.
 
 구간은 패딩 제외 **중앙 N=3600**, 분절은 해당 split 전체.
 
 ────────────────────────────────────────────────────────────────────────
-그림의 분절 선정 — **지표 상위 3개**
+그림의 분절 — **지표 상위 3개**
 ────────────────────────────────────────────────────────────────────────
-분절마다 `(1/4) Σ_r max_k |ρ_k(r)|` 를 구해 큰 순으로 3개를 쓴다. 모델 선택에 쓴 S와
-같은 형태다. 한 장만 실으면 그 사례가 얼마나 특수한지 알 수 없어 상위 몇 개를 함께 본다.
+분절마다 `(1/4) sum_r max_k |rho_k(r)|` 를 구해 큰 순으로 3개를 쓴다.
 **결과를 보고 고른 사례**이므로 그림 제목과 note 에 그 사실을 명시한다.
 
 ────────────────────────────────────────────────────────────────────────
 산출물  results/03_bss/<run>/<split>/
 ────────────────────────────────────────────────────────────────────────
-  corr_matrix.csv · rmse_norm_matrix.csv · mad_matrix.csv   각 8×4, 평균과 SD 나란히
-  metric_agreement.csv                                      세 지표의 행별 지목 일치 여부
-  figure_segments.csv                                       그림 3분절의 개별 수치 (보조)
+  assignment_diagonal.csv   배정 쌍의 주 지표 4종 + 누출비 + r_QRS(clean 행)
+  corr_matrix.csv · rmse_norm_matrix.csv · mad_matrix.csv   각 4x4, 평균과 SD
+  r_qrs_matrix.csv · f1_matrix.csv · band_energy.csv        확장 지표
+  metric_agreement.csv      세 지표의 행별 지목 일치 여부
+  skip_watch.csv            (잔차 런에만) 잔차 유무 성분 차이
   note.txt · console.log
-  figures/components_top{1,2,3}.png  입력·재구성·성분 K개·참조 4종 (지표 상위 3분절)
-  figures/overlay_top{1,2,3}.png     성분 × 참조 8×4 겹침 격자 (같은 분절)
-  figures/correspondence.png         지표 3종 히트맵
+  figures/  correspondence · s4_extended · components_top{1..3} · overlay_top{1..3}
 """
 import argparse
 import json
@@ -267,7 +270,7 @@ def fig_overlay(comps, refs, i, cm, rn, mad, out, fs, title):
     plt.close(fig)
 
 
-def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=None,
+def main(config="configs/default.yaml", run="C16_seed42", split="val", outdir=None,
          final=False):
     cfg = load_cfg(config)
     fs = cfg["data"]["fs"]
@@ -358,7 +361,7 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=Non
     fig_s4ext(rbar, rq.mean(0), np.nanmean(f1, 0), be_c.mean(0), bnames, refs_c, ix,
               f"{figdir}/s4_extended.png", run, split, band)
 
-    # ---- [version5] 감시 — 잔차를 끈 성분과 켠 성분이 얼마나 다른가
+    # ---- 감시 — 잔차를 끈 성분과 켠 성분이 얼마나 다른가
     # 두 값이 크게 다르면 정보가 잔차 쪽에 실린 것이고, 인코딩이 비어간다는 신호다.
     if getattr(model, "skip_levels", None) and model.skip_weight:
         import torch as _t
@@ -390,7 +393,7 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=Non
         print("[감시] 잔차 유무 성분 차이 — 크면 정보가 잔차로 새고 있다는 뜻")
         print(w.round(4).to_string(index=False))
 
-    # ---- [version4] 배정 대각 요약
+    # ---- 배정 대각 요약
     # 지도학습은 인코더-참조 배정이 미리 정해져 있으므로 **대각이 주 지표**다.
     # 비대각 최댓값을 함께 실어 누출을 본다 (배정 아닌 참조를 얼마나 잡고 있는가).
     sup_keys = list(cfg["loss"]["supervise"])
@@ -503,7 +506,7 @@ def main(config="configs/default.yaml", run="K8_seed42", split="val", outdir=Non
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="K8_seed42")
+    p.add_argument("--run", default="C16_seed42")
     p.add_argument("--split", default="val")
     p.add_argument("--outdir", default=None)
     p.add_argument("--final", action="store_true",
