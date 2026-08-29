@@ -1,0 +1,11 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+
+[복원 세 방식] C16_seed42 (에폭 236) · test 1620분절 · 기준 x_clean, mV 원단위
+          방식                구분  분절수  SNR_dB  dSNR_vs_입력     PRD   corr  corr_sd   RMSE      SSD   SSD_평균    MAD  CosSim
+      A 성분차감     보조 (성분 추정 검증) 1620  6.6298      6.1959 29.6714 0.8888   0.0660 0.1339  64.5046 131.8929 0.5124  0.9580
+      B 심장직접              주 결과 1620  6.3713      5.9660 29.5241 0.8812   0.0749 0.1412  71.7648 136.6599 0.6095  0.9599
+    C 마스킹디코드      B 와 동일 연산 확인 1620  6.3713      5.9660 29.5241 0.8812   0.0749 0.1412  71.7648 136.6599 0.6095  0.9599
+a 입력 x_noisy               기준선 1620  0.3053      0.0000 62.3922 0.7250   0.0999 0.2922 307.4324 513.1238 0.9216  0.8534
+    b M0 재구성 참고 (x_noisy 재구성용) 1620 -0.1141     -0.5077 66.2373 0.7033   0.1010 0.3085 342.6125 534.8458 0.9928  0.8396
+  B와 C의 최대 절대차 = 0.000e+00   (같은 계산이면 0에 가깝다)

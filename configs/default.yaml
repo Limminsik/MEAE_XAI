@@ -1,0 +1,156 @@
+# meae_xai — 전역 설정
+# 코드 하드코딩 금지. 모든 실험 파라미터는 이 파일에서만 바꾼다.
+
+seeds: [42]                          # 주 분석 시드. 다중 시드 반복은 수행하지 않는다
+
+paths:
+  mitdb: "data/raw/mit-bih-arrhythmia-database-1.0.0"
+  nstdb: "data/mit-bih-noise-stress-test-database-1.0.0"
+  galaxyppg: "data/GalaxyPPG/GalaxyPPG/Dataset"
+  processed: "../data/processed"      # baseline 데이터를 **읽기 전용**으로 쓴다
+
+# ────────────────────────────────────────────────────────────────
+# S1 데이터 (완료·동결)
+# ────────────────────────────────────────────────────────────────
+data:
+  fs: 360
+  seg_sec: 10                        # 3600 샘플
+  mitdb_exclude: ["102", "104"]      # MLII 없음 → 46개 기록
+  lead: "MLII"
+  noise_channel: 0                   # NSTDB 잡음 2채널 중 noise1.
+                                     # nst 도구가 채널 번호끼리 짝지어 섞는 관례를 따른다
+  noise_split_ratio: 0.7             # 잡음 레코드 앞 70% = train, 뒤 30% = val·test
+  noise_snr_range_db: [0, 12]        # 잡음별 독립 균등추첨
+
+  # 선행 인코더 깊이 8(MaxPool 2배 x 8 = 256배) → 입력이 256의 배수여야 한다.
+  # 3600 -> 3840 = 256 x 15. 모든 상관·지표는 중앙 3600을 크롭한 뒤 계산한다.
+  pad_to: 3840
+  pad_each: 120
+
+  split:
+    unit: "record"                   # 기록(환자) 단위만. 분절 단위는 누수
+    counts: {train: 32, val: 5, test: 9}
+    stratify: false
+    split_seed: 42                   # 분할 전용 고정 시드. 학습 시드와 무관
+
+# ────────────────────────────────────────────────────────────────
+# S2 모델 (완료·동결) — 선행 mesa_ecg_bss 구조 차용
+# ────────────────────────────────────────────────────────────────
+model:
+  n_encoders: 4                      # 지도학습: 참조 4종에 하나씩 배정한다
+  channels: [32, 32, 64, 64, 128, 128, 256, 256]   # 인코더당 c // K
+                                     #   **길이가 곧 인코더 깊이**다. 깊이 D 면 MaxPool 2배가
+                                     #   D번 걸려 압축률 2^D. 8개 = 256배(선행 기본값).
+                                     #   6개 = 64배, 5개 = 32배. 패딩은 여기서 유도된다.
+  dilations: null                    # 블록별 dilation. null 이면 전부 1 (원본과 동일).
+                                     #   층을 빼면 수용영역이 줄어든다(깊이 8 → 3316표본
+                                     #   = 9.21초, 깊이 6 → 820표본 = 2.28초). bw 의 느린
+                                     #   출렁임을 보려면 그만큼이 필요하므로 dilation 으로
+                                     #   보전한다. 실제 수용영역은 학습 로그와 stage1.json 에.
+  hidden: 64                         # 인코딩 채널 = hidden // K
+  skip_levels: null                  # 잔차 연결로 쓸 인코더 블록 번호 목록 (0부터).
+                                     #   null 이면 잔차 없음 — 기존과 완전히 같은 경로다.
+                                     #   블록 j 의 출력(길이 L/2^(j+1))이 디코더의 대응
+                                     #   지점에 **더해진다**. 얕은 층(0)부터 쓴다.
+  skip_weight: 0.0                   # 잔차 가중치. 처음부터 크게 열면 모델이 병목 대신
+                                     #   우회로로 정보를 보내 성분 분리가 약해질 수 있어
+                                     #   작게(0.1) 시작한다.
+                                     #   **잔차도 인코더별로 마스킹한다** — 성분 k 를 뽑을
+                                     #   때 인코더 k 의 잔차만 살리고 나머지는 0 이다.
+                                     #   안 그러면 잔차 경로로 입력 전체가 새어 들어와
+                                     #   마스킹이 무의미해진다.
+  norm_type: group_norm
+  use_weight_norm: true
+  input_channels: 1
+
+# ────────────────────────────────────────────────────────────────
+# 비용 함수 ① — 학습 손실
+#   L = MSE(x_hat, x_noisy) + λ_sup * Σ_k MSE(ŝ_k, r_k)
+#
+#   **이 폴더만 지도학습이다.** 참조 4종을 손실에 직접 넣는다 — §0 원칙 3(자기지도)을
+#   의도적으로 벗어난 대조 실험이며, 결과를 자기지도 결과와 같은 줄에 놓지 않는다.
+#   정칙화 3항(λ_m·λ_o·λ_z)은 "어떻게 나눌지 모를 때 돕는" 항이라 답을 직접 주는
+#   여기서는 끈다 (0.0). 목표와 충돌할 수 있다.
+# ────────────────────────────────────────────────────────────────
+loss:
+  recon: mse                         # 선행은 BCE. 정규화 없음·ECG 음수라 MSE로 교체
+  sep_impl: alternative              # separation_loss.py 의 WeightSeparationLossAlternative
+  sep_norm: L1
+  lambda_mixing: 0.0                 # λ_m — 지도학습에서는 끈다 (아래 주석)
+  lambda_zero_recon: 0.0             # λ_o — 〃
+  lambda_z_l2: 0.0                   # λ_z — 〃
+  gamma_diff: 0.0                    # 차분항 미사용
+  lambda_sup: 1.0                    # λ_sup — 성분 지도항
+  gamma_sup: 50.0                    # γ₁ — 지도항 안의 **1차 차분** 비중.
+                                     #   전 소스 공통 계수 하나다. γ=1 에서는 차분 항이
+                                     #   어디서도 2%를 넘지 못해(bw 0.18%) 사실상 작동하지
+                                     #   않았다. 50 에서 clean 52.5% · bw 8.1% · ma 50.7% ·
+                                     #   em 17.8% 가 된다 (val 900분절 중앙값 기준).
+                                     #   소스마다 차분/파형 에너지비가 11.7배까지 벌어지므로
+                                     #   공통 계수로는 비중이 소스마다 다르게 걸린다.
+  gamma2_sup: 0.0                    # γ₂ — **2차 차분** 비중.
+                                     #   (Δ²x)[t] = x[t] - 2x[t-1] + x[t-2], 길이 L-2.
+                                     #   1차가 기울기라면 2차는 곡률이다.
+                                     #   세 항을 각자 길이(L, L-1, L-2)로 나눠 γ 가
+                                     #   상대 비중 그대로가 되게 한다.
+                                     #   실험값은 CLI(--gamma / --gamma2)로 덮어쓴다.
+  beta_sup: 0.0                      # β — **주파수 항**. |rfft(ŝ_k)| 와 |rfft(r_k)| 의 MSE.
+                                     #   norm='ortho' 라 Parseval 로 빈 평균이 표본 평균과
+                                     #   같은 눈금에 놓인다 — β 를 γ 와 같게 읽는다.
+                                     #   크기만 비교한다(위상은 파형 항이 이미 본다).
+                                     #   차분 항은 이웃 표본 차이만 보지만 이 항은 대역
+                                     #   분포 자체를 맞춘다. 실험은 CLI(--beta)로 덮어쓴다.
+  sup_normalize: none                # 지도항의 **소스별 정규화**. none | source_std
+                                     #   source_std 면 소스마다 훈련셋 전체에서 잰
+                                     #   σ_k (스칼라 하나)로 그 항 전체를 σ_k² 로 나눈다.
+                                     #   훈련셋에서 σ²(clean)이 잡음 3종의 약 4.2배라
+                                     #   MSE 가 절대 오차를 보는 한 자원이 clean 으로
+                                     #   쏠린다. 나누면 "20% 틀림"이 소스와 무관하게
+                                     #   같은 벌점이 된다. CLI(--sup-normalize)로 덮어쓴다.
+  supervise:                         # 인코더 → 참조 배정. 순서가 곧 enc1..enc4
+    - x_clean
+    - bw
+    - ma
+    - em
+
+# ────────────────────────────────────────────────────────────────
+# S3 학습
+# ────────────────────────────────────────────────────────────────
+train:
+  batch: 256
+  lr: 1.0e-3
+  weight_decay: 1.0e-6
+  lr_step_size: 50                   # StepLR, gamma 0.1
+  gradient_clip_val: 0.5
+  max_epoch: 300
+  early_stop_patience: 50            # L_sup^val 정체 기준
+
+  # ---- 비용 함수 ② — 체크포인트 선택
+  #   x_hat_k  = D(0,...,z_k,...,0), 중앙 3600 크롭
+  #   rho_k(t) = median_{s in V} |corr(x_hat_k, x_clean)|,   |V| = val_n 고정
+  #   S(t)     = max_k rho_k(t)
+  #   1단계  C  = { t : L_recon^val(t) <= recon_ratio x min_tau L_recon^val(tau) }
+  #   2단계  t* = argmax_{t in C} S(t)
+  #   eval_every 에폭 간격으로 산출하고 학습 종료 후 전체 이력을 일괄 판정한다.
+  #   x_clean 은 이 선택에만 쓰이고 가중치 갱신에는 관여하지 않는다 (§0 원칙 4).
+  checkpoint:
+    recon_ratio: 1.5                 # 민감도 {1.2, 1.5, 2.0} 함께 산출
+    eval_every: 2
+    val_n: 300
+
+# ────────────────────────────────────────────────────────────────
+# S4 성분 분리 평가 — 인코더 x 참조 상관계수 · 원값 RMSE
+# ────────────────────────────────────────────────────────────────
+s4:
+  n_seg: null                        # null 이면 해당 split 전체
+
+# ────────────────────────────────────────────────────────────────
+# S6 외부 적용 (연구계획서 기반연구 ①)
+# ────────────────────────────────────────────────────────────────
+external:
+  # 표본율·단위는 실측값이다 (05_validation.py 독스트링 참조)
+  vitaldb:   {root: "D:/data/VitalDB", track: "SNUADC/ECG_II", fs_src: 500, unit: mV}
+  mimic_iv:  {root: "D:/data/mimic_iv_waveform/DESTINATION", lead: "II",
+              fs_src: 249.89, unit: mV}
+  galaxyppg: {root: "D:/data/GalaxyPPG/GalaxyPPG/Dataset", source: "Polar H10 ECG",  # ecg 열은 µV — 로더에서 /1000
+              fs_src: 130, unit: uV}

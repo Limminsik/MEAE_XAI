@@ -1,0 +1,111 @@
+{
+  "run": "s1_해상도\\C32",
+  "K": 4,
+  "seed": 42,
+  "hidden": 64,
+  "ratio": 1.5,
+  "channels": [
+    32,
+    32,
+    64,
+    64,
+    128
+  ],
+  "dilations": [
+    1,
+    1,
+    1,
+    2,
+    16
+  ],
+  "depth": 5,
+  "downsample": 32,
+  "receptive_field": 3380,
+  "input_length": 3616,
+  "pad_each": 8,
+  "eval_every": 2,
+  "val_n": 300,
+  "n_epochs": 154,
+  "n_evaluated": 78,
+  "min_val_sup": 0.027472413778305053,
+  "min_val_recon": 0.005116653554910755,
+  "supervise": [
+    "x_clean",
+    "bw",
+    "ma",
+    "em"
+  ],
+  "sup_normalize": "none",
+  "sigmas": null,
+  "n_candidates": 74,
+  "candidate_range": [
+    8,
+    154
+  ],
+  "selected_epoch": 104,
+  "val_sup": 0.027472413778305053,
+  "val_sup_per": [
+    0.03639762083689372,
+    0.0164481250445048,
+    0.04433597326278686,
+    0.01270793596903483
+  ],
+  "S": 0.9274740815162659,
+  "argmax_k": 0,
+  "val_recon": 0.00527739713325613,
+  "sensitivity": {
+    "1.2": {
+      "n_candidates": 67,
+      "selected_epoch": 104,
+      "val_sup": 0.027472413778305053,
+      "S": 0.9274740815162659,
+      "val_recon": 0.00527739713325613,
+      "epoch_range": [
+        22,
+        154
+      ]
+    },
+    "1.5": {
+      "n_candidates": 74,
+      "selected_epoch": 104,
+      "val_sup": 0.027472413778305053,
+      "S": 0.9274740815162659,
+      "val_recon": 0.00527739713325613,
+      "epoch_range": [
+        8,
+        154
+      ]
+    },
+    "2.0": {
+      "n_candidates": 75,
+      "selected_epoch": 104,
+      "val_sup": 0.027472413778305053,
+      "S": 0.9274740815162659,
+      "val_recon": 0.00527739713325613,
+      "epoch_range": [
+        6,
+        154
+      ]
+    }
+  },
+  "loss": {
+    "recon": "mse",
+    "sep_impl": "alternative",
+    "sep_norm": "L1",
+    "lambda_mixing": 0.0,
+    "lambda_zero_recon": 0.0,
+    "lambda_z_l2": 0.0,
+    "gamma_diff": 0.0,
+    "lambda_sup": 1.0,
+    "gamma_sup": 50.0,
+    "gamma2_sup": 0.0,
+    "beta_sup": 0.0,
+    "sup_normalize": "none",
+    "supervise": [
+      "x_clean",
+      "bw",
+      "ma",
+      "em"
+    ]
+  }
+}

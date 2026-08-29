@@ -1,0 +1,90 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[07] C16_seed42 (에폭 236) → galaxyppg  재학습 없음
+  진폭 정합: 분절마다 SD 를 학습 입력 중앙값 0.4707 mV 에 맞춘다
+  P01: 20분절 채택  (버림 )
+  P02: 20분절 채택  (버림 )
+  P03: 20분절 채택  (버림 )
+  P04: 20분절 채택  (버림 )
+  P05: 20분절 채택  (버림 )
+  P06: 20분절 채택  (버림 )
+  P07: 20분절 채택  (버림 )
+  P08: 20분절 채택  (버림 )
+  P09: 20분절 채택  (버림 )
+  P10: 20분절 채택  (버림 )
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+  총 200분절 · 원 표본율 [130.0]
+
+=== 07 galaxyppg · 200분절 ===
+복원 — 참값이 없으므로 입력과의 차이만 본다
+    대상  분절수  입력과_corr  corr_sd  입력과_RMSE_mV  SD_mV  SD비_입력대비
+M0 재구성  200    0.9734   0.0093       0.1095 0.4436    0.9423
+A 성분차감  200    0.9707   0.0160       0.1386 0.4442    0.9436
+  입력 x  200    1.0000   0.0000       0.0000 0.4707    1.0000
+
+① |r| 평균±SD
+               입력        M0재구성        A성분차감
+enc1  0.922±0.036  0.935±0.031  0.945±0.020
+enc2  0.169±0.152  0.187±0.156  0.114±0.096
+enc3  0.238±0.132  0.254±0.138  0.133±0.107
+enc4  0.231±0.192  0.246±0.194  0.117±0.105 
+
+② RMSE_norm 평균±SD
+               입력        M0재구성        A성분차감
+enc1  0.385±0.091  0.351±0.080  0.326±0.062
+enc2  1.290±0.132  1.274±0.134  1.389±0.110
+enc3  1.230±0.112  1.217±0.118  1.322±0.093
+enc4  1.232±0.166  1.220±0.169  1.368±0.111 
+
+③ MAD 평균±SD
+               입력        M0재구성        A성분차감
+enc1  1.922±0.799  1.368±0.327  1.831±0.815
+enc2  6.786±1.334  6.548±1.221  7.252±1.175
+enc3  6.616±1.042  6.372±1.034  7.054±1.038
+enc4  6.577±1.237  6.519±1.152  7.101±1.040 
+
+④ 스펙트럼 특성
+    대상  중심주파수_Hz  0.5-5Hz  5-15Hz  15-25Hz  25-40Hz  40-60Hz  60-90Hz
+    입력   11.5226   0.2828  0.3344   0.2371   0.0605   0.0026   0.0000
+M0 재구성    9.8101   0.3445  0.3875   0.2023   0.0338   0.0008   0.0001
+  enc1   10.8040   0.2757  0.4238   0.2330   0.0405   0.0013   0.0002
+  enc2    1.7577   0.6750  0.0558   0.0042   0.0010   0.0001   0.0001
+  enc3    2.7349   0.7008  0.1161   0.0075   0.0051   0.0001   0.0001
+  enc4    2.7752   0.7599  0.1720   0.0019   0.0003   0.0001   0.0000 
+
+산출물 → results/07_validation/C16_seed42/galaxyppg/

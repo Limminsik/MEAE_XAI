@@ -1,0 +1,48 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[06] 박동 단위 측정 — 1620분절 x 3계열
+  0/1620
+  200/1620
+  400/1620
+  600/1620
+  800/1620
+  1000/1620
+  1200/1620
+  1400/1620
+  1600/1620
+[06] SQI 4종 — 참값 없이 신호 하나만 보고 잰다 (bSQI 는 검출을 두 번 한다)
+  bSQI 0/1620
+  bSQI 300/1620
+  bSQI 600/1620
+  bSQI 900/1620
+  bSQI 1200/1620
+  bSQI 1500/1620
+  bSQI 0/1620
+  bSQI 300/1620
+  bSQI 600/1620
+  bSQI 900/1620
+  bSQI 1200/1620
+  bSQI 1500/1620
+  bSQI 0/1620
+  bSQI 300/1620
+  bSQI 600/1620
+  bSQI 900/1620
+  bSQI 1200/1620
+  bSQI 1500/1620
+
+[06 임상 형태 지표] C16_seed42 (에폭 236) · test 1620분절 · 박동 18,758개 · 기록 9개
+기준점(R-피크)은 x_clean 에서 뽑아 세 신호에 공유한다
+
+① 신호 품질 지수 (SQI) — 참값 불필요. basSQI 는 낮을수록, 나머지는 높을수록 좋다
+          계열  분절수  basSQI   pSQI    kSQI   bSQI  ECGMeanCoef
+ x_clean(참값) 1620  0.0326 0.5433 15.9864 0.9231       0.9877
+x_noisy(처리전) 1620  0.2125 0.3526  5.7429 0.8889       0.8947
+   B재구성(처리후) 1620  0.0242 0.5649 20.3912 0.9286       0.9679
+
+② 임상 형태 지표 — 참값 대비 오차. 작아졌으면 x_clean 에 가까워진 것이다
+        지표   박동수   참값_중앙  처리전_절대오차중앙  처리후_절대오차중앙  처리전_편향중앙  처리후_편향중앙  개선된_박동비율
+   ST60_mV 18758 -0.0260      0.1239      0.0758    0.0021   -0.0409    0.6674
+   ST80_mV 18758 -0.0007      0.1285      0.0908    0.0035   -0.0577    0.6236
+    R진폭_mV 18758  1.8225      0.0679      0.1095   -0.0032    0.0141    0.3756
+QRS면적_mVms 18758 51.4981      2.5301      3.9536    1.6357    0.1351    0.3906
+산출물 → results/06_ablation/C16_seed42/test/

@@ -1,0 +1,24 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[06] 박동 단위 측정 — 1620분절 x 3계열 (QT 파형분할 포함, 시간이 걸린다)
+  0/1620
+  200/1620
+  400/1620
+  600/1620
+  800/1620
+  1000/1620
+  1200/1620
+  1400/1620
+  1600/1620
+
+[06 임상 형태 지표] C16_seed42 (에폭 236) · test 1620분절 · 박동 18,758개 · 기록 9개
+기준점(R-피크)은 x_clean 에서 뽑아 세 신호에 공유한다
+
+        지표   박동수    참값_중앙  처리전_절대오차중앙  처리후_절대오차중앙  처리전_편향중앙  처리후_편향중앙  개선된_박동비율
+   ST60_mV 18758  -0.0260      0.1239      0.0758    0.0021   -0.0409    0.6674
+   ST80_mV 18758  -0.0007      0.1285      0.0908    0.0035   -0.0577    0.6236
+     QT_ms 14349 383.3333     47.2222     63.8889  -33.3333   13.8889    0.2923
+    QTc_ms 12936 419.6851     53.5303     73.1871  -38.7275   16.3117    0.2626
+    R진폭_mV 18758   1.8225      0.0679      0.1095   -0.0032    0.0141    0.3756
+QRS면적_mVms 18758  51.4981      2.5301      3.9536    1.6357    0.1351    0.3906
+산출물 → results/06_ablation/C16_seed42/test/

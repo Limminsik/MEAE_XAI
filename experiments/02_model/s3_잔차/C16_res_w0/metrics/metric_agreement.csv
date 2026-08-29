@@ -1,0 +1,5 @@
+﻿인코더,|r|_지목,RMSE_지목,MAD_지목,일치
+enc1,x_clean,x_clean,x_clean,일치
+enc2,bw,bw,bw,일치
+enc3,ma,ma,bw,불일치
+enc4,em,em,em,일치

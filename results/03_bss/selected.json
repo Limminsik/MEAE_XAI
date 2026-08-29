@@ -1,0 +1,19 @@
+{
+  "run": "C16_seed42",
+  "epoch": 236,
+  "split": "test",
+  "n_segments": 1620,
+  "K": 4,
+  "supervise": [
+    "x_clean",
+    "bw",
+    "ma",
+    "em"
+  ],
+  "lambda_sup": 1.0,
+  "gamma_sup": 50.0,
+  "gamma2_sup": 0.0,
+  "checkpoint": "results\\02_model\\C16_seed42\\C16_seed42.pt",
+  "fixed_at": "2026-08-30T01:33:02",
+  "note": "04·05·06·07 은 이 모델을 쓴다"
+}

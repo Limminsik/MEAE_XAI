@@ -1,0 +1,116 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[07] C16_seed42 (에폭 236) → mimic_iv  재학습 없음
+  진폭 정합: 분절마다 SD 를 학습 입력 중앙값 0.4707 mV 에 맞춘다
+  p10014354_81739927_0008: 20분절 채택  (버림 )
+  p10019003_87033314_0005: 20분절 채택  (버림 )
+  p10020306_83404654_0001: 20분절 채택  (버림 포화 1)
+  p10039708_83411188_0005: 20분절 채택  (버림 )
+  p10079700_85594648_0001: 20분절 채택  (버림 포화 26)
+  p10082591_84050536_0002: 20분절 채택  (버림 )
+  p10100546_83268087_0001: 20분절 채택  (버림 포화 5 · R피크 2 · RR 3)
+  p10112163_88501826_0008: 20분절 채택  (버림 nan 1 · 포화 1)
+  p10126957_82924339_0007: 20분절 채택  (버림 RR 1)
+  p10209410_84248019_0005: 20분절 채택  (버림 포화 3)
+  총 200분절 · 원 표본율 [249.89]
+[07] SQI 5종 — 참값 없이 신호 하나만 보고 잰다 (bSQI 는 검출을 두 번 한다)
+  bSQI 0/200
+  bSQI 0/200
+  bSQI 0/200
+  bSQI 0/200
+  bSQI 0/200
+  bSQI 0/200
+  bSQI 0/200
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+
+=== 07 mimic_iv · 200분절 ===
+① 복원 — 참값이 없으므로 입력과의 차이만 본다
+           대상  분절수  입력과_corr  corr_sd  입력과_RMSE_mV  SD_mV  SD비_입력대비
+         B 복원  200    0.8926   0.0620       0.2257 0.3886    0.8256
+       A 성분차감  200    0.9455   0.0436       0.1546 0.4199    0.8921
+       M0 재구성  200    0.9608   0.0383       0.1202 0.4546    0.9657
+대역통과 0.5-40Hz  200    0.9381   0.0664       0.1463 0.4531    0.9626
+     웨이블릿 임계값  200    0.9978   0.0049       0.0211 0.4638    0.9854
+   웨이블릿+기저선제거  200    0.8881   0.1406       0.1801 0.4103    0.8717
+         입력 x  200    1.0000   0.0000       0.0000 0.4707    1.0000
+
+② SQI 5종 — 참값 불필요. basSQI 는 낮을수록, 나머지는 높을수록 좋다
+           계열  분절수  basSQI   pSQI    kSQI   bSQI  ECGMeanCoef
+         입력 x  200  0.0413 0.4221  8.8309 0.9231       0.9545
+         B 복원  200  0.0094 0.5365 10.4404 0.9231       0.9733
+       A 성분차감  200  0.0179 0.4369 10.1109 0.9231       0.9598
+       M0 재구성  200  0.0543 0.4264  8.0664 0.9231       0.9541
+대역통과 0.5-40Hz  200  0.0304 0.4667  8.9975 0.9231       0.9556
+     웨이블릿 임계값  200  0.0423 0.4194  8.7866 0.9231       0.9556
+   웨이블릿+기저선제거  200  0.0007 0.4501 10.1909 0.9231       0.9609
+
+③ 임상 형태 지표 — 참값이 없어 **값 자체**다 (오차가 아니다)
+           계열  박동수  ST60_mV  ST80_mV  R진폭_mV  QRS면적_mVms
+         입력 x 2914   0.0233   0.0443  1.8232     65.9328
+         B 복원 2914  -0.0487  -0.0106  1.7899     63.1892
+       A 성분차감 2914   0.0002   0.0802  1.9201     63.8099
+       M0 재구성 2914  -0.0331  -0.0302  1.7662     63.4882
+대역통과 0.5-40Hz 2914   0.0136   0.0388  1.7542     65.8240
+     웨이블릿 임계값 2914   0.0147   0.0319  1.8045     65.0966
+   웨이블릿+기저선제거 2914  -0.0253  -0.0128  1.8014     65.0551
+
+① |r| 평균±SD
+               입력        M0재구성          B복원
+enc1  0.893±0.062  0.918±0.048  1.000±0.000
+enc2  0.191±0.169  0.215±0.179  0.103±0.092
+enc3  0.266±0.184  0.281±0.189  0.164±0.129
+enc4  0.377±0.187  0.397±0.192  0.179±0.173 
+
+② RMSE_norm 평균±SD
+               입력        M0재구성          B복원
+enc1  0.442±0.139  0.387±0.122  0.000±0.000
+enc2  1.286±0.166  1.266±0.178  1.370±0.095
+enc3  1.201±0.169  1.188±0.176  1.292±0.112
+enc4  1.101±0.184  1.082±0.191  1.290±0.162 
+
+③ MAD 평균±SD
+               입력        M0재구성          B복원
+enc1  2.456±1.637  1.582±0.766  0.000±0.000
+enc2  6.105±1.564  5.819±1.249  6.528±1.025
+enc3  5.516±1.375  5.233±1.066  5.919±0.979
+enc4  5.487±1.689  5.204±1.247  6.018±1.079 
+
+④ 스펙트럼 특성
+    대상  중심주파수_Hz  0.5-5Hz  5-15Hz  15-25Hz  25-40Hz  40-60Hz  60-90Hz
+    입력    9.0703   0.4189  0.3464   0.1346   0.0199   0.0076   0.0010
+M0 재구성    7.5907   0.4648  0.3488   0.1246   0.0171   0.0004   0.0001
+  enc1    8.6761   0.3829  0.3903   0.1492   0.0187   0.0004   0.0001
+  enc2    1.4609   0.4867  0.0363   0.0029   0.0006   0.0001   0.0000
+  enc3    2.2420   0.5744  0.0898   0.0057   0.0044   0.0001   0.0001
+  enc4    2.6004   0.7116  0.1542   0.0018   0.0003   0.0001   0.0000 
+
+산출물 → results/07_validation/C16_seed42/mimic_iv/

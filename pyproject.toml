@@ -1,0 +1,26 @@
+[project]
+name = "meae-xai-version5-supervised"
+version = "0.1.0"
+description = "지도학습 구조 개선 — 시간 해상도(압축률) 실험"
+readme = "README.md"
+requires-python = ">=3.9.21,<3.10"   # 3.9 전용. 넓게 두면 uv 가 3.13 휠을 넣는다
+dependencies = [
+    "wfdb",
+    "neurokit2==0.2.10",   # 0.2.12 는 py3.10+ 문법. 3.9 미지원
+    "PyWavelets",
+    "scipy",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "seaborn",
+    "statsmodels",
+    "pyyaml",
+    "tqdm",
+    "ipykernel",
+    "pyarrow",
+    "pytest",
+]
+
+# torch·torchvision 은 cu129 인덱스로 따로 설치한다:
+#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
+# vitaldb 는 05(외부 적용) 전용이라 이 갈래에서는 넣지 않는다.

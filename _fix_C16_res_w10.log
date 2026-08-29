@@ -1,0 +1,11 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+
+[복원 세 방식] experiments/02_model/s3_잔차/C16_res_w10/C16_res_w10.pt (에폭 80) · val 900분절 · 기준 x_clean, mV 원단위
+          방식  분절수   corr  corr_sd      SSD   SSD_평균   RMSE  SNR_dB  dSNR_vs_입력    MAD     PRD  CosSim
+      A 성분차감  900 0.9034   0.0684  50.9665 124.7265 0.1861  6.7654      6.1433 0.4285 29.6372  0.9595
+      B 심장직접  900 0.9204   0.0552  41.7230 108.0597 0.1733  7.8118      7.0868 0.4221 25.9719  0.9691
+    C 마스킹디코드  900 0.9204   0.0552  41.7230 108.0597 0.1733  7.8118      7.0868 0.4221 25.9719  0.9691
+a 입력 x_noisy  900 0.7358   0.1018 229.8600 419.5070 0.3414  0.5623      0.0000 0.8082 56.9937  0.8746
+    b M0 재구성  900 0.7370   0.1015 229.7505 423.9348 0.3432  0.5512     -0.0109 0.8103 57.0615  0.8746
+  B와 C의 최대 절대차 = 0.000e+00   (같은 계산이면 0에 가깝다)

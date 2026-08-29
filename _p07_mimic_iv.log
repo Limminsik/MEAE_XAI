@@ -1,0 +1,84 @@
+c:\dev\meae_xai\version5_supervised\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:144: FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of `torch.nn.utils.parametrizations.weight_norm`.
+  WeightNorm.apply(module, name, dim)
+[07] C16_seed42 (에폭 236) → mimic_iv  재학습 없음
+  진폭 정합: 분절마다 SD 를 학습 입력 중앙값 0.4707 mV 에 맞춘다
+  p10014354_81739927_0008: 20분절 채택  (버림 )
+  p10019003_87033314_0005: 20분절 채택  (버림 )
+  p10020306_83404654_0001: 20분절 채택  (버림 포화 1)
+  p10039708_83411188_0005: 20분절 채택  (버림 )
+  p10079700_85594648_0001: 20분절 채택  (버림 포화 26)
+  p10082591_84050536_0002: 20분절 채택  (버림 )
+  p10100546_83268087_0001: 20분절 채택  (버림 포화 5 · R피크 2 · RR 3)
+  p10112163_88501826_0008: 20분절 채택  (버림 nan 1 · 포화 1)
+  p10126957_82924339_0007: 20분절 채택  (버림 RR 1)
+  p10209410_84248019_0005: 20분절 채택  (버림 포화 3)
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+Font 'default' does not have a glyph for '\u2212' [U+2212], substituting with a dummy symbol.
+  총 200분절 · 원 표본율 [249.89]
+
+=== 07 mimic_iv · 200분절 ===
+복원 — 참값이 없으므로 입력과의 차이만 본다
+    대상  분절수  입력과_corr  corr_sd  입력과_RMSE_mV  SD_mV  SD비_입력대비
+M0 재구성  200    0.9608   0.0383       0.1202 0.4546    0.9657
+A 성분차감  200    0.9455   0.0436       0.1546 0.4199    0.8921
+  입력 x  200    1.0000   0.0000       0.0000 0.4707    1.0000
+
+① |r| 평균±SD
+               입력        M0재구성        A성분차감
+enc1  0.893±0.062  0.918±0.048  0.923±0.052
+enc2  0.191±0.169  0.215±0.179  0.106±0.091
+enc3  0.266±0.184  0.281±0.189  0.132±0.129
+enc4  0.377±0.187  0.397±0.192  0.181±0.168 
+
+② RMSE_norm 평균±SD
+               입력        M0재구성        A성분차감
+enc1  0.442±0.139  0.387±0.122  0.371±0.125
+enc2  1.286±0.166  1.266±0.178  1.405±0.102
+enc3  1.201±0.169  1.188±0.176  1.330±0.118
+enc4  1.101±0.184  1.082±0.191  1.289±0.158 
+
+③ MAD 평균±SD
+               입력        M0재구성        A성분차감
+enc1  2.456±1.637  1.582±0.766  2.334±1.676
+enc2  6.105±1.564  5.819±1.249  6.676±1.435
+enc3  5.516±1.375  5.233±1.066  6.077±1.277
+enc4  5.487±1.689  5.204±1.247  6.168±1.585 
+
+④ 스펙트럼 특성
+    대상  중심주파수_Hz  0.5-5Hz  5-15Hz  15-25Hz  25-40Hz  40-60Hz  60-90Hz
+    입력    9.0703   0.4189  0.3464   0.1346   0.0199   0.0076   0.0010
+M0 재구성    7.5907   0.4648  0.3488   0.1246   0.0171   0.0004   0.0001
+  enc1    8.6761   0.3829  0.3903   0.1492   0.0187   0.0004   0.0001
+  enc2    1.4609   0.4867  0.0363   0.0029   0.0006   0.0001   0.0000
+  enc3    2.2420   0.5744  0.0898   0.0057   0.0044   0.0001   0.0001
+  enc4    2.6004   0.7116  0.1542   0.0018   0.0003   0.0001   0.0000 
+
+산출물 → results/07_validation/C16_seed42/mimic_iv/

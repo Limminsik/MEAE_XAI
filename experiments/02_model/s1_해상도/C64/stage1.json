@@ -1,0 +1,113 @@
+{
+  "run": "s1_해상도\\C64",
+  "K": 4,
+  "seed": 42,
+  "hidden": 64,
+  "ratio": 1.5,
+  "channels": [
+    32,
+    32,
+    64,
+    64,
+    128,
+    128
+  ],
+  "dilations": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    8
+  ],
+  "depth": 6,
+  "downsample": 64,
+  "receptive_field": 3508,
+  "input_length": 3648,
+  "pad_each": 24,
+  "eval_every": 2,
+  "val_n": 300,
+  "n_epochs": 156,
+  "n_evaluated": 79,
+  "min_val_sup": 0.029662627875804898,
+  "min_val_recon": 0.007185631244503266,
+  "supervise": [
+    "x_clean",
+    "bw",
+    "ma",
+    "em"
+  ],
+  "sup_normalize": "none",
+  "sigmas": null,
+  "n_candidates": 73,
+  "candidate_range": [
+    12,
+    156
+  ],
+  "selected_epoch": 106,
+  "val_sup": 0.029662627875804898,
+  "val_sup_per": [
+    0.04398184458414713,
+    0.016589054266611735,
+    0.044310890038808184,
+    0.013768722613652548
+  ],
+  "S": 0.9171566963195801,
+  "argmax_k": 0,
+  "val_recon": 0.007546652966772604,
+  "sensitivity": {
+    "1.2": {
+      "n_candidates": 68,
+      "selected_epoch": 106,
+      "val_sup": 0.029662627875804898,
+      "S": 0.9171566963195801,
+      "val_recon": 0.007546652966772604,
+      "epoch_range": [
+        22,
+        156
+      ]
+    },
+    "1.5": {
+      "n_candidates": 73,
+      "selected_epoch": 106,
+      "val_sup": 0.029662627875804898,
+      "S": 0.9171566963195801,
+      "val_recon": 0.007546652966772604,
+      "epoch_range": [
+        12,
+        156
+      ]
+    },
+    "2.0": {
+      "n_candidates": 76,
+      "selected_epoch": 106,
+      "val_sup": 0.029662627875804898,
+      "S": 0.9171566963195801,
+      "val_recon": 0.007546652966772604,
+      "epoch_range": [
+        6,
+        156
+      ]
+    }
+  },
+  "loss": {
+    "recon": "mse",
+    "sep_impl": "alternative",
+    "sep_norm": "L1",
+    "lambda_mixing": 0.0,
+    "lambda_zero_recon": 0.0,
+    "lambda_z_l2": 0.0,
+    "gamma_diff": 0.0,
+    "lambda_sup": 1.0,
+    "gamma_sup": 50.0,
+    "gamma2_sup": 0.0,
+    "beta_sup": 0.0,
+    "sup_normalize": "none",
+    "supervise": [
+      "x_clean",
+      "bw",
+      "ma",
+      "em"
+    ]
+  }
+}
