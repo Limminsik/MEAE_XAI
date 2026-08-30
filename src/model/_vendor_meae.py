@@ -1,6 +1,7 @@
-"""선행 다중 인코더 오토인코더 (1D) — 원본 이식.
+"""선행 다중 인코더 오토인코더 (1D) — 원본 이식 후 **개작**.
 
-원저작물을 그대로 이식한 파일이다 (내용 무수정).
+원저작물을 이식한 뒤 아래 「변경 지점」 두 곳을 고쳤다 (MIT 라이선스가 요구하는
+변경 고지). 기본값(dilations=None, skip_levels=None)이면 원본과 동일하게 동작한다.
   출처 : https://github.com/mbwebster/self-supervised-bss-via-multi-encoder-ae
   파일 : models/cnn_multi_enc_ae_1d.py
   커밋 : d0c94a9d5dec8dd5d54baebdb9963b79860cb200 (2025-12-13)
@@ -21,13 +22,23 @@
 뭉개진다. 손실 설계(16런)와 용량(hidden 64→256)에서 효과가 없었으므로 남은 축이
 시간 해상도다.
 
-변경 지점 두 곳뿐이다.
+변경 지점은 세 곳이다. 앞의 둘은 **확정 모델이 쓰고**, 셋째는 탐색에만 쓰고
+채택하지 않았다(기본값에서 꺼져 있다).
   1. EncoderBlock · DecoderBlock 에 `dilation` 인자를 추가했다. 기본 1 이면 원본과
      완전히 같다. 층을 빼면 수용영역이 줄어드는데(깊이 8 → 3,316표본 = 9.21초,
      깊이 6 → 820표본 = 2.28초), bw 의 느린 출렁임을 보려면 그만큼이 필요하다.
      dilation 을 키워 수용영역을 보전한다. padding 도 dilation 배로 맞춘다.
   2. ConvolutionalEncoder · ConvolutionalDecoder · ConvolutionalAutoencoder 가
      블록별 dilation 목록을 받아 넘긴다. `dilations=None` 이면 전부 1 — 원본과 동일.
+  3. **잔차 연결**(`skip_levels` · `skip_weight`)을 선택 기능으로 넣었다 — 인코더
+     중간 블록의 출력을 디코더 같은 깊이에 더한다. 잔차는 **인코더별로 따로** 들고
+     있어야 성분을 뽑을 때 그 인코더 것만 살릴 수 있으므로 `encode_all` 을 함께
+     추가했다. `skip_levels=None` 또는 `skip_weight=0` 이면 경로가 만들어지지 않아
+     원본과 동일하다. **확정 모델은 쓰지 않는다** — 심장 정보가 인코딩이 아니라
+     잔차에 실려 마스킹의 뜻이 흐려졌기 때문이다 (README §4).
+
+기본값이면 원본과 같은 값을 낸다는 것은 회귀 검증으로 확인했다
+(`tests/test_model.py::test_dilation_default_matches_original`).
 
 깊이 자체는 `channels` 길이로 정해지므로 원본 코드가 이미 지원한다 (수정 불필요).
 

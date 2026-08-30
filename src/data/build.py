@@ -1,4 +1,4 @@
-"""S1 — 분절 데이터셋 구축 (RESEARCH_DESIGN.md §4).
+"""분절 데이터셋 구축 — 기록을 10초로 자르고 잡음 3종을 주입한다 (README §2.1).
 
 윈도우 하나가 거치는 과정
   1. mitdb 기록에서 MLII를 3600샘플(10초) 비중첩으로 잘라 x_clean
@@ -23,7 +23,7 @@ import yaml
 from tqdm import tqdm
 
 NOISES = ("bw", "ma", "em")
-# §4-2 비트 심볼. 'f'(paced+normal fusion)도 실제 박동이므로 포함한다 (217번 260박).
+# 박동 심볼. 'f'(paced+normal fusion)도 실제 박동이므로 포함한다 (217번 260박).
 BEAT_SYMBOLS = set("NLRVAFjE/aJSeQf")
 EXCLUDED_BEAT_SYMBOLS = set()
 
@@ -40,7 +40,7 @@ def seg_rng(gen_seed, record, seg_idx):
 
 
 def load_noise_pools(cfg):
-    """잡음 레코드를 읽고 train / val·test 구간으로 시간 분할한다 (§4-3)."""
+    """잡음 레코드를 읽고 train / val·test 구간으로 시간 분할한다 — 잡음 풀이 split 간에 겹치지 않게."""
     d, nst = cfg["data"], cfg["paths"]["nstdb"]
     ch, ratio = d["noise_channel"], d["noise_split_ratio"]
     pools = {}
@@ -71,7 +71,7 @@ def read_record(mitdb, record, lead):
 
 
 def build_segment(x_clean, pools, which, rng, snr_range):
-    """§4-4. 신호 전력은 분산 기준, 잡음 전력은 mean(n**2) 기준."""
+    """주입 SNR 정의. 신호 전력은 분산 기준, 잡음 전력은 mean(n**2) 기준."""
     p_sig = float(x_clean.var())
     comps, info = {}, {}
     for n in NOISES:

@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+title: >-
+  Explainable ECG denoising via a supervised multi-encoder
+  autoencoder with encoding masking
+message: >-
+  If you use this software, please cite it using the metadata
+  from this file.
+type: software
+authors:
+  - family-names: Lim
+    given-names: Minsik
+    affiliation: Gachon University
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    # email: your.institutional@address
+license: MIT
+repository-code: "https://github.com/Limminsik/MEAE_XAI"
+abstract: >-
+  A supervised multi-encoder autoencoder (MEAE) that separates a
+  noisy single-lead ECG into interpretable components. Each of the
+  four parallel encoders is assigned one reference source before
+  training (clean ECG, baseline wander, muscle artefact, electrode
+  motion), so the assignment diagonal of the component-to-reference
+  table is itself the evidence of separation. Denoising is then a
+  pure inference-time operation: zeroing the three noise encodings
+  and decoding, with no retraining and no change to any weight. The
+  denoised signal is evaluated on three axes - component alignment,
+  reconstruction fidelity against the clean reference, and
+  reference-free signal quality indices together with clinical
+  morphology measurements.
+keywords:
+  - electrocardiography
+  - ECG denoising
+  - blind source separation
+  - multi-encoder autoencoder
+  - explainable AI
+  - signal quality index
+references:
+  - type: article
+    authors:
+      - family-names: Webster
+        given-names: Matthew B.
+      - family-names: Lee
+        given-names: Joonnyong
+    title: Blind source separation via multi-encoder autoencoders
+    journal: Neurocomputing
+    year: 2025
+    doi: 10.1016/j.neucom.2025.131008

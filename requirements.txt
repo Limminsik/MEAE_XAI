@@ -1,18 +1,27 @@
-# meae_xai — RESEARCH_DESIGN.md §1
-# torch/torchvision는 별도 설치:
-#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
-wfdb
-neurokit2==0.2.10   # 0.2.12는 py3.10+ 문법 사용, 3.9 미지원
-PyWavelets
-scipy
-numpy
-pandas
-matplotlib
-seaborn
-statsmodels
-pyyaml
-tqdm
-ipykernel
-pyarrow
-pytest
-vitaldb==1.5.8
+# 실행 환경 — 아래 버전이 논문 결과를 낸 환경 그대로다.
+#
+#   Python 3.9.21   (3.10 이상에서는 neurokit2 0.2.10 이 import 되지 않는다)
+#   CUDA 12.9       (GPU 없이도 동작한다. torch 가 자동으로 CPU 로 떨어진다)
+#
+# torch 는 CUDA 휠이라 별도 인덱스에서 받는다:
+#   uv pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+#
+# 전체 설치 절차는 README 「7. 실행」 참조.
+
+wfdb==4.3.1
+neurokit2==0.2.10          # 0.2.12 는 py3.10+ 문법을 써서 3.9 에서 import 되지 않는다
+PyWavelets==1.6.0          # 04·07 의 웨이블릿 비교선
+scipy==1.13.1
+numpy==2.0.2
+pandas==2.3.3
+matplotlib==3.9.4
+pyyaml==6.0.3
+tqdm==4.70.0
+
+# neurokit2 가 끌고 오지만, R-피크 검출이 직접 의존하므로 버전을 고정해 둔다
+scikit-learn==1.6.1
+
+# 선택 — 없어도 01~06 은 그대로 돈다
+vitaldb==1.5.8             # 07_validation.py --source vitaldb
+ipykernel                  # analysis.ipynb
+pytest                     # tests/

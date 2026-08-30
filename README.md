@@ -920,6 +920,59 @@ A(성분차감) 방식의 근거도 여기서 흔들린다.
 
 ## 7. 실행
 
+### 7.1 환경
+
+결과를 낸 환경 그대로다. `uv` 를 쓰지 않아도 되지만, Python 은 **3.9 여야 한다**
+(neurokit2 0.2.10 이 3.10+ 문법에서 import 되지 않는다).
+
+```bash
+git clone https://github.com/Limminsik/MEAE_XAI.git
+cd MEAE_XAI
+
+uv venv --python 3.9.21
+uv pip install -r requirements.txt
+uv pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+```
+
+| | 버전 |
+|---|---|
+| Python | 3.9.21 |
+| torch | 2.8.0+cu129 (CUDA 12.9) |
+| numpy · scipy · pandas | 2.0.2 · 1.13.1 · 2.3.3 |
+| neurokit2 · PyWavelets · wfdb | 0.2.10 · 1.6.0 · 4.3.1 |
+
+GPU 는 없어도 된다 — torch 가 CPU 로 떨어지며, 확정 모델(파라미터 약 20만)은 CPU 에서도
+학습이 끝난다. 다만 결과 재현에는 GPU 환경을 권한다.
+
+한글 콘솔 출력이 있으므로 Windows 에서는 `PYTHONIOENCODING=utf-8` 로 실행한다 (cp949 오류).
+단위 테스트는 `python -m pytest tests/ -q` — 37개.
+
+### 7.2 데이터
+
+데이터는 저장소에 포함하지 않는다. 각 제공처의 조건을 따른다.
+
+| 데이터 | 쓰이는 곳 | 확보 |
+|---|---|---|
+| MIT-BIH Arrhythmia Database | 학습·평가의 clean ECG | PhysioNet 공개 |
+| MIT-BIH Noise Stress Test Database | 주입 잡음 bw · ma · em | PhysioNet 공개 |
+| VitalDB | 07 외부 적용 | `vitaldb` 패키지로 내려받음 |
+| MIMIC-IV-ECG | 07 외부 적용 | PhysioNet 자격 심사 + DUA 필요 |
+| GalaxyPPG | 07 외부 적용 | 배포처 조건에 따름 |
+
+`configs/default.yaml` 의 `paths` 가 데이터 위치를 가리킨다. 앞의 두 개만 있으면
+01~06 이 전부 돌고, 07 은 해당 소스가 있는 것만 돌린다.
+
+분절 데이터(`paths.processed`)를 처음부터 만들려면:
+
+```bash
+python 01_build.py --rebuild        # MIT-BIH 내려받기 → 기록 단위 분할 → 분절·잡음 주입
+```
+
+`--rebuild` 없이는 만들지 않는다. 그 폴더는 여러 갈래가 함께 읽으므로, 덮어쓰면 이미
+끝난 실험의 입력이 바뀐다. 분할은 `split.json` 이 이미 있으면 달라질 때 중단한다.
+
+### 7.3 파이프라인
+
 ```bash
 # 0) 스팟체크 그림
 python 01_build.py --spotcheck
@@ -944,6 +997,24 @@ python 07_validation.py --run C16_seed42 --source vitaldb
 
 학습이 끝나면 성분 정렬 지표와 복원이 **항상 함께** 산출된다 (`--no-eval` 로만 끈다).
 
-한글 콘솔 출력이 있으므로 `PYTHONIOENCODING=utf-8` 로 실행한다.
-환경은 이 폴더 자체의 uv 환경이다 (Python 3.9.21, torch cu129).
-단위 테스트는 `python -m pytest tests/ -q` — 37개.
+`configs/default.yaml` 의 기본값이 곧 확정 모델이다 — 2)의 명령에 오버라이드가 하나도
+없는 이유다. 그 일치는 테스트가 지킨다
+(`tests/test_model.py::test_config_is_confirmed_c16`).
+
+---
+
+## 8. 라이선스와 인용
+
+이 저장소의 코드는 **MIT 라이선스**다 ([LICENSE](LICENSE)).
+
+선행 연구의 소스를 포함한다 — `src/model/_vendor_meae.py` 와
+`_vendor_separation_loss.py` 는 Webster 등의 저장소(MIT)에서 가져왔고, 앞의 파일은
+dilation·잔차 연결 세 지점을 **개작**했다. 원본과의 차이, 원저작권 고지, 데이터셋
+조건은 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 에 있다.
+
+인용 정보는 [CITATION.cff](CITATION.cff) 에 있다. 선행 구조를 함께 인용한다:
+
+> Webster MB, Lee J. Blind source separation via multi-encoder autoencoders.
+> *Neurocomputing* 2025. doi:10.1016/j.neucom.2025.131008
+
+데이터셋은 재배포하지 않는다. 각 제공처의 이용 조건을 따른다 (§7.2).

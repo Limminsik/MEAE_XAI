@@ -1,24 +1,13 @@
-"""MEAE 손실 4항 (RESEARCH_DESIGN.md §5).
+"""손실 함수.
 
-선행 4항을 그대로 차용하되 **재구성만 BCE → MSE로 교체**한다. 선행은 신호를 [0,1]로
-min-max 정규화한 뒤 BCEWithLogits를 썼지만, 우리는 정규화를 하지 않고 ECG는 음수를 가진다.
-zero reconstruction도 같은 손실 함수를 재사용하므로 함께 MSE가 된다 (설계 §5 요구).
+**이 갈래가 쓰는 것은 아래쪽 `SupervisedLoss` 하나다.** 정의와 근거는 그 앞의
+주석 블록에 있다. 인코더마다 참조를 하나씩 배정하고, 성분을 그 참조에 직접 맞춘다.
 
-| 항 | 값 | 출처 |
-|---|---|---|
-| 재구성 | `MSE(x̂, x) + γ·MSE(Δx̂, Δx)` (Δ = 1차 차분) | 선행 BCE를 교체 + 차분항 추가 |
-| sparse mixing | 디코더 가중치 비대각 L1 | 선행 sep_lr = 1e-3 (mesa_ecg_bss) |
-| zero reconstruction | 전영 인코딩 → 출력 0 (MSE) | 선행 zero_lr = 1e-2 |
-| 인코딩 L2 | 각 z의 평균 제곱 | 선행 코드 하드코딩 1e-2 |
-
-**차분항(γ)**: 1차 차분에 대한 MSE를 더한다. 재구성이 저역통과형으로 감쇠하는 것을 막기 위함이다.
-차분은 주파수에 비례하는 이득을 갖는 고역강조 연산자이므로, 이 항은 고주파 오차에 더 큰 벌점을
-준다. 실측에서 재구성 스펙트럼이 입력보다 1.7–1.8배 가팔랐고 15 Hz부터 단조 하강했다.
-γ=0이면 기존 동작과 완전히 같다.
-
-sparse mixing 구현 선택: `separation_loss.py`에는 두 가지가 있고 논문마다 다른 쪽을 쓴다.
-우리는 **`WeightSeparationLossAlternative`** 를 쓴다 — ECG 실험 설정인 `mesa_ecg_bss`가
-쓴 구현이기 때문이다. 자세한 대조는 results/data_notes.md §8 참조.
+이 파일 위쪽의 `MEAELoss` 는 자기지도 갈래(version1~3)에서 쓰던 4항 손실이다.
+version5 에서는 **호출되지 않는다** — 참조를 직접 주므로 "어떻게 나눌지 모를 때 돕는"
+정칙화가 필요 없고, 배정 목표와 충돌할 수 있다. 두 갈래의 손실을 나란히 두어
+무엇을 껐는지 코드로 확인할 수 있게 남긴다. `configs/default.yaml` 의 λ_m·λ_o·λ_z 가
+전부 0.0 인 것이 그 기록이다.
 """
 from typing import Dict, List
 
@@ -30,6 +19,22 @@ from ._vendor_separation_loss import WeightSeparationLoss, WeightSeparationLossA
 SEP_IMPLS = {"alternative": WeightSeparationLossAlternative, "blockwise": WeightSeparationLoss}
 
 
+# ================================================================
+# [version5 에서 사용하지 않음] 자기지도 4항 손실 — version1~3 갈래의 손실이다.
+#
+# 선행 4항을 차용하되 **재구성만 BCE → MSE 로 교체**했다. 선행은 신호를 [0,1] 로
+# min-max 정규화한 뒤 BCEWithLogits 를 썼지만, 우리는 정규화하지 않고 ECG 는 음수를 갖는다.
+#
+#   재구성          MSE(x̂, x) + γ·MSE(Δx̂, Δx)      선행 BCE 를 교체 + 차분항 추가
+#   sparse mixing   디코더 가중치 비대각 L1          선행 sep_lr = 1e-3 (mesa_ecg_bss)
+#   zero recon      전영 인코딩 → 출력 0 (MSE)      선행 zero_lr = 1e-2
+#   인코딩 L2       각 z 의 평균 제곱               선행 코드 하드코딩 1e-2
+#
+# sparse mixing 구현은 `WeightSeparationLossAlternative` 를 쓴다 — 선행의 ECG 실험
+# 설정(`mesa_ecg_bss`)이 쓴 구현이기 때문이다.
+#
+# version5 는 참조를 직접 주므로 이 세 정칙화 항을 모두 0.0 으로 끈다.
+# ================================================================
 class MEAELoss(nn.Module):
     def __init__(self, n_encoders: int, lambda_mixing: float, lambda_zero_recon: float,
                  lambda_z_l2: float, sep_impl: str = "alternative", sep_norm: str = "L1",
@@ -45,7 +50,7 @@ class MEAELoss(nn.Module):
         self.lambda_z_l2 = lambda_z_l2
 
     def forward(self, model, x: Tensor, x_pred: Tensor, zs: List[Tensor]) -> Dict[str, Tensor]:
-        """항별 값을 그대로 돌려준다 — 에폭 로그에 4항을 각각 남기기 위함 (§6)."""
+        """항별 값을 그대로 돌려준다 — 에폭 로그에 4항을 각각 남기기 위함."""
         recon = self.recon(x_pred, x)
         if self.gamma_diff:                      # 1차 차분 = 고역강조. 저역통과 감쇠를 막는다
             recon = recon + self.gamma_diff * self.recon(torch.diff(x_pred, dim=-1),
@@ -72,7 +77,7 @@ class MEAELoss(nn.Module):
 def build(cfg, n_encoders: int) -> MEAELoss:
     lo = cfg["loss"]
     if lo["recon"] != "mse":
-        raise ValueError("설계 §5는 재구성 손실을 MSE로 고정한다.")
+        raise ValueError("재구성 손실은 MSE 로 고정된다 (loss.recon: mse).")
     return MEAELoss(n_encoders=n_encoders, lambda_mixing=lo["lambda_mixing"],
                     lambda_zero_recon=lo["lambda_zero_recon"],
                     lambda_z_l2=lo["lambda_z_l2"], sep_impl=lo["sep_impl"],
@@ -187,7 +192,7 @@ def source_sigmas(train_set, keys):
 def build_supervised(cfg, n_encoders: int, pad_each: int, sigmas=None) -> SupervisedLoss:
     lo = cfg["loss"]
     if lo["recon"] != "mse":
-        raise ValueError("설계 §5는 재구성 손실을 MSE로 고정한다.")
+        raise ValueError("재구성 손실은 MSE 로 고정된다 (loss.recon: mse).")
     n_ref = len(lo["supervise"])
     if n_ref != n_encoders:
         raise ValueError(f"loss.supervise 가 {n_ref}개인데 인코더는 {n_encoders}개다. "

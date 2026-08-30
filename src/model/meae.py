@@ -1,15 +1,16 @@
-"""MEAE — 선행 구조를 감싼 우리 인터페이스 (RESEARCH_DESIGN.md §5).
+"""MEAE — 선행 구조를 감싼 우리 인터페이스.
 
-구조 자체는 `_vendor_meae.py` 를 쓴다. **version5 에서 그 파일은 수정본이다** —
-블록별 dilation 을 받도록 두 곳을 고쳤고, 근거와 변경 지점은 그 파일 머리말에 있다. 이 파일이 더하는 것은
-설계 §5가 요구하는 네 가지뿐이다.
+구조 자체는 `_vendor_meae.py` 를 쓴다. **version5 에서 그 파일은 개작본이다** —
+블록별 dilation 과 잔차 연결을 받도록 고쳤고, 변경 지점과 근거는 그 파일 머리말에 있다.
+이 파일이 더하는 것은 마스킹 인터페이스다.
 
   encode / decode / forward   — 선행 그대로 위임
   component(x, k)             — k번째 인코딩만 남기고 나머지를 0으로 치환한 재구성
   masked_reconstruct(x, idx)  — idx의 인코딩만 0으로 치환한 재구성
 
-§0 원칙 1: 마스킹 대상은 **인코딩(인코더 출력 텐서)** 이다. 인코더 가중치는 건드리지 않고
-순전파도 K개 모두 수행하며, 디코더 입력 직전에 해당 인코딩만 영텐서로 바꾼다.
+**마스킹 대상은 인코딩(인코더 출력 텐서)이다.** 인코더 가중치는 건드리지 않고 순전파도
+K개 모두 수행하며, 디코더 입력 직전에 해당 인코딩만 영텐서로 바꾼다. 재학습이 없는
+추론 시점 조작이라, 학습된 모델 하나로 04~07 전 단계를 돈다.
 
 패딩 — **압축률에 따라 달라진다**
   인코더 블록 수 D = len(channels) 이고 MaxPool 2배가 D번 걸린다 → 입력 길이가
@@ -18,6 +19,7 @@
     D=8 (256배)  3600 -> 3840, 양쪽 120   ← 선행 기본값
     D=6 ( 64배)  3600 -> 3648, 양쪽  24
     D=5 ( 32배)  3600 -> 3616, 양쪽   8
+    D=4 ( 16배)  3600 -> 3600, 양쪽   0   ← **확정 모델 C16** (패딩 없음)
 
   선행 후속 저장소도 6000 -> 6144(=256x24)를 같은 방식으로 처리했다.
   **모든 상관·지표는 crop()으로 중앙 3600을 잘라낸 뒤 계산한다.** 0 구간이 상관을 희석한다.
@@ -30,8 +32,6 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from ._vendor_meae import ConvolutionalAutoencoder
-
-DOWNSAMPLE_FACTOR = 256          # 선행 기본값 — 인코더 블록 8개 x MaxPool(2)
 
 
 def fit_pad(length: int, depth: int):
@@ -117,7 +117,10 @@ class MEAE(nn.Module):
 
     # ---- 선행 그대로 위임 -------------------------------------------------
     def encode(self, x: Tensor) -> List[Tensor]:
-        """(B,1,L) → 길이 K 리스트, 각 (B, hidden//K, L//256)."""
+        """(B,1,L) → 길이 K 리스트, 각 (B, hidden//K, L//2^깊이).
+
+        확정 모델은 깊이 4 → 압축률 16 이라 3600 표본이 인코딩 225 조각이 된다.
+        """
         return self.net.encode(x)
 
     def encode_all(self, x: Tensor):
@@ -137,7 +140,7 @@ class MEAE(nn.Module):
     def forward(self, x: Tensor):
         return self.net(x)
 
-    # ---- 설계 §5가 요구하는 마스킹 ---------------------------------------
+    # ---- 마스킹 -------------------------------------------------------
     def _mask(self, zs: List[Tensor], keep: List[int]) -> List[Tensor]:
         """keep에 없는 인코딩을 영텐서로 치환. 인코더 가중치는 불변."""
         return [z if i in keep else torch.zeros_like(z) for i, z in enumerate(zs)]
@@ -161,13 +164,13 @@ class MEAE(nn.Module):
 
     def masked_reconstruct(self, x: Tensor, mask_idx: Union[int, Sequence[int]],
                            use_skip: bool = True) -> Tensor:
-        """mask_idx의 인코딩(과 잔차)만 0으로 치환한 재구성 (S5 복원)."""
+        """mask_idx의 인코딩(과 잔차)만 0으로 치환한 재구성 — 04의 복원 B."""
         idx = {mask_idx} if isinstance(mask_idx, int) else set(mask_idx)
         keep = [i for i in range(self.n_encoders) if i not in idx]
         return self._decode_masked(x, keep, use_skip)
 
     def components(self, x: Tensor) -> List[Tensor]:
-        """K개 성분을 한 번의 encode로 모두 얻는다 (S4에서 분절마다 K번 호출을 피함)."""
+        """K개 성분을 한 번의 encode로 모두 얻는다 (분절마다 K번 호출을 피함)."""
         zs, skips = self.encode_all(x)
         if self.skip_levels:
             return [self.decode(self._mask(zs, [k]),
@@ -176,13 +179,16 @@ class MEAE(nn.Module):
         return [self.decode(self._mask(zs, [k])) for k in range(self.n_encoders)]
 
     def zero_encoding(self, batch: int, length: int, device) -> List[Tensor]:
-        """zero reconstruction 손실용 전영 인코딩."""
+        """전영 인코딩 — 자기지도 갈래의 zero reconstruction 항이 쓴다.
+
+        version5 는 그 항을 끄므로(λ_o = 0.0) 학습 경로에서 불리지 않는다.
+        """
         c = self.net.hidden // self.n_encoders
         return [torch.zeros(batch, c, length, device=device) for _ in range(self.n_encoders)]
 
 
 def build(cfg, n_encoders: int) -> MEAE:
-    """configs/default.yaml 에서 바로 조립. 하드코딩 금지 (§13)."""
+    """configs/default.yaml 에서 바로 조립. 구조 값을 코드에 하드코딩하지 않는다."""
     m, d = cfg["model"], cfg["data"]
     # 패딩은 채널 깊이에서 유도한다 — 압축률을 바꾸면 자동으로 따라온다.
     length, pad_each = fit_pad(d["fs"] * d["seg_sec"], len(m["channels"]))

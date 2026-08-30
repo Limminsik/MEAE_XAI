@@ -1,24 +1,28 @@
-"""02 — 모델·학습 (RESEARCH_DESIGN.md §5–7).
+"""02 — 모델·학습.
 
-    python 02_model.py --k 8 --seed 42
+    python 02_model.py --k 4 --seed 42          # 확정 모델 C16 (config 기본값)
 
 구조는 `src/model/meae.py`, 손실은 `src/model/losses.py`. 이 파일은 학습 루프와
 두 비용 함수의 운용(선택 기준·후보 보관·민감도)을 담는다.
 
-**지도학습.** 이 폴더만 참조 4종을 손실에 직접 넣는다 — §0 원칙 3(자기지도)을 의도적으로
-벗어난 대조 실험이다. 인코더마다 참조를 하나씩 배정한다: enc1 x_clean · enc2 bw · enc3 ma ·
-enc4 em (`loss.supervise`). 결과를 자기지도 결과와 같은 줄에 놓지 않는다.
+**지도학습이다.** 참조 4종을 손실에 직접 넣고, 인코더마다 참조를 하나씩 배정한다:
+enc1 x_clean · enc2 bw · enc3 ma · enc4 em (`loss.supervise`). 배정은 사전에 정하고
+사후에 바꾸지 않는다 — 그래야 대응표의 대각이 곧 주장의 근거가 된다.
 
 ────────────────────────────────────────────────────────────────────────
 비용 함수 ① — 학습 손실
 ────────────────────────────────────────────────────────────────────────
     L     = (1/L)‖x̂ − x_noisy‖² + λ_sup · L_sup                        λ_sup = 1.0
 
-    L_sup = (1/K) Σ_k [ (1/L)‖ŝ_k − r_k‖²
+    L_sup = (1/K) Σ_k (1/σ_k²) [ (1/L)‖ŝ_k − r_k‖²
                       + γ₁·(1/(L−1))‖Δŝ_k  − Δr_k‖²                     γ₁ = gamma_sup
-                      + γ₂·(1/(L−2))‖Δ²ŝ_k − Δ²r_k‖² ]                   γ₂ = gamma2_sup
+                      + γ₂·(1/(L−2))‖Δ²ŝ_k − Δ²r_k‖²                     γ₂ = gamma2_sup
+                      + β ·(1/B)‖|F ŝ_k| − |F r_k|‖² ]                   β  = beta_sup
 
     (Δx)[t] = x[t] − x[t−1] (길이 L−1),  (Δ²x)[t] = x[t] − 2x[t−1] + x[t−2] (길이 L−2).
+    F = rfft(norm='ortho') 의 크기, B = L//2+1. σ_k 는 소스별 표준편차이며
+    `sup_normalize: none` 이면 전부 1 이다. **확정 모델은 γ₁=50, γ₂=β=0, σ 정규화 없음.**
+    항의 전체 정의와 근거는 `src/model/losses.py` 의 「지도 손실」 주석에 있다.
 
     파형 일치만으로는 참조의 국소 고주파가 학습되지 않아 변화량 일치를 함께 건다.
     1차가 기울기라면 2차는 곡률이다. 세 항을 각자 길이로 나눠 γ 가 상대 비중 그대로가
@@ -318,7 +322,8 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 1,
     batch, n_v, every, ratio = tr["batch"], ck["val_n"], ck["eval_every"], ck["recon_ratio"]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # 그룹 폴더를 run 이름 앞에 붙인다 — `load_ckpt` 가 경로를 그대로 받는다
-    run = os.path.join(group, tag or f"K{n_encoders}_seed{seed}") if group         else (tag or f"K{n_encoders}_seed{seed}")
+    base = tag or f"K{n_encoders}_seed{seed}"
+    run = os.path.join(group, base) if group else base
     name = os.path.basename(run)
 
     sup_keys = list(cfg["loss"]["supervise"])
@@ -379,7 +384,7 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 1,
     say(f"  선택  C = {{ L_sup^val <= {ratio} x min }} 에서 L_sup^val 최소, {every}에폭 간격")
 
     rng = np.random.default_rng(seed)
-    history, best_recon, bad = [], np.inf, 0
+    history, best_sup, bad = [], np.inf, 0
     for epoch in range(1, max_epoch + 1):
         t0 = time.time()
         order = rng.permutation(len(train_set))
@@ -431,8 +436,8 @@ def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 1,
             + (f" S={ev['S']:.3f}(enc{ev['argmax_k']+1})" if judge else "")
             + f" {row['sec']:.0f}s")
 
-        if ev["val_sup"] < best_recon - 1e-6:      # 선택 기준과 같은 양으로 본다
-            best_recon, bad = ev["val_sup"], 0
+        if ev["val_sup"] < best_sup - 1e-6:        # 조기 종료도 선택 기준과 같은 양(L_sup^val)으로 본다
+            best_sup, bad = ev["val_sup"], 0
         else:
             bad += 1
             if bad >= tr["early_stop_patience"]:
@@ -682,14 +687,6 @@ def diagnose(config="configs/default.yaml", run="C16_seed42", split="val", n=900
     return out
 
 
-# ================================================================
-# 후보 에폭별 성분↔참조 평가 표 — 선정 근거를 눈으로 볼 수 있게 저장한다.
-#   pool/ 에 보관한 후보 구간(배율 1.5) 체크포인트를 하나씩 불러
-#   03과 **같은 조건**(val 전체, 같은 지표 정의)으로 8×4 표를 만든다.
-#   지표 하나 = 표 하나. 한 에폭이 인코더 8행을 차지하고 열은 참조 4종이다.
-#
-#   이 표는 서술·투명성용이며 **선정 규칙을 바꾸지 않는다.**
-#   표를 보고 에폭을 손으로 고르면 기준 이동이 된다.
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")

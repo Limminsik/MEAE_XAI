@@ -27,3 +27,7 @@ run_d*.sh
 /results/02_model/*/pool/
 /results/02_model/*/plots/
 _scratch/
+
+# 작업 규칙 파일 — 저장소에 넣지 않는다
+CLAUDE.md
+.claude/

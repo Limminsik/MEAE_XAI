@@ -1,4 +1,4 @@
-"""S1 사전 단계 — 공개 데이터 내려받기·검증 (RESEARCH_DESIGN.md §4).
+"""공개 데이터 내려받기·검증 (README §2.1).
 
 MIT-BIH Arrhythmia(mitdb)만 내려받는다. NSTDB와 GalaxyPPG는 이미 data/ 에 있다.
 중단된 다운로드를 안전하게 이어받는다(불완전 기록만 다시 받음).

@@ -235,7 +235,7 @@ def fig_components(comps, refs, x_noisy, i, out, title, fs, recon=None):
     plt.close(fig)
 
 def fig_overlay(comps, refs, i, cm, rn, mad, out, fs, title):
-    """S4 마무리 그림 — 성분 × 참조 8×4 격자. 한 패널에 표준화한 두 파형을 겹쳐 그린다.
+    """성분 × 참조 격자 (K행 × 4열). 한 패널에 표준화한 두 파형을 겹쳐 그린다.
 
     패널마다 그 분절의 세 지표를 병기하고, 전 패널이 공통 y축을 쓴다.
     """

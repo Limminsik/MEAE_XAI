@@ -1,26 +1,28 @@
 [project]
 name = "meae-xai-version5-supervised"
-version = "0.1.0"
-description = "지도학습 구조 개선 — 시간 해상도(압축률) 실험"
+version = "1.0.0"
+description = "Supervised multi-encoder autoencoder for explainable ECG denoising via encoding masking"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.9.21,<3.10"   # 3.9 전용. 넓게 두면 uv 가 3.13 휠을 넣는다
 dependencies = [
-    "wfdb",
+    "wfdb==4.3.1",
     "neurokit2==0.2.10",   # 0.2.12 는 py3.10+ 문법. 3.9 미지원
-    "PyWavelets",
-    "scipy",
-    "numpy",
-    "pandas",
-    "matplotlib",
-    "seaborn",
-    "statsmodels",
-    "pyyaml",
-    "tqdm",
-    "ipykernel",
-    "pyarrow",
-    "pytest",
+    "PyWavelets==1.6.0",
+    "scipy==1.13.1",
+    "numpy==2.0.2",
+    "pandas==2.3.3",
+    "matplotlib==3.9.4",
+    "scikit-learn==1.6.1",
+    "pyyaml==6.0.3",
+    "tqdm==4.70.0",
 ]
 
+[project.optional-dependencies]
+external = ["vitaldb==1.5.8"]   # 07_validation.py --source vitaldb
+notebook = ["ipykernel"]        # analysis.ipynb
+dev = ["pytest"]                # tests/
+
 # torch·torchvision 은 cu129 인덱스로 따로 설치한다:
-#   uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu129
-# vitaldb 는 05(외부 적용) 전용이라 이 갈래에서는 넣지 않는다.
+#   uv pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cu129
+# 결과를 낸 환경은 torch 2.8.0+cu129 / CUDA 12.9 다.

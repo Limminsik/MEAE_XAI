@@ -1,11 +1,17 @@
-"""분절 npz를 메모리에 올려 학습에 쓰는 로더 (RESEARCH_DESIGN.md §6).
+"""분절 npz를 메모리에 올려 학습에 쓰는 로더.
 
 전체가 float32로 train 5,760 x 3,600 = 83 MB 수준이라 통째로 램에 올린다.
 DataLoader 워커를 쓰지 않으므로 워커 시드 문제가 원천적으로 사라지고,
 에폭마다 인덱스 셔플만 시드로 통제하면 재현성이 확보된다.
 
-**모델에 들어가는 것은 x_noisy 하나뿐이다** (§0 원칙 3, 자기지도).
-clean/bw/ma/em은 val·test에서만 로드하며, 손실이 아니라 채점에만 쓴다 (§0 원칙 4).
+**참조를 올릴지 말지는 부르는 쪽이 정한다** (`with_refs`).
+
+  지도학습(이 갈래)   `Segments(cfg, "train", with_refs=True)` — 참조 4종이 손실에
+                     직접 들어간다. 02_model.py 가 이 형태로 부른다.
+  자기지도            `load(cfg, split)` — train 에서는 참조를 아예 올리지 않아
+                     실수로 손실에 섞이는 사고를 구조로 막는다.
+
+모델 입력은 어느 쪽이든 x_noisy 하나다. 참조는 손실(지도)이나 채점(평가)에 쓰인다.
 """
 import json
 import os
@@ -68,5 +74,10 @@ class Segments:
 
 
 def load(cfg, split: str) -> Segments:
-    """train은 정답 없이, val·test는 정답과 함께 로드한다."""
+    """자기지도용 기본 로드 — train은 참조 없이, val·test는 참조와 함께.
+
+    **지도학습 경로는 이 함수를 쓰지 않는다.** 02_model.py 가 train 을
+    `Segments(cfg, "train", with_refs=True)` 로 직접 만든다 — 참조를 손실에 넣는 것이
+    이 갈래의 목적이므로, 그 예외를 함수 뒤에 숨기지 않고 호출부에 드러낸다.
+    """
     return Segments(cfg, split, with_refs=(split != "train"))

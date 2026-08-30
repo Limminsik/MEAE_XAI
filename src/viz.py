@@ -1,4 +1,4 @@
-"""그림 생성 공통 (RESEARCH_DESIGN.md §13: 300 dpi PNG, 한글 폰트)."""
+"""그림 생성 공통 — 300 dpi PNG, 한글 폰트 설정."""
 import json
 import os
 

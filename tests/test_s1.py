@@ -1,6 +1,6 @@
-"""S1 단위 테스트 (RESEARCH_DESIGN.md §11).
+"""데이터 단위 테스트 — 분할·주입의 무결성.
 
-SNR 실측은 §4-4 주입과 동일하게 **신호는 분산, 잡음은 mean(n**2)** 기준으로 잰다.
+SNR 실측은 주입 정의와 동일하게 **신호는 분산, 잡음은 mean(n**2)** 기준으로 잰다.
 정의가 어긋나면 테스트가 항상 실패한다.
 """
 import json
@@ -42,7 +42,7 @@ def test_counts(split, manifest):
 
 
 def test_split_leakage(split, manifest):
-    """train/val/test 기록 교집합 0 (§0 원칙 5)."""
+    """train/val/test 기록 교집합 0 — 기록 단위 분할."""
     tr, va, te = (set(split[k]) for k in ("train", "val", "test"))
     assert not (tr & va) and not (tr & te) and not (va & te)
     assert len(tr | va | te) == 46
@@ -62,7 +62,7 @@ def test_injection(manifest):
 
 
 def test_noise_time_split(manifest):
-    """train 분절과 val·test 분절이 쓴 잡음 원본 구간이 겹치지 않는다 (§4-3)."""
+    """train 분절과 val·test 분절이 쓴 잡음 원본 구간이 겹치지 않는다."""
     cut = int(650000 * CFG["data"]["noise_split_ratio"])
     tr = manifest[manifest.split == "train"]
     ev = manifest[manifest.split != "train"]

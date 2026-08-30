@@ -1,7 +1,10 @@
 """01 — 데이터 스팟체크. **이 갈래는 데이터를 만들지 않는다.**
 
 baseline 데이터(`../data/processed`)를 읽기 전용으로 쓰므로, 여기서는 그 분절이 실제로
-어떻게 생겼는지 그림으로 확인하는 일만 한다. 재생성이 필요하면 baseline 갈래에서 한다.
+어떻게 생겼는지 그림으로 확인하는 일만 한다.
+
+재생성 경로(`--rebuild`)는 남겨 두었다 — 데이터가 없는 곳에서 처음부터 만들 때 쓴다.
+그 폴더는 v1~v5 가 함께 읽으므로 명시하지 않으면 실행되지 않는다.
 
     python 01_build.py --spotcheck                      # split 마다 무작위 1개
     python 01_build.py --spotcheck 100_0114 231_0018    # 기록_분절 지정
@@ -223,8 +226,20 @@ def spotcheck_figs(cfg, names=None, record=None, start=0, n=3, seed=42):
         print(f"  {sp}  {name}  ({len(files)}분절 중 무작위)  →  {out} (+_overlay)")
 
 
-def main(config="configs/default.yaml", skip_download=False):
+def main(config="configs/default.yaml", skip_download=False, rebuild=False):
+    """분절 데이터를 처음부터 다시 만든다 — **평소에는 쓰지 않는다.**
+
+    `paths.processed` 는 v1~v5 가 함께 읽는 폴더다. 여기를 다시 쓰면 이미 끝난 실험의
+    입력이 바뀌어 결과를 재현할 수 없게 된다. 그래서 `--rebuild` 를 명시하지 않으면
+    진행하지 않는다. 기본 동작은 스팟체크뿐이다.
+    """
     cfg = load_cfg(config)
+    if not rebuild:
+        raise SystemExit(
+            "[01] 이 갈래는 데이터를 만들지 않는다 — baseline 데이터를 읽기 전용으로 쓴다.\n"
+            f"     재생성은 {cfg['paths']['processed']} 를 덮어쓰며, 그 폴더는 v1~v5 가\n"
+            "     함께 읽는다. 정말 다시 만들 것이면 --rebuild 를 붙여라.\n"
+            "     그림만 다시 그리려면: python 01_build.py --spotcheck")
     if not skip_download:
         print("[01] 원본 내려받기·검증")
         download.download_mitdb(cfg["paths"]["mitdb"])
@@ -244,6 +259,9 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
     p.add_argument("--skip-download", action="store_true")
+    p.add_argument("--rebuild", action="store_true",
+                   help="분절 데이터를 처음부터 다시 만든다. "
+                        "paths.processed 를 덮어쓰므로 평소에는 쓰지 않는다")
     p.add_argument("--spotcheck", nargs="*", default=None,
                    help="스팟체크만 다시 그린다. 인자로 `기록_분절` 을 나열할 수 있다")
     p.add_argument("--record", default=None, help="한 기록의 연속 window 를 그린다")
@@ -256,4 +274,4 @@ if __name__ == "__main__":
     elif a.spotcheck is not None or a.record is not None:
         spotcheck_figs(load_cfg(a.config), a.spotcheck, a.record, a.start, a.n)
     else:
-        main(a.config, a.skip_download)
+        main(a.config, a.skip_download, a.rebuild)
