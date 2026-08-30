@@ -281,7 +281,7 @@ $$|r|_{kj} = \frac{1}{S}\sum_{s=1}^{S}\bigl|\rho(\tilde{s}_k^{(s)},\ \tilde{r}_j
 
 *개념* — 모양만이 아니라 **값 자체**가 얼마나 어긋나는가. \|r\| 과 상보적이다.
 
-$$\text{RMSE\_norm}_{kj} = \sqrt{\frac{1}{L}\sum_{i=1}^{L}\bigl(\tilde{s}_k[i] - \tilde{r}_j[i]\bigr)^2}$$
+$$\text{RMSE}_{\text{norm},\,kj} = \sqrt{\frac{1}{L}\sum_{i=1}^{L}\bigl(\tilde{s}_k[i] - \tilde{r}_j[i]\bigr)^2}$$
 
 *보는 법* — 낮을수록 좋다. 부호 정렬을 하지 않으므로 반대 위상이면 값이 커진다 —
 \|r\| 이 높은데 RMSE_norm 도 크면 위상이 뒤집혔다는 신호다.
@@ -399,7 +399,7 @@ $$\text{ratio}_b = \frac{\sum_{f \in b} P(f)}{\sum_{f \in [0.05,\,40)} P(f)}$$
 
 *개념* — 신호 전력 대비 잔여 오차 전력. 디노이징 문헌의 표준 지표다.
 
-$$\text{SNR}(\hat{x}) = 10\log_{10}\frac{\operatorname{var}(x_{\text{clean}})}
+$$\text{SNR}(\hat{x}) = 10\log_{10}\frac{\mathrm{var}(x_{\text{clean}})}
 {\frac{1}{L}\sum_i \bigl(x_{\text{clean}}[i] - \hat{x}[i]\bigr)^2}\quad[\text{dB}]$$
 
 $$\Delta\text{SNR} = \text{SNR}(\hat{x}) - \text{SNR}(x_{\text{noisy}})$$
