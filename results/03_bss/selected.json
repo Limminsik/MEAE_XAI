@@ -14,6 +14,6 @@
   "gamma_sup": 50.0,
   "gamma2_sup": 0.0,
   "checkpoint": "results\\02_model\\C16_seed42\\C16_seed42.pt",
-  "fixed_at": "2026-08-30T01:33:02",
+  "fixed_at": "2026-08-31T15:03:57",
   "note": "04·05·06·07 은 이 모델을 쓴다"
 }
