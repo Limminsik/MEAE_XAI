@@ -14,16 +14,25 @@
 **참값이 필요 없는 층은 그대로 낸다** — 그 층은 test 에서 참값과 대조해 검증했으므로
 외부에서도 같은 뜻으로 읽을 수 있다.
 
+**판정에 쓸 수 있는 것은 두 층뿐이다.**
   ① SQI 5종        basSQI · pSQI · kSQI · bSQI · ECGMeanCoef      06① 과 같은 정의
+                    참값이 원래 필요 없고, 06 에서 참값과 대조해 방향을 검증해 두었다.
+                    **07 에서 좋고 나쁨을 말할 수 있는 유일한 층이다.**
   ② 임상 형태 지표    ST60 · ST80 · R진폭 · QRS면적 의 **값**        06② 와 같은 측정 창
-                    참값이 없어 오차가 아니다. 입력과 B 를 나란히 두어 이동을 본다.
+                    참값이 없어 오차가 아니다. 입력과 B 를 나란히 두어 이동만 본다.
                     R-피크 기준점은 **입력에서** 검출해 전 계열에 공유한다.
-  ③ 성분 대응       성분 K개 <-> (입력, M0, B) 의 |r|·RMSE_norm·MAD   03 과 같은 집계
-  ④ 스펙트럼 특성    성분별 중심주파수와 대역 전력비
-  ⑤ 복원 차이       B·A·M0·고전 3종이 입력과 얼마나 다른가
 
-고전 비교선 3종(대역통과·웨이블릿 임계값·웨이블릿+기저선제거)도 같은 표에 넣어 SQI 로
-비교한다 — 참값이 없어도 이 층에서는 비교가 성립한다.
+**나머지는 기술(記述)이다 — 성능 근거가 아니다.**
+  ③ 스펙트럼 특성    성분별 중심주파수와 대역 전력비
+  ④ 복원 차이       B·A·M0·고전 3종이 입력과 얼마나 다른가
+
+**성분 ↔ 참조 대응(03 의 |r|·RMSE_norm·MAD)은 여기서 낼 수 없다.** 03 은 성분을
+주입한 참조 파형(x_clean·bw·ma·em)과 대조하는데 외부 데이터에는 그 파형이 없다.
+참조 자리에 입력·M0·B 를 넣으면 이름만 같고 다른 양이 되므로 산출하지 않는다.
+
+고전 비교선 3종(대역통과·웨이블릿 임계값·웨이블릿+기저선제거)은 SQI 표에 함께 넣는다.
+다만 **방법 비교 자체는 06 에서 한다** — "어느 쪽이 참값에 더 가까운가"는 참값이 있어야
+성립하고, 여기 상자그림은 입력과 B 둘만 둔다.
 
 NSTDB 잡음 조각을 참조로 붙이는 방식은 쓰지 않는다. 외부 데이터에 실제로 섞인 잡음과
 무관한 파형이라 상관값이 "대역이 비슷하다"만 반영하고 파형 일치를 뜻하지 않는다.
@@ -52,14 +61,13 @@ SD 중앙값(0.4707 mV)에 맞춘 뒤 통과시킨다. 배율은 `segments.csv` 
 ────────────────────────────────────────────────────────────────────────
 산출물  results/07_validation/<run>/<source>/
 ────────────────────────────────────────────────────────────────────────
-  sqi_summary.csv     ① SQI 5종 — 계열별 (입력·B·A·M0·고전 3종)
-  morphology.csv      ② 임상 형태 지표의 **값**·IQR·입력 대비 이동 (오차가 아니다)
-  morphology_beats.csv      ② 박동 x 계열 — 지표 원값
-  morphology_by_record.csv  ② 기록별 중앙값 (06 의 error_by_record 와 같은 구성)
-  corr_matrix.csv · rmse_norm_matrix.csv · mad_matrix.csv   ③ 성분 x (입력, M0, B)
-  spectrum.csv        ④ 성분별 중심주파수와 대역 전력비
-  restore.csv         ⑤ 복원 5종이 입력과 얼마나 다른가
-  segments.csv        사용한 분절 목록과 정합 배율
+  [판정] sqi_summary.csv          ① SQI 5종 — 계열별 (입력·B·A·M0·고전 3종)
+  [판정] morphology.csv           ② 지표 값·IQR·입력 대비 이동 (오차가 아니다)
+  [판정] morphology_beats.csv     ② 박동 x 계열 — 지표 원값
+  [판정] morphology_by_record.csv ② 기록별 중앙값 (06 의 error_by_record 와 같은 구성)
+  [기술] spectrum.csv             ③ 성분별 중심주파수와 대역 전력비
+  [기술] restore.csv              ④ 복원 5종이 입력과 얼마나 다른가
+  [기술] segments.csv             사용한 분절 목록과 정합 배율
   note.txt · console.log
   figures/components_top{1..10}.png   입력·재구성·성분 K개
   figures/overlay_top{1..10}.png      입력 위에 B 겹침 + 빠져나간 양
@@ -79,8 +87,7 @@ import torch
 from scipy.signal import resample_poly, welch
 
 from src import metrics
-from src.core import (aggregate, enc_names, load_ckpt, mad_matrix, pearson,
-                      rmse_norm_matrix, znorm)
+from src.core import enc_names, load_ckpt, pearson, znorm
 from src.data.build import load_cfg
 from src.data.dataset import load as load_split
 from src.model import meae
@@ -279,26 +286,19 @@ def cut(x, fs_src, need, skip_min=SKIP_MIN):
 
 
 # ---------------------------------------------------------------- 표·그림
-def table(comps, cols, names, ix, outdir):
-    """성분 × (입력, M0) 지표 3종. 03과 같은 정의·집계다."""
-    ref = np.stack(cols, 1)                       # (분절, 2, 3600)
-    rbar, rsd, _ = aggregate(pearson(comps, ref))
-    rn, md = rmse_norm_matrix(comps, ref), mad_matrix(comps, ref)
-    stats = {"corr": (rbar, rsd), "rmse_norm": (rn.mean(0), rn.std(0, ddof=1)),
-             "mad": (md.mean(0), md.std(0, ddof=1))}
-    for nm, (mu, sd) in stats.items():
-        rows = []
-        for k in range(len(ix)):
-            cell = {}
-            for j, c in enumerate(names):
-                cell[c] = mu[k, j]
-                cell[f"{c}_sd"] = sd[k, j]
-            rows.append({"인코더": ix[k], **cell})
-        pd.DataFrame(rows).round(4).to_csv(
-            f"{outdir}/{nm}_matrix.csv", index=False, encoding="utf-8-sig")
-    return stats
-
-
+# ================================================================
+# [제거됨] 성분 × (입력, M0, B) 의 |r|·RMSE_norm·MAD 표
+#
+# 03 은 성분을 **주입한 참조**(x_clean·bw·ma·em)와 대조해 "enc2 가 정말 bw 를
+# 담았는가"를 잰다. 외부 데이터에는 그 참조 파형이 없으므로 같은 것을 잴 수 없다.
+# 여기서 내던 표는 참조 자리에 입력·M0·B 를 넣은 것이라 이름만 같고 다른 양이었다.
+#
+# 게다가 B = component(x, enc1) 이라 `enc1 × B복원` 칸이 항등이었다
+# (corr 1.0000±0.0000 · MAD 0.0000±0.0000) — 자기 자신과의 상관이다.
+#
+# 성분의 성격은 `spectrum.csv`(중심주파수·대역 전력비)로, 복원이 입력을 얼마나
+# 바꿨는지는 `restore.csv` 로 본다. 둘 다 참조 없이 성립한다.
+# ================================================================
 def _profile(a):
     f, P = welch(a, fs=FS, nperseg=1024, axis=-1)
     tot = P.sum(-1)
@@ -634,7 +634,6 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
             f"[07 신호 품질 지수] {source} · {run}",
             f"분절 {len(X):,}개 — 참값이 필요 없는 지표다. basSQI 만 낮을수록 좋다")
 
-    stats = table(comps, [X, rec, B], ["입력", "M0재구성", "B복원"], ix, outdir)
     spec = spectrum(comps, X, rec, ix, outdir)
     fig_spectrum(comps, X, rec, ix, f"{figdir}/spectrum.png", source)
 
@@ -664,16 +663,25 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
                "  모델은 mV 원값을 그대로 받도록 학습됐고 정규화 단계가 없다(S1 동결).\n"
                "  그 전제는 MIT-BIH 안에서만 성립한다. 배율은 segments.csv 에 있다.\n\n"
                if scale else "진폭 정합을 하지 않았다 (--no-scale).\n\n")
-            + "참조가 없다.\n"
-            "  외부 데이터의 잡음은 이미 섞여 들어온 것이라 clean/bw/ma/em 처럼\n"
-            "  따로 떼어 낸 파형이 없다. 그래서 03의 4열 표는 만들 수 없다.\n"
-            "  대신 성분을 그 데이터의 입력 신호, 그리고 M0 재구성과 대조했다.\n"
-            "  지표 정의와 집계는 03과 같다 (분절 내 표준화 -> |r| / RMSE_norm / MAD\n"
-            "  -> 분절 간 평균 +- SD, ddof=1).\n"
-            "  NSTDB 잡음 조각을 참조로 붙이지 않았다 - 외부 데이터에 실제로 섞인\n"
-            "  잡음과 무관한 파형이라 상관값이 파형 일치를 뜻하지 않는다.\n\n"
-            "spectrum.csv 의 중심주파수와 대역 전력비는 파형을 맞대지 않고 계산하므로\n"
-            "참조 없이도 성분의 주파수 성격을 말할 수 있다.\n\n"
+            + "참조가 없다 - 무엇을 판정할 수 있고 무엇을 못 하는가.\n\n"
+            "  [판정 가능]\n"
+            "    sqi_summary.csv   SQI 5종. 참값이 원래 필요 없고, 06에서 참값과\n"
+            "                      대조해 방향을 검증해 두었다. 좋고 나쁨을 말할 수\n"
+            "                      있는 유일한 층이다.\n"
+            "    morphology*.csv   06과 같은 측정 창으로 잰 값. 참값이 없으므로\n"
+            "                      오차가 아니라 값이고, 입력 대비 이동만 본다.\n\n"
+            "  [기술만 - 성능 근거가 아니다]\n"
+            "    spectrum.csv      성분별 중심주파수와 대역 전력비. 파형을 맞대지\n"
+            "                      않고 계산하므로 참조 없이도 성격을 말할 수 있다.\n"
+            "    restore.csv       복원이 입력을 얼마나 바꿨는가.\n\n"
+            "  [낼 수 없음]\n"
+            "    성분 <-> 참조 대응 (03의 |r| / RMSE_norm / MAD 4열 표).\n"
+            "    외부 데이터의 잡음은 이미 섞여 들어온 것이라 clean/bw/ma/em 처럼\n"
+            "    따로 떼어 낸 파형이 없다. 참조 자리에 입력이나 M0/B 를 넣으면\n"
+            "    이름만 같고 다른 양이 되므로 산출하지 않는다.\n"
+            "    (B = component(x, enc1) 이라 enc1 x B 칸은 항등이기도 했다.)\n"
+            "    NSTDB 잡음 조각을 참조로 붙이지도 않았다 - 외부 데이터에 실제로\n"
+            "    섞인 잡음과 무관한 파형이라 상관값이 파형 일치를 뜻하지 않는다.\n\n"
             f"그림의 분절은 재구성이 입력과 가장 닮은 {len(top)}개다 - "
             "결과를 보고 고른 사례다.\n\n"
             "정량 성능은 주장하지 않는다. 해석도 붙이지 않는다.\n")
@@ -681,27 +689,26 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
     pd.set_option("display.width", 240)
     print("")
     print(f"=== 07 {source} · {len(X)}분절 ===")
-    print("① 복원 — 참값이 없으므로 입력과의 차이만 본다")
-    print(restore.to_string(index=False))
+    print("[판정 가능] 참값 없이도 좋고 나쁨을 말할 수 있는 층")
     print("")
-    print("② SQI 5종 — 참값 불필요. basSQI 는 낮을수록, 나머지는 높을수록 좋다")
+    print("① SQI 5종 — basSQI 는 낮을수록, 나머지는 높을수록 좋다")
     print(sqi[["계열", "분절수"] + list(SQI_KEYS)].round(4).to_string(index=False))
     print("")
-    print("③ 임상 형태 지표 — 참값이 없어 **값 자체**다 (오차가 아니다)")
+    print("② 임상 형태 지표 — 참값이 없어 오차가 아니라 값이다. 입력 대비 이동만 본다")
     print(morph.round(4).to_string(index=False))
     print("")
-    titles = {"corr": "① |r| 평균±SD", "rmse_norm": "② RMSE_norm 평균±SD",
-              "mad": "③ MAD 평균±SD"}
-    for nm, (mu, sd) in stats.items():
-        print(titles[nm])
-        print(pd.DataFrame(
-            {c: [f"{mu[k, j]:.3f}±{sd[k, j]:.3f}" for k in range(K)]
-             for j, c in enumerate(["입력", "M0재구성", "B복원"])},
-            index=ix).to_string(), "\n")
-    print("④ 스펙트럼 특성")
-    print(spec.to_string(index=False), "\n")
+    print("[기술] 성능 근거가 아니다 — 무엇이 어떻게 달라졌는지만 적는다")
+    print("")
+    print("③ 스펙트럼 특성 — 성분별 중심주파수와 대역 전력비")
+    print(spec.to_string(index=False))
+    print("")
+    print("④ 복원 차이 — 각 방식이 입력과 얼마나 다른가")
+    print(restore.to_string(index=False))
+    print("")
+    print("[낼 수 없음] 성분 ↔ 참조 대응 — 외부에는 주입한 참조 파형이 없다")
+    print("")
     print(f"산출물 → {outdir}/")
-    return stats, spec
+    return sqi, morph, spec
 
 
 # ================================================================
