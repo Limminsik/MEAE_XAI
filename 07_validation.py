@@ -64,8 +64,9 @@ SD 중앙값(0.4707 mV)에 맞춘 뒤 통과시킨다. 배율은 `segments.csv` 
   figures/components_top{1..10}.png   입력·재구성·성분 K개
   figures/overlay_top{1..10}.png      입력 위에 B 겹침 + 빠져나간 양
   figures/spectrum.png                성분별 PSD
-  figures/sqi_box.png                 ① SQI 가로 상자 (계열 7종)
-  figures/morphology_box.png          ② 임상 형태 지표 가로 상자
+  figures/sqi_box.png                 ① SQI 가로 상자 (입력 · B 둘만)
+  figures/morphology_box.png          ② 임상 형태 지표 가로 상자 (입력 · B 둘만)
+      방법 비교(고전 비교선)는 06 에서 한다 — 참값이 있어야 성립하는 비교다.
 
   --survey 는 분절 품질 조사만 수행한다 (기준을 정하기 전 단계).
 """
@@ -619,12 +620,16 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
     morph_rec.round(5).to_csv(f"{outdir}/morphology_by_record.csv", index=False,
                               encoding="utf-8-sig")
 
-    fig_box(mbeats, [n for n, _ in series], S06.METRICS,
+    # 상자그림은 **입력과 B 둘만** 둔다. 방법 비교(고전 비교선)는 06 에서 한다 —
+    # 참값이 있어야 "어느 쪽이 더 가깝다"를 말할 수 있고, 여기에는 참값이 없다.
+    # 여기서 볼 것은 우리 처리가 입력을 어느 쪽으로 얼마나 옮겼는가뿐이다.
+    pair = ["입력 x", "B 복원"]
+    fig_box(mbeats, pair, S06.METRICS,
             f"{figdir}/morphology_box.png",
             f"[07 임상 형태 지표] {source} · {run}",
             f"박동 {len(mbeats):,}개 · 기록 {len(morph_rec)}개 — 참값이 없어 오차가 "
-            "아니라 값이다. 계열 간 위치 차이가 곧 이동", per_beat=True)
-    fig_box(sqi_raw, [n for n, _ in series], SQI_KEYS,
+            "아니라 값이다. 두 상자의 위치 차이가 곧 이동", per_beat=True)
+    fig_box(sqi_raw, pair, SQI_KEYS,
             f"{figdir}/sqi_box.png",
             f"[07 신호 품질 지수] {source} · {run}",
             f"분절 {len(X):,}개 — 참값이 필요 없는 지표다. basSQI 만 낮을수록 좋다")

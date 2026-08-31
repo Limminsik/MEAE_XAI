@@ -6,6 +6,9 @@
 있고, 여기서는 **신호 품질**과 **임상에서 실제로 재는 값**을 본다.
 
 대상 셋 — x_clean(참값) · x_noisy(처리 전) · **B 재구성**(처리 후)
+상자그림은 여기에 고전 비교선 2종(대역통과·웨이블릿 임계값)을 더해 **방법 5종**을 비교한다.
+방법 비교는 06 에서만 한다 — 참값이 있어야 "어느 쪽이 더 가깝다"를 말할 수 있고,
+07 에는 참값이 없어 입력과 B 둘만 나란히 둔다.
   B = D(z_clean, 0, 0, 0). A(성분차감)는 `--method A` 로 쓸 수 있으나 기본이 아니다 —
   원본 x_noisy 를 유지한 채 모델 추정치만 빼므로 처리 전과 출발선이 같지 않다.
 
@@ -70,16 +73,16 @@ bSQI 는 neurokit · pantompkins1985 두 검출기를 쓴다. 10초 분절에 �
 ────────────────────────────────────────────────────────────────────────
 산출물  results/06_ablation/<run>/<split>/
 ────────────────────────────────────────────────────────────────────────
-  sqi_summary.csv       ① SQI 5종 — 계열별 중앙값·평균
-  beats.csv             ② 박동 x 계열 — 지표 원값 (기록·분절·박동 위치·입력SNR)
+  sqi_summary.csv       ① SQI 5종 — 계열 5종(참값·처리 전·고전 2종·처리 후)
+  beats.csv             ② 박동 x 계열 5종 — 지표 원값 (기록·분절·박동 위치)
   metric_summary.csv    ② 지표별 집계 — 값·편향·절대오차·개선 비율
   error_by_record.csv   ② 기록별 절대오차 중앙값
   breakdown.csv         입력 SNR 구간별·기록별 분해
   sqi_by_record.csv     ① 기록별 SQI 중앙값 (참값·처리 전·처리 후)
   figures/sqi_compare.png     ① 처리 전/후 분포와 **기록별** 이동
-  figures/sqi_box.png         ① 가로 상자 — 계열 간 분포 비교
+  figures/sqi_box.png         ① 가로 상자 — **방법 비교** 5종
   figures/error_compare.png   ② 절대오차 분포와 기록별 변화
-  figures/error_box.png       ② 가로 상자 — 부호 있는 오차
+  figures/error_box.png       ② 가로 상자 — **방법 비교**, 부호 있는 오차
 """
 import argparse
 import os
@@ -107,6 +110,10 @@ METRICS = ("ST60_mV", "ST80_mV", "R진폭_mV", "QRS면적_mVms")
 # 47-64 ms 다. 지표 자체의 판별력이 없으므로 싣지 않고 그 근거를 note 에 남긴다.
 NL = chr(10)          # 그림 제목 줄바꿈 — 이스케이프 사고를 피한다
 SQI_KEYS = ("basSQI", "pSQI", "kSQI", "bSQI", "ECGMeanCoef")
+# 상자그림의 방법 비교에 넣는 고전 비교선. 04 의 `classical_denoise` 와 같은 계산이다.
+# **방법 비교는 06 에서만 한다** — 참값이 있어야 "어느 쪽이 더 가까운가"를 말할 수 있고,
+# 07 에는 참값이 없어 그 비교가 성립하지 않는다.
+CLASSIC = ("대역통과 0.5-40Hz", "웨이블릿 임계값")
 # 입력 SNR 구간 — test 는 −5.8 ~ 10.4 dB 에 퍼져 있어 그 범위에 맞춰 나눈다
 SNR_BANDS = ((-99.0, -2.0), (-2.0, 0.0), (0.0, 2.0), (2.0, 5.0), (5.0, 99.0))
 EDGE_MS = 400.0               # 분절 가장자리 — 창이 잘리는 박동은 뺀다
@@ -284,23 +291,37 @@ def _hbox(ax, groups, labels, palette, seed=0, strip_max=STRIP_MAX, whis=(0, 100
     ax.tick_params(labelsize=8)
 
 
-def fig_sqi_box(q, out, run, split, n_seg, points=False):
-    """[SQI] 가로 상자그림. 지표마다 눈금이 달라 패널을 따로 둔다.
+def _method_palette(order):
+    """참값은 파랑, 처리 전은 회색, 고전 비교선은 붉은 계열, 우리 것은 초록."""
+    pal = []
+    for s in order:
+        if s == SERIES[0]:
+            pal.append("#c7d9ec")
+        elif s == SERIES[1]:
+            pal.append("#d9d9d9")
+        elif s in CLASSIC:
+            pal.append("#f2c9c4")
+        else:
+            pal.append("#a8c8a0")
+    return pal
+
+
+def fig_sqi_box(q, order, out, run, split, n_seg, points=False):
+    """[SQI] 가로 상자그림 — **방법 비교**다. 지표마다 눈금이 달라 패널을 따로 둔다.
 
     `sqi_compare.png` 가 "전 → 후로 얼마나 옮겨 갔나"를 본다면, 이 그림은
-    **분포 자체의 모양**을 본다 — 꼬리가 어디까지 뻗는지, 참값 분포와 겹치는지.
+    **어느 방법이 참값 분포에 가장 가까운가**를 본다. 고전 비교선을 같은 축에 두는 것은
+    06 에서만 뜻이 있다 — 참값이 있어야 "가깝다"를 말할 수 있고, 07 에는 없다.
     """
     import seaborn as sns
     sns.set_theme(style="ticks", font=plt.rcParams["font.family"][0])
     keys = [k for k in SQI_KEYS if k in q]
     dirn = {"basSQI": "낮을수록 좋다"}
-    order = [SERIES[0], SERIES[1], SERIES[2]]
-    pal = {SERIES[0]: "#c7d9ec", SERIES[1]: "#f2c9c4", SERIES[2]: "#a8c8a0"}
-    fig, ax = plt.subplots(len(keys), 1, figsize=(9.0, 2.05 * len(keys)))
+    pal = _method_palette(order)
+    fig, ax = plt.subplots(len(keys), 1, figsize=(9.6, 2.35 * len(keys)))
     ax = np.atleast_1d(ax)
     for a, k in zip(ax, keys):
-        _hbox(a, [q[k][s] for s in order], order, [pal[s] for s in order],
-              points=points)
+        _hbox(a, [q[k][s] for s in order], order, pal, points=points)
         a.axvline(np.nanmedian(q[k][SERIES[0]]), color="#1f77b4", ls="--", lw=1.1)
         a.set_title(f"{k}   {dirn.get(k, '높을수록 좋다')}   ·   "
                     f"전 {np.nanmedian(q[k][SERIES[1]]):.3f} → "
@@ -308,9 +329,9 @@ def fig_sqi_box(q, out, run, split, n_seg, points=False):
                     f"(참값 {np.nanmedian(q[k][SERIES[0]]):.3f}, 점선)",
                     fontsize=9.5, loc="left")
         sns.despine(ax=a, trim=True, left=True)
-    fig.suptitle(f"[06 ① 신호 품질 지수] {run} · {split} · {n_seg:,}분절{NL}"
-                 "가로 상자 · 수염은 전 범위(0-100 백분위) · 참값은 비교용 "
-                 "기준선(점선)이며 이 층은 참값 없이 성립한다", fontsize=11)
+    fig.suptitle(f"[06 ① 신호 품질 지수 — 방법 비교] {run} · {split} · {n_seg:,}분절{NL}"
+                 "가로 상자 · 수염은 전 범위(0-100 백분위) · 점선은 참값 중앙값 · "
+                 "참값 쪽에 가까울수록 좋다", fontsize=11)
     fig.tight_layout()
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, bbox_inches="tight", dpi=130)
@@ -318,31 +339,37 @@ def fig_sqi_box(q, out, run, split, n_seg, points=False):
     sns.reset_orig()
 
 
-def fig_error_box(beats, out, run, split, n_beat, points=False):
-    """[임상 형태 지표] 가로 상자그림. 부호를 살린 **오차**를 그린다.
+def fig_error_box(beats, order, out, run, split, n_beat, points=False):
+    """[임상 형태 지표] 가로 상자그림 — **방법 비교**다. 부호를 살린 오차를 그린다.
 
     절댓값이 아니라 부호를 살리는 이유: 0 선을 기준으로 **치우침(편향)** 과
     **퍼짐(산포)** 이 한 그림에서 같이 읽힌다. 상자가 0 에서 얼마나 벗어났는지가
-    편향이고, 상자와 점이 얼마나 퍼졌는지가 산포다.
+    편향이고, 상자가 얼마나 퍼졌는지가 산포다.
+
+    `order` 는 참값을 뺀 계열 목록이다 — 참값 자신의 오차는 정의상 0 이라 싣지 않는다.
+    오차는 원값 열에서 그때그때 뺀다(`<지표>__<계열>` − `<지표>__참값`).
     """
     import seaborn as sns
     sns.set_theme(style="ticks", font=plt.rcParams["font.family"][0])
     keys = [k for k in METRICS if beats[f"{k}_처리전"].notna().any()]
-    order = ["처리 전", "처리 후"]
-    pal = {"처리 전": "#f2c9c4", "처리 후": "#a8c8a0"}
-    fig, ax = plt.subplots(len(keys), 1, figsize=(9.0, 2.05 * len(keys)))
+    pal = _method_palette(order)
+    fig, ax = plt.subplots(len(keys), 1, figsize=(9.6, 2.35 * len(keys)))
     ax = np.atleast_1d(ax)
     for a, k in zip(ax, keys):
-        b, a2 = beats[f"{k}_처리전"].dropna(), beats[f"{k}_처리후"].dropna()
-        _hbox(a, [b.to_numpy(), a2.to_numpy()], order, [pal[s] for s in order],
+        ref = beats[f"{k}__{SERIES[0]}"]
+        errs = [(beats[f"{k}__{s}"] - ref).dropna() for s in order]
+        _hbox(a, [e.to_numpy() for e in errs], order, pal,
               whis=(1, 99), points=points)
         a.axvline(0.0, color="#1f77b4", ls="--", lw=1.1)
+        b = beats[f"{k}_처리전"].dropna()
+        a2 = beats[f"{k}_처리후"].dropna()
         a.set_title(f"{k} 오차 (측정값 - 참값)   ·   "
                     f"편향 {b.median():+.3f} → {a2.median():+.3f}   ·   "
                     f"|오차| 중앙 {b.abs().median():.3f} → {a2.abs().median():.3f}",
                     fontsize=9.5, loc="left")
         sns.despine(ax=a, trim=True, left=True)
-    fig.suptitle(f"[06 ② 임상 형태 지표] {run} · {split} · 박동 {n_beat:,}개{NL}"
+    fig.suptitle(f"[06 ② 임상 형태 지표 — 방법 비교] {run} · {split} · "
+                 f"박동 {n_beat:,}개{NL}"
                  "점선 0 = 참값과 일치. 상자가 0 에서 벗어난 만큼이 편향, "
                  "퍼진 만큼이 산포다. 수염과 축은 1-99 백분위", fontsize=11)
     fig.tight_layout()
@@ -418,14 +445,21 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
     k_noise = [k for k in range(model.n_encoders) if k != k_clean]
     rest = restore(model, ds, device, idx, k_clean, k_noise, method=method)
 
-    print(f"[06] 박동 단위 측정 — {len(idx)}분절 x 3계열")
+    # 고전 비교선 — **방법 비교는 여기서 한다.** 참값이 있어야 "어느 쪽이 참값에 더
+    # 가까운가"를 말할 수 있고, 그 참값은 06 에만 있다(07 에는 없다). 04 와 같은 함수다.
+    cls = metrics.classical_denoise(ds.x_noisy[idx].astype(np.float64), fs)
+    methods = [(SERIES[0], None), (SERIES[1], None)] + \
+              [(nm, cls[nm]) for nm in CLASSIC] + [(SERIES[2], rest)]
+
+    print(f"[06] 박동 단위 측정 — {len(idx)}분절 x {len(methods)}계열")
     fid = []                     # 분절별 기준 R-피크 (x_clean 에서 한 번 검출)
     edge = _ms(EDGE_MS, fs)
     rows = []
     for c, i in enumerate(idx):
         m = ds.meta[int(i)]
         clean = ds.refs["x_clean"][i].astype(np.float64)
-        sigs = (clean, ds.x_noisy[i].astype(np.float64), rest[c])
+        sigs = [clean, ds.x_noisy[i].astype(np.float64)] + \
+               [cls[nm][c] for nm in CLASSIC] + [rest[c]]
         # 기준점은 참값에서 한 번만. 가장자리 박동은 창이 잘리므로 뺀다.
         pk = np.asarray(metrics.detect_rpeaks(clean, fs), dtype=np.int64)
         pk = pk[(pk >= edge) & (pk < len(clean) - edge)]
@@ -437,7 +471,7 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
             row = {"기록": m["record_id"], "분절": m["seg_idx"], "박동위치": int(r)}
             if picked is not None:
                 row["구간"] = picked.get(int(i), "")
-            for s, vals in zip(SERIES, per):
+            for (s, _), vals in zip(methods, per):
                 for k in METRICS:
                     row[f"{k}__{s}"] = vals[bi][k]
             rows.append(row)
@@ -446,10 +480,12 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
 
     # ---- ① 신호 품질 지수 (SQI) — 참값이 필요 없다
     # x_noisy 와 복원에서 **각각 독립으로** 잰다. x_clean 은 참고로만 함께 싣는다.
-    print("[06] SQI 4종 — 참값 없이 신호 하나만 보고 잰다 (bSQI 는 검출을 두 번 한다)")
+    print(f"[06] SQI 5종 x {len(methods)}계열 — 참값 없이 신호 하나만 보고 잰다 "
+          "(bSQI 는 검출을 두 번 한다)")
     sqi_rows, sqi_raw = [], {}
     for label, sig in ((SERIES[0], ds.refs["x_clean"][idx].astype(np.float64)),
                        (SERIES[1], ds.x_noisy[idx].astype(np.float64)),
+                       *[(nm, cls[nm]) for nm in CLASSIC],
                        (SERIES[2], rest)):
         q = metrics.sqi_all(sig, fs, progress=300)
         # ECGMeanCoef — 기준점을 공유해 계열 간 비교가 검출 차이에 흔들리지 않게 한다
@@ -481,10 +517,13 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
     sqi_rec.round(5).to_csv(f"{outdir}/sqi_by_record.csv", index=False,
                             encoding="utf-8-sig")
 
-    sqi_long = {k: {s: sqi_raw[s][k] for s in SERIES} for k in SQI_KEYS}
-    fig_sqi(sqi_long, sqi_rec, f"{outdir}/figures/sqi_compare.png",
-            run, split, len(idx), len(sqi_rec))
-    fig_sqi_box(sqi_long, f"{outdir}/figures/sqi_box.png", run, split, len(idx))
+    # 전/후 이동 그림은 처리 전·후 두 계열만 본다 (참값은 기준선).
+    fig_sqi({k: {s: sqi_raw[s][k] for s in SERIES} for k in SQI_KEYS}, sqi_rec,
+            f"{outdir}/figures/sqi_compare.png", run, split, len(idx), len(sqi_rec))
+    # 상자그림은 **방법 비교**다 — 참값·처리 전·고전 2종·우리 것 다섯을 한 축에 둔다.
+    order = [SERIES[0], SERIES[1], *CLASSIC, SERIES[2]]
+    fig_sqi_box({k: {s: sqi_raw[s][k] for s in order} for k in SQI_KEYS}, order,
+                f"{outdir}/figures/sqi_box.png", run, split, len(idx))
 
     beats = pd.DataFrame(rows)
     # ---- 참값 대비 박동별 오차
@@ -553,7 +592,8 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
 
     fig_error(beats, err_rec, f"{outdir}/figures/error_compare.png", run, split,
               len(beats), beats["기록"].nunique())
-    fig_error_box(beats, f"{outdir}/figures/error_box.png", run, split, len(beats))
+    fig_error_box(beats, [SERIES[1], *CLASSIC, SERIES[2]],
+                  f"{outdir}/figures/error_box.png", run, split, len(beats))
 
     print("")
     print(f"[06 임상 형태 지표] {run} (에폭 {ck['epoch']}) · {split} "
