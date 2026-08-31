@@ -80,9 +80,11 @@ bSQI 는 neurokit · pantompkins1985 두 검출기를 쓴다. 10초 분절에 �
   breakdown.csv         입력 SNR 구간별·기록별 분해
   sqi_by_record.csv     ① 기록별 SQI 중앙값 (참값·처리 전·처리 후)
   figures/sqi_compare.png     ① 처리 전/후 분포와 **기록별** 이동
-  figures/sqi_box.png         ① 가로 상자 — **방법 비교** 5종
+  figures/sqi_box.png          ① 가로 상자 — 참값·처리 전·처리 후
+  figures/sqi_method_box.png   ① 가로 상자 — **방법 비교** 5종
   figures/error_compare.png   ② 절대오차 분포와 기록별 변화
-  figures/error_box.png       ② 가로 상자 — **방법 비교**, 부호 있는 오차
+  figures/error_box.png        ② 가로 상자 — 처리 전/후, 부호 있는 오차
+  figures/error_method_box.png ② 가로 상자 — **방법 비교** 5종
 """
 import argparse
 import os
@@ -306,11 +308,13 @@ def _method_palette(order):
     return pal
 
 
-def fig_sqi_box(q, order, out, run, split, n_seg, points=False):
-    """[SQI] 가로 상자그림 — **방법 비교**다. 지표마다 눈금이 달라 패널을 따로 둔다.
+def fig_sqi_box(q, order, out, run, split, n_seg, points=False, methods=False):
+    """[SQI] 가로 상자그림. 지표마다 눈금이 달라 패널을 따로 둔다.
 
     `sqi_compare.png` 가 "전 → 후로 얼마나 옮겨 갔나"를 본다면, 이 그림은
-    **어느 방법이 참값 분포에 가장 가까운가**를 본다. 고전 비교선을 같은 축에 두는 것은
+    **분포 자체의 모양**을 본다 — 꼬리가 어디까지 뻗는지, 참값 분포와 겹치는지.
+
+    `methods=True` 면 고전 비교선까지 같은 축에 두는 **방법 비교**로 읽힌다. 그 비교는
     06 에서만 뜻이 있다 — 참값이 있어야 "가깝다"를 말할 수 있고, 07 에는 없다.
     """
     import seaborn as sns
@@ -329,7 +333,8 @@ def fig_sqi_box(q, order, out, run, split, n_seg, points=False):
                     f"(참값 {np.nanmedian(q[k][SERIES[0]]):.3f}, 점선)",
                     fontsize=9.5, loc="left")
         sns.despine(ax=a, trim=True, left=True)
-    fig.suptitle(f"[06 ① 신호 품질 지수 — 방법 비교] {run} · {split} · {n_seg:,}분절{NL}"
+    tag = " — 방법 비교" if methods else ""
+    fig.suptitle(f"[06 ① 신호 품질 지수{tag}] {run} · {split} · {n_seg:,}분절{NL}"
                  "가로 상자 · 수염은 전 범위(0-100 백분위) · 점선은 참값 중앙값 · "
                  "참값 쪽에 가까울수록 좋다", fontsize=11)
     fig.tight_layout()
@@ -339,8 +344,9 @@ def fig_sqi_box(q, order, out, run, split, n_seg, points=False):
     sns.reset_orig()
 
 
-def fig_error_box(beats, order, out, run, split, n_beat, points=False):
-    """[임상 형태 지표] 가로 상자그림 — **방법 비교**다. 부호를 살린 오차를 그린다.
+def fig_error_box(beats, order, out, run, split, n_beat, points=False,
+                  methods=False):
+    """[임상 형태 지표] 가로 상자그림. 부호를 살린 오차를 그린다.
 
     절댓값이 아니라 부호를 살리는 이유: 0 선을 기준으로 **치우침(편향)** 과
     **퍼짐(산포)** 이 한 그림에서 같이 읽힌다. 상자가 0 에서 얼마나 벗어났는지가
@@ -368,7 +374,8 @@ def fig_error_box(beats, order, out, run, split, n_beat, points=False):
                     f"|오차| 중앙 {b.abs().median():.3f} → {a2.abs().median():.3f}",
                     fontsize=9.5, loc="left")
         sns.despine(ax=a, trim=True, left=True)
-    fig.suptitle(f"[06 ② 임상 형태 지표 — 방법 비교] {run} · {split} · "
+    tag = " — 방법 비교" if methods else ""
+    fig.suptitle(f"[06 ② 임상 형태 지표{tag}] {run} · {split} · "
                  f"박동 {n_beat:,}개{NL}"
                  "점선 0 = 참값과 일치. 상자가 0 에서 벗어난 만큼이 편향, "
                  "퍼진 만큼이 산포다. 수염과 축은 1-99 백분위", fontsize=11)
@@ -520,10 +527,14 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
     # 전/후 이동 그림은 처리 전·후 두 계열만 본다 (참값은 기준선).
     fig_sqi({k: {s: sqi_raw[s][k] for s in SERIES} for k in SQI_KEYS}, sqi_rec,
             f"{outdir}/figures/sqi_compare.png", run, split, len(idx), len(sqi_rec))
-    # 상자그림은 **방법 비교**다 — 참값·처리 전·고전 2종·우리 것 다섯을 한 축에 둔다.
-    order = [SERIES[0], SERIES[1], *CLASSIC, SERIES[2]]
-    fig_sqi_box({k: {s: sqi_raw[s][k] for s in order} for k in SQI_KEYS}, order,
+    # 상자그림 둘 — 기본은 참값·전·후 셋, 방법 비교는 고전 2종을 더해 다섯.
+    base = [SERIES[0], SERIES[1], SERIES[2]]
+    fig_sqi_box({k: {s: sqi_raw[s][k] for s in base} for k in SQI_KEYS}, base,
                 f"{outdir}/figures/sqi_box.png", run, split, len(idx))
+    meth = [SERIES[0], SERIES[1], *CLASSIC, SERIES[2]]
+    fig_sqi_box({k: {s: sqi_raw[s][k] for s in meth} for k in SQI_KEYS}, meth,
+                f"{outdir}/figures/sqi_method_box.png", run, split, len(idx),
+                methods=True)
 
     beats = pd.DataFrame(rows)
     # ---- 참값 대비 박동별 오차
@@ -592,8 +603,11 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
 
     fig_error(beats, err_rec, f"{outdir}/figures/error_compare.png", run, split,
               len(beats), beats["기록"].nunique())
-    fig_error_box(beats, [SERIES[1], *CLASSIC, SERIES[2]],
+    fig_error_box(beats, [SERIES[1], SERIES[2]],
                   f"{outdir}/figures/error_box.png", run, split, len(beats))
+    fig_error_box(beats, [SERIES[1], *CLASSIC, SERIES[2]],
+                  f"{outdir}/figures/error_method_box.png", run, split,
+                  len(beats), methods=True)
 
     print("")
     print(f"[06 임상 형태 지표] {run} (에폭 {ck['epoch']}) · {split} "
