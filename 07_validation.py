@@ -53,7 +53,9 @@ SD 중앙값(0.4707 mV)에 맞춘 뒤 통과시킨다. 배율은 `segments.csv` 
 산출물  results/07_validation/<run>/<source>/
 ────────────────────────────────────────────────────────────────────────
   sqi_summary.csv     ① SQI 5종 — 계열별 (입력·B·A·M0·고전 3종)
-  morphology.csv      ② 임상 형태 지표의 **값** (오차가 아니다)
+  morphology.csv      ② 임상 형태 지표의 **값**·IQR·입력 대비 이동 (오차가 아니다)
+  morphology_beats.csv      ② 박동 x 계열 — 지표 원값
+  morphology_by_record.csv  ② 기록별 중앙값 (06 의 error_by_record 와 같은 구성)
   corr_matrix.csv · rmse_norm_matrix.csv · mad_matrix.csv   ③ 성분 x (입력, M0, B)
   spectrum.csv        ④ 성분별 중심주파수와 대역 전력비
   restore.csv         ⑤ 복원 5종이 입력과 얼마나 다른가
@@ -62,6 +64,8 @@ SD 중앙값(0.4707 mV)에 맞춘 뒤 통과시킨다. 배율은 `segments.csv` 
   figures/components_top{1..10}.png   입력·재구성·성분 K개
   figures/overlay_top{1..10}.png      입력 위에 B 겹침 + 빠져나간 양
   figures/spectrum.png                성분별 PSD
+  figures/sqi_box.png                 ① SQI 가로 상자 (계열 7종)
+  figures/morphology_box.png          ② 임상 형태 지표 가로 상자
 
   --survey 는 분절 품질 조사만 수행한다 (기준을 정하기 전 단계).
 """
@@ -84,6 +88,7 @@ from src.viz import plt
 FS = 360
 SQI_KEYS = ("basSQI", "pSQI", "kSQI", "bSQI", "ECGMeanCoef")
 EDGE_MS = 400.0        # 분절 가장자리 — 측정 창이 잘리는 박동은 뺀다
+NL = chr(10)           # 그림 제목 줄바꿈 — 이스케이프 사고를 피한다
 
 
 def _ms(v, fs=FS):
@@ -312,6 +317,73 @@ def spectrum(comps, inp, rec, ix, outdir):
     return t
 
 
+STRIP_MAX = 400          # 상자 위에 찍는 관측점 상한 — 이보다 많으면 균일 추출한다
+
+
+def fig_box(data, series, keys, out, head, sub, per_beat=False, whis=(1, 99),
+            points=False):
+    """가로 상자그림 — 06 의 `sqi_box`·`error_box` 와 같은 형식이다.
+
+    관측점은 기본으로 끄다(`points=True` 로 켜면 400개 균일 추출).
+    계열이 7개라 점까지 찍으면 상자가 가려 위치 비교가 어려워진다.
+
+    계열이 7개(입력·B·A·M0·고전 3종)라 세로로 세우면 이름이 겹친다. 가로로 두면
+    계열 이름이 축에 그대로 들어가고 **분포의 위치 차이**가 한눈에 비교된다.
+
+    참값이 없으므로 여기 그려지는 것은 오차가 아니라 **값**이다. 계열 간 위치 차이가
+    곧 처리로 생긴 이동이며, 그 이동이 옳은 방향인지는 이 그림이 말하지 않는다.
+
+    `per_beat=True` 면 `data` 는 박동 표(DataFrame, 열 이름 `<지표>__<계열>`)이고,
+    아니면 분절별 SQI dict(`{계열: {지표: 배열}}`)다.
+    """
+    import seaborn as sns
+    sns.set_theme(style="ticks", font=plt.rcParams["font.family"][0])
+    rng = np.random.default_rng(0)
+    pal = sns.color_palette("vlag", len(series))
+    fig, ax = plt.subplots(len(keys), 1, figsize=(9.5, 2.35 * len(keys)))
+    ax = np.atleast_1d(ax)
+    for a, k in zip(ax, keys):
+        cols, vals = [], []
+        for s in series:
+            v = (data[f"{k}__{s}"].to_numpy(dtype=np.float64) if per_beat
+                 else np.asarray(data[s][k], dtype=np.float64))
+            v = v[np.isfinite(v)]
+            vals.append(v)
+            cols.append(np.full(len(v), s))
+        df = pd.DataFrame({"값": np.concatenate(vals), "계열": np.concatenate(cols)})
+        sns.boxplot(df, x="값", y="계열", hue="계열", order=series, hue_order=series,
+                    whis=list(whis), width=.6, palette=pal, legend=False,
+                    fliersize=0, ax=a)
+        if points:
+            keep = []
+            for s in series:
+                m = np.flatnonzero((df["계열"] == s).to_numpy())
+                keep.append(m if len(m) <= STRIP_MAX
+                            else rng.choice(m, STRIP_MAX, replace=False))
+            sns.stripplot(df.iloc[np.concatenate(keep)], x="값", y="계열",
+                          order=series, size=2.2, color=".3", alpha=.35,
+                          jitter=.28, ax=a)
+        lo = min(np.percentile(v, whis[0]) for v in vals if len(v))
+        hi = max(np.percentile(v, whis[1]) for v in vals if len(v))
+        pad = (hi - lo) * 0.06 or 1.0
+        a.set_xlim(lo - pad, hi + pad)
+        # 입력을 세로 점선으로 — 나머지 계열이 어디로 옮겨 갔는지 기준이 된다
+        a.axvline(np.nanmedian(vals[0]), color="#1f77b4", ls="--", lw=1.1)
+        a.set_title(f"{k}   (점선 = 입력 중앙값 {np.nanmedian(vals[0]):.4g})",
+                    fontsize=9.5, loc="left")
+        a.xaxis.grid(True, alpha=.35, lw=.4)
+        a.set(ylabel="", xlabel="")
+        a.tick_params(labelsize=8)
+        sns.despine(ax=a, trim=True, left=True)
+    fig.suptitle(f"{head}{NL}{sub}{NL}"
+                 f"수염과 축은 {whis[0]}-{whis[1]} 백분위", fontsize=11)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    fig.savefig(out, bbox_inches="tight", dpi=130)
+    plt.close(fig)
+    sns.reset_orig()
+
+
 def fig_spectrum(comps, inp, rec, ix, out, source):
     f, Pi = welch(inp, fs=FS, nperseg=1024, axis=-1)
     _, Pr = welch(rec, fs=FS, nperseg=1024, axis=-1)
@@ -480,11 +552,12 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
     # ---- SQI 5종 — **참값이 없어도 잰다.** 07 의 핵심 지표다.
     print("[07] SQI 5종 — 참값 없이 신호 하나만 보고 잰다 (bSQI 는 검출을 두 번 한다)")
     fid = [metrics.detect_rpeaks(x, FS) for x in X]      # 기준점은 **입력**에서 한 번
-    sq = []
+    sq, sqi_raw = [], {}
     for name, v in [("입력 x", X)] + list(cand.items()):
         q = metrics.sqi_all(v, FS, progress=200)
         q["ECGMeanCoef"] = np.array(
             [metrics.ecg_mean_coef(v[t], FS, peaks=fid[t]) for t in range(len(X))])
+        sqi_raw[name] = q                    # 분절별 원값 — 상자그림이 쓴다
         row = {"계열": name, "분절수": len(X)}
         for k in SQI_KEYS:
             row[k] = float(np.nanmedian(q[k]))
@@ -493,22 +566,68 @@ def main(config="configs/default.yaml", run="C16_seed42", source="vitaldb",
     sqi = pd.DataFrame(sq)
     sqi.round(5).to_csv(f"{outdir}/sqi_summary.csv", index=False, encoding="utf-8-sig")
 
-    # ---- 임상 형태 지표 — 참값이 없으므로 **오차가 아니라 값과 변화량**이다
+    # ---- 임상 형태 지표 — 참값이 없으므로 **오차가 아니라 값과 이동**이다.
+    #
+    # 06② 는 x_clean 이 있어 박동별 오차를 낼 수 있지만 여기는 참값이 없다. 대신
+    # **같은 기준점·같은 창으로 잰 값**을 계열마다 나란히 두고, 입력에서 B 로 갈 때
+    # 값이 어느 쪽으로 얼마나 옮겨 갔는지를 본다. 06 에서는 그 이동의 방향이 참값 쪽인지
+    # 확인돼 있으므로, 외부에서 같은 방향의 이동이 나오는지가 볼거리다.
+    # **이동을 성능으로 읽지 않는다** — 참값이 없으므로 옳고 그름을 말할 수 없다.
     S06 = _load_06()
-    mrows = []
-    for name, v in [("입력 x", X)] + list(cand.items()):
-        vals = {k: [] for k in S06.METRICS}
-        for t in range(len(X)):
-            pk = fid[t][(fid[t] >= _ms(EDGE_MS)) & (fid[t] < X.shape[1] - _ms(EDGE_MS))]
-            for b_ in S06.beat_measures(v[t], pk, FS):
+    series = [("입력 x", X)] + list(cand.items())
+    rec_id = np.array([m["기록"] for m in meta])
+    beat_rows = []
+    for t in range(len(X)):
+        pk = fid[t][(fid[t] >= _ms(EDGE_MS)) & (fid[t] < X.shape[1] - _ms(EDGE_MS))]
+        if len(pk) == 0:
+            continue
+        per = {name: S06.beat_measures(v[t], pk, FS) for name, v in series}
+        for bi, r in enumerate(pk):
+            row = {"기록": rec_id[t], "분절": t, "박동위치": int(r)}
+            for name, _ in series:
                 for k in S06.METRICS:
-                    vals[k].append(b_[k])
-        row = {"계열": name, "박동수": len(vals[S06.METRICS[0]])}
+                    row[f"{k}__{name}"] = per[name][bi][k]
+            beat_rows.append(row)
+    mbeats = pd.DataFrame(beat_rows)
+    mbeats.round(5).to_csv(f"{outdir}/morphology_beats.csv", index=False,
+                           encoding="utf-8-sig")
+
+    # 계열별 요약 — 중앙값에 산포(IQR)를 더한다. 값 하나로는 분포를 알 수 없다.
+    mrows = []
+    for name, _ in series:
+        row = {"계열": name, "박동수": int(mbeats[f"{S06.METRICS[0]}__{name}"].notna().sum())}
         for k in S06.METRICS:
-            row[k] = float(np.nanmedian(vals[k]))
+            v = mbeats[f"{k}__{name}"]
+            row[k] = float(v.median())
+            row[f"{k}_IQR"] = float(v.quantile(.75) - v.quantile(.25))
+            if name != "입력 x":                       # 입력 대비 이동 (오차가 아니다)
+                row[f"{k}_입력대비"] = float((v - mbeats[f"{k}__입력 x"]).median())
         mrows.append(row)
     morph = pd.DataFrame(mrows)
     morph.round(5).to_csv(f"{outdir}/morphology.csv", index=False, encoding="utf-8-sig")
+
+    # 기록별 중앙값 — 06 의 error_by_record 와 같은 구성이다 (오차 대신 값).
+    mrec = []
+    for r in sorted(set(rec_id)):
+        m = mbeats["기록"] == r
+        row = {"기록": r, "박동수": int(m.sum())}
+        for k in S06.METRICS:
+            for name, _ in series:
+                row[f"{k}_{name}"] = float(mbeats.loc[m, f"{k}__{name}"].median())
+        mrec.append(row)
+    morph_rec = pd.DataFrame(mrec)
+    morph_rec.round(5).to_csv(f"{outdir}/morphology_by_record.csv", index=False,
+                              encoding="utf-8-sig")
+
+    fig_box(mbeats, [n for n, _ in series], S06.METRICS,
+            f"{figdir}/morphology_box.png",
+            f"[07 임상 형태 지표] {source} · {run}",
+            f"박동 {len(mbeats):,}개 · 기록 {len(morph_rec)}개 — 참값이 없어 오차가 "
+            "아니라 값이다. 계열 간 위치 차이가 곧 이동", per_beat=True)
+    fig_box(sqi_raw, [n for n, _ in series], SQI_KEYS,
+            f"{figdir}/sqi_box.png",
+            f"[07 신호 품질 지수] {source} · {run}",
+            f"분절 {len(X):,}개 — 참값이 필요 없는 지표다. basSQI 만 낮을수록 좋다")
 
     stats = table(comps, [X, rec, B], ["입력", "M0재구성", "B복원"], ix, outdir)
     spec = spectrum(comps, X, rec, ix, outdir)

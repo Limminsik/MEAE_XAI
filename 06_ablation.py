@@ -75,8 +75,11 @@ bSQI 는 neurokit · pantompkins1985 두 검출기를 쓴다. 10초 분절에 �
   metric_summary.csv    ② 지표별 집계 — 값·편향·절대오차·개선 비율
   error_by_record.csv   ② 기록별 절대오차 중앙값
   breakdown.csv         입력 SNR 구간별·기록별 분해
-  figures/sqi_compare.png     ① 처리 전/후 분포와 분절별 이동
+  sqi_by_record.csv     ① 기록별 SQI 중앙값 (참값·처리 전·처리 후)
+  figures/sqi_compare.png     ① 처리 전/후 분포와 **기록별** 이동
+  figures/sqi_box.png         ① 가로 상자 — 계열 간 분포 비교
   figures/error_compare.png   ② 절대오차 분포와 기록별 변화
+  figures/error_box.png       ② 가로 상자 — 부호 있는 오차
 """
 import argparse
 import os
@@ -166,10 +169,16 @@ def restore(model, ds, device, idx, k_clean, k_noise, batch=100, method="B"):
     return out
 
 
-def fig_sqi(q, out, run, split, n_seg):
-    """[SQI] 계열별 분포와 참값 대비 위치. 지표마다 축이 달라 따로 그린다.
+def fig_sqi(q, sqi_rec, out, run, split, n_seg, n_rec):
+    """[SQI] 임상 형태 지표 그림(`fig_error`)과 **같은 구성**이다.
 
-    x_clean 을 세로 점선으로 두어 처리 후가 참값 쪽으로 갔는지 바로 보이게 한다.
+        위  지표별 분포 — 처리 전/후 상자, 참값은 가로 점선(기준선)
+        아래 기록별 중앙값 변화 — 파랑이면 그 기록이 참값 쪽으로 갔다
+
+    아래 줄을 분절 단위(1,620개)로 그리면 선이 뭉개져 읽을 수 없다. 기록 단위(9개)로
+    묶으면 "어느 환자에서 되고 어느 환자에서 안 되는가"가 그대로 보이고, 임상 형태
+    지표 그림과 같은 눈으로 읽을 수 있다.
+
     basSQI 만 낮을수록 좋으므로 제목에 방향을 적는다.
     """
     keys = [k for k in SQI_KEYS if k in q]
@@ -198,35 +207,149 @@ def fig_sqi(q, out, run, split, n_seg):
         a.grid(alpha=.3, lw=.4, axis="y")
         a.tick_params(labelsize=7)
 
-        # 아래 줄 — 분절별 처리 전 → 후 이동. 참값 쪽으로 갔으면 파랑
+        # 아래 줄 — **기록별** 중앙값의 처리 전 → 후 이동. 참값 쪽으로 갔으면 파랑
         a = ax[1, c]
-        b_, a_ = q[k][SERIES[1]], q[k][SERIES[2]]
-        ref = np.nanmedian(q[k][SERIES[0]])
-        good = np.abs(a_ - ref) < np.abs(b_ - ref)
-        step = max(1, len(b_) // 200)                 # 200개만 그린다 — 과밀 방지
-        for i in range(0, len(b_), step):
-            if np.isnan(b_[i]) or np.isnan(a_[i]):
-                continue
-            a.plot([0, 1], [b_[i], a_[i]], lw=.6, alpha=.35,
-                   color="#4c72b0" if good[i] else "#c44e52")
-        a.axhline(ref, color="#1f77b4", ls="--", lw=1.2, label="참값 중앙값")
+        p = sqi_rec[f"{k}_처리전"]
+        r2 = sqi_rec[f"{k}_처리후"]
+        ref_r = sqi_rec[f"{k}_참값"]
+        n_good = 0
+        for i in range(len(sqi_rec)):
+            good = abs(r2.iloc[i] - ref_r.iloc[i]) < abs(p.iloc[i] - ref_r.iloc[i])
+            n_good += bool(good)
+            a.plot([0, 1], [p.iloc[i], r2.iloc[i]], lw=.9, marker="o", ms=3.5,
+                   alpha=.7, color="#4c72b0" if good else "#c44e52")
+        a.axhline(np.nanmedian(q[k][SERIES[0]]), color="#1f77b4", ls="--", lw=1.2,
+                  label="참값 중앙값")
         a.set_xticks([0, 1])
         a.set_xticklabels(["처리 전", "처리 후"], fontsize=8)
         a.set_xlim(-.3, 1.3)
-        a.set_ylim(lo, hi)
-        a.set_title(f"참값에 가까워진 분절 {np.nanmean(good) * 100:.0f}%",
+        a.set_title(f"기록별 {k} 중앙값" + NL
+                    + f"참값에 가까워진 기록 {n_good}/{len(sqi_rec)}",
                     fontsize=8.5, loc="left")
         a.legend(fontsize=7)
         a.grid(alpha=.3, lw=.4, axis="y")
         a.tick_params(labelsize=7)
 
-    fig.suptitle(f"[06 ① 신호 품질 지수] {run} · {split} · {n_seg:,}분절 — "
-                 "참값이 필요 없는 지표다. 아래 줄에서 파랑은 참값에 가까워진 분절",
-                 fontsize=12)
+    fig.suptitle(f"[06 ① 신호 품질 지수] {run} · {split} · {n_seg:,}분절 · "
+                 f"기록 {n_rec}개 — 참값이 필요 없는 지표다. "
+                 "아래 줄에서 파랑은 참값에 가까워진 기록", fontsize=12)
     fig.tight_layout()
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, bbox_inches="tight", dpi=130)
     plt.close(fig)
+
+
+STRIP_MAX = 400          # 상자 위에 찍는 관측점 상한 — 이보다 많으면 균일 추출한다
+
+
+def _hbox(ax, groups, labels, palette, seed=0, strip_max=STRIP_MAX, whis=(0, 100),
+          points=False):
+    """가로 상자그림 (seaborn boxplot). `points=True` 면 관측점을 겹쳐 찍는다.
+
+    `whis` 는 수염이 덮는 백분위다. 값이 유계인 SQI 는 (0, 100) 으로 전 범위를 보이지만,
+    임상 오차처럼 꼬리가 길면 (1, 99) 로 잘라야 한다 — 전 범위로 두면 극단 몇 개가
+    축을 늘려 상자가 선으로 눌린다. 자른 경우 부르는 쪽이 제목에 밝힌다.
+
+    관측점은 **기본으로 끈다.** 표본이 1,620개(분절)·18,758개(박동)라 점을 찍으면
+    상자와 중앙값선이 가려져 계열 간 위치 비교가 오히려 어려워진다. 켜면 `strip_max`
+    개만 균일 추출해 찍는다.
+    """
+    import seaborn as sns
+    vals, cats = [], []
+    rng = np.random.default_rng(seed)
+    for lab, v in zip(labels, groups):
+        v = np.asarray(v, dtype=np.float64)
+        v = v[np.isfinite(v)]
+        vals.append(v)
+        cats.append(np.full(len(v), lab))
+    df = pd.DataFrame({"값": np.concatenate(vals), "계열": np.concatenate(cats)})
+    sns.boxplot(df, x="값", y="계열", hue="계열", order=labels, hue_order=labels,
+                whis=list(whis), width=.6, palette=palette, legend=False,
+                fliersize=0, ax=ax)
+    if tuple(whis) != (0, 100):        # 잘랐으면 축도 같이 잘라 상자를 보이게 한다
+        lo = min(np.percentile(v, whis[0]) for v in vals if len(v))
+        hi = max(np.percentile(v, whis[1]) for v in vals if len(v))
+        pad = (hi - lo) * 0.06 or 1.0
+        ax.set_xlim(lo - pad, hi + pad)
+    if points:                    # 관측점은 균일 추출 — 원 분포의 모양을 유지한다
+        keep = []
+        for lab in labels:
+            m = np.flatnonzero((df["계열"] == lab).to_numpy())
+            keep.append(m if len(m) <= strip_max
+                        else rng.choice(m, strip_max, replace=False))
+        sns.stripplot(df.iloc[np.concatenate(keep)], x="값", y="계열", order=labels,
+                      size=2.2, color=".3", alpha=.35, jitter=.28, ax=ax)
+    ax.xaxis.grid(True, alpha=.35, lw=.4)
+    ax.set(ylabel="", xlabel="")
+    ax.tick_params(labelsize=8)
+
+
+def fig_sqi_box(q, out, run, split, n_seg, points=False):
+    """[SQI] 가로 상자그림. 지표마다 눈금이 달라 패널을 따로 둔다.
+
+    `sqi_compare.png` 가 "전 → 후로 얼마나 옮겨 갔나"를 본다면, 이 그림은
+    **분포 자체의 모양**을 본다 — 꼬리가 어디까지 뻗는지, 참값 분포와 겹치는지.
+    """
+    import seaborn as sns
+    sns.set_theme(style="ticks", font=plt.rcParams["font.family"][0])
+    keys = [k for k in SQI_KEYS if k in q]
+    dirn = {"basSQI": "낮을수록 좋다"}
+    order = [SERIES[0], SERIES[1], SERIES[2]]
+    pal = {SERIES[0]: "#c7d9ec", SERIES[1]: "#f2c9c4", SERIES[2]: "#a8c8a0"}
+    fig, ax = plt.subplots(len(keys), 1, figsize=(9.0, 2.05 * len(keys)))
+    ax = np.atleast_1d(ax)
+    for a, k in zip(ax, keys):
+        _hbox(a, [q[k][s] for s in order], order, [pal[s] for s in order],
+              points=points)
+        a.axvline(np.nanmedian(q[k][SERIES[0]]), color="#1f77b4", ls="--", lw=1.1)
+        a.set_title(f"{k}   {dirn.get(k, '높을수록 좋다')}   ·   "
+                    f"전 {np.nanmedian(q[k][SERIES[1]]):.3f} → "
+                    f"후 {np.nanmedian(q[k][SERIES[2]]):.3f} "
+                    f"(참값 {np.nanmedian(q[k][SERIES[0]]):.3f}, 점선)",
+                    fontsize=9.5, loc="left")
+        sns.despine(ax=a, trim=True, left=True)
+    fig.suptitle(f"[06 ① 신호 품질 지수] {run} · {split} · {n_seg:,}분절{NL}"
+                 "가로 상자 · 수염은 전 범위(0-100 백분위) · 참값은 비교용 "
+                 "기준선(점선)이며 이 층은 참값 없이 성립한다", fontsize=11)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    fig.savefig(out, bbox_inches="tight", dpi=130)
+    plt.close(fig)
+    sns.reset_orig()
+
+
+def fig_error_box(beats, out, run, split, n_beat, points=False):
+    """[임상 형태 지표] 가로 상자그림. 부호를 살린 **오차**를 그린다.
+
+    절댓값이 아니라 부호를 살리는 이유: 0 선을 기준으로 **치우침(편향)** 과
+    **퍼짐(산포)** 이 한 그림에서 같이 읽힌다. 상자가 0 에서 얼마나 벗어났는지가
+    편향이고, 상자와 점이 얼마나 퍼졌는지가 산포다.
+    """
+    import seaborn as sns
+    sns.set_theme(style="ticks", font=plt.rcParams["font.family"][0])
+    keys = [k for k in METRICS if beats[f"{k}_처리전"].notna().any()]
+    order = ["처리 전", "처리 후"]
+    pal = {"처리 전": "#f2c9c4", "처리 후": "#a8c8a0"}
+    fig, ax = plt.subplots(len(keys), 1, figsize=(9.0, 2.05 * len(keys)))
+    ax = np.atleast_1d(ax)
+    for a, k in zip(ax, keys):
+        b, a2 = beats[f"{k}_처리전"].dropna(), beats[f"{k}_처리후"].dropna()
+        _hbox(a, [b.to_numpy(), a2.to_numpy()], order, [pal[s] for s in order],
+              whis=(1, 99), points=points)
+        a.axvline(0.0, color="#1f77b4", ls="--", lw=1.1)
+        a.set_title(f"{k} 오차 (측정값 - 참값)   ·   "
+                    f"편향 {b.median():+.3f} → {a2.median():+.3f}   ·   "
+                    f"|오차| 중앙 {b.abs().median():.3f} → {a2.abs().median():.3f}",
+                    fontsize=9.5, loc="left")
+        sns.despine(ax=a, trim=True, left=True)
+    fig.suptitle(f"[06 ② 임상 형태 지표] {run} · {split} · 박동 {n_beat:,}개{NL}"
+                 "점선 0 = 참값과 일치. 상자가 0 에서 벗어난 만큼이 편향, "
+                 "퍼진 만큼이 산포다. 수염과 축은 1-99 백분위", fontsize=11)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    fig.savefig(out, bbox_inches="tight", dpi=130)
+    plt.close(fig)
+    sns.reset_orig()
 
 
 def fig_error(beats, err_rec, out, run, split, n_beat, n_rec):
@@ -341,8 +464,27 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
         sqi_rows.append(row)
     sqi = pd.DataFrame(sqi_rows)
     sqi.round(5).to_csv(f"{outdir}/sqi_summary.csv", index=False, encoding="utf-8-sig")
-    fig_sqi({k: {s: sqi_raw[s][k] for s in SERIES} for k in SQI_KEYS},
-            f"{outdir}/figures/sqi_compare.png", run, split, len(idx))
+
+    # ---- 기록별 SQI 중앙값 — 임상 형태 지표의 error_by_record 와 같은 구성이다.
+    # 분절 1,620개를 한 그림에 그리면 선이 뭉개진다. 기록으로 묶어야 "어느 환자에서
+    # 되고 어느 환자에서 안 되는가"가 보인다.
+    rec_id = np.array([ds.meta[int(i)]["record_id"] for i in idx])
+    srows = []
+    for r in sorted(set(rec_id)):
+        m = rec_id == r
+        row = {"기록": r, "분절수": int(m.sum())}
+        for k in SQI_KEYS:
+            for tag, s in (("참값", SERIES[0]), ("처리전", SERIES[1]), ("처리후", SERIES[2])):
+                row[f"{k}_{tag}"] = float(np.nanmedian(sqi_raw[s][k][m]))
+        srows.append(row)
+    sqi_rec = pd.DataFrame(srows)
+    sqi_rec.round(5).to_csv(f"{outdir}/sqi_by_record.csv", index=False,
+                            encoding="utf-8-sig")
+
+    sqi_long = {k: {s: sqi_raw[s][k] for s in SERIES} for k in SQI_KEYS}
+    fig_sqi(sqi_long, sqi_rec, f"{outdir}/figures/sqi_compare.png",
+            run, split, len(idx), len(sqi_rec))
+    fig_sqi_box(sqi_long, f"{outdir}/figures/sqi_box.png", run, split, len(idx))
 
     beats = pd.DataFrame(rows)
     # ---- 참값 대비 박동별 오차
@@ -411,6 +553,7 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
 
     fig_error(beats, err_rec, f"{outdir}/figures/error_compare.png", run, split,
               len(beats), beats["기록"].nunique())
+    fig_error_box(beats, f"{outdir}/figures/error_box.png", run, split, len(beats))
 
     print("")
     print(f"[06 임상 형태 지표] {run} (에폭 {ck['epoch']}) · {split} "
