@@ -967,7 +967,20 @@ GPU 는 없어도 된다 — torch 가 CPU 로 떨어지며, 확정 모델(파�
 학습이 끝난다. 다만 결과 재현에는 GPU 환경을 권한다.
 
 한글 콘솔 출력이 있으므로 Windows 에서는 `PYTHONIOENCODING=utf-8` 로 실행한다 (cp949 오류).
-단위 테스트는 `python -m pytest tests/ -q` — 37개.
+단위 테스트는 `python -m pytest tests/ -q` — 40개.
+
+**노트북** — `analysis.ipynb` 는 분절을 골라 그림·지표를 대화형으로 보는 곳이다.
+계산은 전부 `03`~`06` 의 함수를 그대로 부르므로 정의가 갈라지지 않는다.
+
+```bash
+uv pip install jupyterlab ipykernel nbformat nbconvert ipywidgets
+python -m ipykernel install --user --name meae_xai \
+       --display-name "Python 3.9.21 (meae_xai)"
+jupyter lab              # 브라우저. VS Code 는 커널만 골라도 된다
+```
+
+4절의 재계산 셀(4.2·4.4)은 몇 분 걸린다. 건너뛰면 4.3·4.5 는 `results/` 에 저장된
+산출물을 대신 읽으므로 **어느 셀부터 실행해도 동작한다.**
 
 ### 7.2 데이터
 

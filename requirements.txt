@@ -24,5 +24,10 @@ scikit-learn==1.6.1
 
 # 선택 — 없어도 01~06 은 그대로 돈다
 vitaldb==1.5.8             # 07_validation.py --source vitaldb
-ipykernel                  # analysis.ipynb
+# analysis.ipynb 용 — 지표 계산에는 필요 없다
+jupyterlab==4.5.10
+ipykernel==6.31.0
+nbformat==5.10.4
+nbconvert==7.17.1          # 노트북을 HTML/PDF 로 내보낼 때
+ipywidgets==8.1.9          # tqdm 진행률 표시
 pytest                     # tests/
