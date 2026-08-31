@@ -46,6 +46,39 @@ def test_snr_definition():
     assert got == pytest.approx(want, rel=1e-9)
 
 
+def test_prd_denominator_excludes_dc():
+    """PRD 분모는 평균을 뺀 제곱합이다 (PRDN). DC 오프셋에 흔들리지 않는다."""
+    rng = np.random.default_rng(5)
+    c = rng.standard_normal((1, SEG_LEN))
+    e = c + rng.standard_normal((1, SEG_LEN)) * 0.2
+    base = metrics.prd(c, e)[0]
+    # 두 신호에 같은 상수를 더해도 값이 변하지 않아야 한다
+    assert metrics.prd(c + 5.0, e + 5.0)[0] == pytest.approx(base, rel=1e-9)
+    want = 100 * np.sqrt(((e - c) ** 2).sum() / ((c - c.mean()) ** 2).sum())
+    assert base == pytest.approx(want, rel=1e-9)
+
+
+def test_snr_and_prd_are_inverse():
+    """SNR = −20·log10(PRD/100). 두 지표가 같은 신호 전력 기준을 쓴다는 뜻이다."""
+    rng = np.random.default_rng(6)
+    c = rng.standard_normal((5, SEG_LEN)) + 3.0        # 평균이 0 이 아닌 신호
+    e = c + rng.standard_normal((5, SEG_LEN)) * 0.3
+    snr, p = metrics.snr_db_vec(c, e), metrics.prd(c, e)
+    assert snr == pytest.approx(-20 * np.log10(p / 100.0), rel=1e-9)
+
+
+def test_snr_ignores_dc_offset():
+    """신호 전력이 분산이므로 상수 오프셋은 SNR 을 바꾸지 않는다.
+
+    주입 정의(data/build.py)와 같은 기준이라는 뜻이다.
+    """
+    rng = np.random.default_rng(7)
+    c = rng.standard_normal((1, SEG_LEN))
+    d = rng.standard_normal((1, SEG_LEN)) * 0.2
+    assert metrics.snr_db_vec(c + 4.0, c + 4.0 + d)[0] == pytest.approx(
+        metrics.snr_db_vec(c, c + d)[0], rel=1e-9)
+
+
 def test_snr_worsens_with_more_noise(seg):
     c = seg["x_clean"][None, :].astype(np.float64)
     rng = np.random.default_rng(1)

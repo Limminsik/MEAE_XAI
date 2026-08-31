@@ -32,11 +32,22 @@ def mad(clean, est):
 
 
 def prd(clean, est):
-    """Percentage Root-mean-square Difference — `100·√(Σ(est−clean)² / Σclean²)` [%].
-    낮을수록 유사. 분모는 평균을 빼지 않은 원 신호 제곱합이다."""
+    """Percentage Root-mean-square Difference — `100·√(Σ(est−clean)² / Σ(clean−mean)²)` [%].
+
+    낮을수록 유사. **분모에서 평균을 뺀다** (문헌의 PRDN / PRD1 형태).
+
+    빼는 이유: 우리 x_clean 은 기저선이 0 이 아니다(test 중앙 −0.295 mV, SD 0.302 mV).
+    평균을 그대로 두면 `mean²/var = 1.32` 라 **상수 오프셋 하나가 심전도 파형 전체보다
+    큰 전력**으로 잡혀 분모가 2.3배가 되고, PRD 가 1.52배 낮게 나온다. 전극 오프셋은
+    정보를 담지 않으므로 신호 전력에서 뺀다.
+
+    `snr_db_vec` 과 같은 기준(신호 전력 = 분산)이라 두 지표는 정확히 역관계다:
+
+        SNR = −20·log10(PRD / 100)
+    """
     c = np.asarray(clean, np.float64)
     d = np.asarray(est, np.float64) - c
-    den = (c ** 2).sum(-1)
+    den = ((c - c.mean(-1, keepdims=True)) ** 2).sum(-1)
     return 100.0 * np.sqrt((d ** 2).sum(-1) / np.maximum(den, 1e-30))
 
 
@@ -49,7 +60,18 @@ def cossim(clean, est):
 
 
 def snr_db_vec(clean, est):
-    """`10log10(var(clean) / mean((est−clean)²))` 의 벡터판. 높을수록 유사."""
+    """`10log10(var(clean) / mean((est−clean)²))` 의 벡터판. 높을수록 유사.
+
+    **신호 전력은 분산이다** — 평균을 뺀다. 전극 오프셋은 정보가 아니므로 신호로 세지
+    않는다. `data/build.py` 의 주입 정의와 같은 기준이라, x_noisy 를 이 식으로 재면
+    주입한 합성 SNR 이 그대로 나온다 (test 중앙 0.305 vs 주입 0.047 dB).
+
+    문헌식 `10log10(Σy²/Σd²)` 을 글자 그대로 쓰면 이 데이터에서는 +3.84 dB 부풀려진다 —
+    그 식은 기저선을 먼저 제거한 신호를 전제하기 때문이다. 우리는 기저선을 남기므로
+    분자에서 평균을 빼는 것이 같은 식을 올바르게 적용하는 방법이다.
+
+    `prd()` 와 같은 기준이라 두 지표는 정확히 역관계다: SNR = −20·log10(PRD/100).
+    """
     c = np.asarray(clean, np.float64)
     d = np.asarray(est, np.float64) - c
     return 10.0 * np.log10(c.var(-1) / np.maximum((d ** 2).mean(-1), 1e-30))
