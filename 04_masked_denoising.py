@@ -58,6 +58,7 @@ a·b 를 두는 이유: 개선량 중 어디까지가 재구성 자체의 몫이
   three_ways_note.txt   정의와 B/C 실측 절대차
   figures/three_ways.png          적층 — 다섯 상태를 세로로
   figures/three_ways_overlay.png  x_clean 위에 처리 전/후를 겹치고 각각의 잔차
+      색 규칙 — 참조(x_clean) 검정 · 처리 전(x_noisy) 파랑 · 처리 후(B) 빨강
 
   (--three-ways 없이) exhaustive.csv · baseline.csv · best_by_metric.csv ·
   single_mask.csv · cumulative.csv · rpeak_ratio.csv · persegment_top.csv
@@ -456,11 +457,12 @@ def fig_three(est, clean, ds, idx, out, run, split, tab):
     order = ["a 입력 x_noisy", "b M0 재구성", "A 성분차감", "B 심장직접", "C 마스킹디코드"]
     fig, ax = plt.subplots(len(order) + 1, 1, figsize=(13, 1.5 * (len(order) + 1)),
                            sharex=True, sharey=True)
-    ax[0].plot(t, clean[i], lw=.8, color="#333")
+    # 겹침 그림과 같은 색 규칙 — 참조는 검정, 마스킹 복원(A·B·C)은 빨강, 기준선은 파랑
+    ax[0].plot(t, clean[i], lw=1.0, color="#000")
     ax[0].set_ylabel("x_clean", fontsize=8)
     for a, w in zip(ax[1:], order):
-        a.plot(t, est[w][i], lw=.8, color="#c44e52" if w.startswith(("A", "B", "C"))
-               else "#4c72b0")
+        a.plot(t, est[w][i], lw=.9, color="#d62728" if w.startswith(("A", "B", "C"))
+               else "#1f77b4")
         a.set_ylabel(w, fontsize=8)
     for a in ax:
         a.grid(alpha=.3, lw=.4); a.tick_params(labelsize=7)
@@ -489,17 +491,20 @@ def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab):
     B 는 신호 전체를 디코더가 새로 그린 결과라 처리 전과 나란히 놓을 수 있다.
     A·C 의 수치는 표(three_ways.csv)에 그대로 있다.
     """
-    panes = [("처리 전", "a 입력 x_noisy", "x_noisy", "#000"),
-             ("처리 후", "B 심장직접", "B 재구성 (잡음 인코딩 마스킹)", "#c44e52")]
+    # 참조(x_clean)는 **검정**으로 깔고, 비교 대상을 그 위에 색으로 얹는다.
+    # 처리 전은 파랑(x_noisy), 처리 후는 빨강(B). 참조를 먼저 그려야 겹치는 구간에서
+    # 색선이 위로 오고, 어긋나는 구간에서만 검정이 드러난다 — 차이가 눈에 잡힌다.
+    panes = [("처리 전", "a 입력 x_noisy", "x_noisy", "#1f77b4"),
+             ("처리 후", "B 심장직접", "B 재구성 (잡음 인코딩 마스킹)", "#d62728")]
     lim = max(np.abs(clean[i]).max(),
               *[np.abs(est[k][i]).max() for _, k, _, _ in panes]) * 1.08
     fig, ax = plt.subplots(len(panes) * 2, 1, figsize=(13, 2.4 * len(panes) * 2),
                            sharex=True, sharey=True)
     for j, (stage, key, label, c) in enumerate(panes):
         a0, a1 = ax[2 * j], ax[2 * j + 1]
-        a0.plot(t, est[key][i], lw=0.75, color=c, alpha=.8, label=label)
-        a0.plot(t, clean[i], lw=0.95, color="#1f77b4", label="x_clean")
-        a0.legend(fontsize=8, ncol=2, loc="upper right")
+        a0.plot(t, clean[i], lw=1.25, color="#000", label="x_clean (참조)", zorder=2)
+        a0.plot(t, est[key][i], lw=1.0, color=c, label=label, zorder=3)
+        a0.legend(fontsize=8.5, ncol=2, loc="upper right")
         row = tab[tab["방식"] == key].iloc[0]
         a0.set_title(f"{stage} — x_clean 과 {label}   corr {row['corr']:.3f} · "
                      f"RMSE {row['RMSE']:.3f} mV · SSD {row['SSD']:.1f} · "
