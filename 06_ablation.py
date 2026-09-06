@@ -19,7 +19,7 @@ x_noisy 와 B 에서 **각각 독립으로** 잰다. 이 층이 x_clean 의존�
 MIT-BIH 원본도 완전한 참값이 아니라는 한계에 대한 독립적 근거다.
 
   basSQI       P(0-1Hz) / P(0-40Hz)          기저선 대역 비중.  **낮을수록** 좋다
-  pSQI         P(5-20Hz) / P(0-62.5Hz)       QRS 대역 비중.    높을수록
+  pSQI         P(5-20Hz) / P(0-40Hz)         QRS 대역 비중.    높을수록
   kSQI         첨도 = m4 / m2^2               잡음 없는 QRS 일수록 높다 (통상 5 이상)
   bSQI         |R1 & R2| / |R1 | R2|          두 검출기의 박동 일치 (허용 150 ms)
   ECGMeanCoef  mean_b corr(박동_b, 평균 템플릿)  박동 형태의 일관성
