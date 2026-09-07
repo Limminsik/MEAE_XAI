@@ -112,6 +112,33 @@ AAMI EC57 권고를 따르되 **F·Q 박동이 통계적 평가에 불충분해 
 
 ## 3. 원고 배치 요약
 
+### 3.1 학술대회 원고 — 실제로 실린 것
+
+**다중 인코더 오토인코더 기반 심전도 잡음 성분 분리 및 디노이징 모델 개발**
+(v1.0, 2026-09-06 투고). 4표 5그림으로 줄인 판이다.
+
+| 요소 | 내용 | 출처 | 주장 |
+|---|---|---|---|
+| Table 1 | 성분 4종 × \|r\|·RMSE·MAD | `03_bss/.../assignment_diagonal.csv` | ① |
+| Table 2 | 디노이징 4방식 × SNR·PRD | `04_.../three_ways.csv` | ② |
+| Table 3 | SQI 4종 — clean·noisy·denoised | `06_.../sqi_summary.csv` | ④-1 |
+| Table 4 | 외부 3소스 SQI 4종 | `07_.../sqi_summary.csv` | ⑤ |
+| Figure 1 | 전체 프레임워크 도식 | 원고 전용 | — |
+| Figure 2 | 구조 · 마스킹 도식 | 원고 전용 | — |
+| Figure 3 | 성분 ↔ 참조 대조 | `03_bss/.../figures/components_top*.png` | ① |
+| Figure 4 | 처리 전/후 겹침 | `04_.../figures/three_ways_overlay.png` | ②③ |
+| Figure 5 | 외부 3소스 겹침 | `07_.../figures/overlay_top*.png` | ⑤ |
+
+주장 ④-2(임상 측정값)와 ⑥(하류 과제)은 **싣지 않았다.** 원고의 식·표와 저장소 정의의
+대응, 그리고 어긋나는 네 지점은 `README.md` §9 에 있다.
+
+지원 — 한국연구재단(NRF) 과제 **RS-2026-25494690** (과기정통부). 원고 Acknowledgment 와
+`CITATION.cff` 가 같은 문구를 쓴다.
+
+### 3.2 SCI 원고 — 확장 배치 (계획)
+
+주장 6개를 전부 싣는 판이다. 추가 계산 없이 현재 산출물로 채워진다 (README §9.4).
+
 | 요소 | 내용 | 출처 |
 |---|---|---|
 | Table 1 | 배정 대각 — 주 지표 4종 + 누출비 | `03_bss/.../assignment_diagonal.csv` |

@@ -9,9 +9,26 @@ type: software
 authors:
   - family-names: Lim
     given-names: Minsik
-    affiliation: Gachon University
+    affiliation: >-
+      Department of IT Convergence, Computer Engineering,
+      Gachon University, Seongnam, Republic of Korea
     # orcid: "https://orcid.org/0000-0000-0000-0000"
     # email: your.institutional@address
+  - family-names: Kim
+    given-names: Donghyun
+    affiliation: >-
+      Department of IT Convergence, Computer Engineering,
+      Gachon University, Seongnam, Republic of Korea
+  - family-names: Lee
+    given-names: Dongho
+    affiliation: >-
+      Department of Computer Engineering,
+      Gachon University, Seongnam, Republic of Korea
+  - family-names: Lee
+    given-names: Suehyun
+    affiliation: >-
+      Department of Computer Engineering,
+      Gachon University, Seongnam, Republic of Korea
 license: MIT
 repository-code: "https://github.com/Limminsik/MEAE_XAI"
 abstract: >-
@@ -35,6 +52,24 @@ keywords:
   - explainable AI
   - signal quality index
 references:
+  - type: conference-paper
+    authors:
+      - family-names: Lim
+        given-names: Minsik
+      - family-names: Kim
+        given-names: Donghyun
+      - family-names: Lee
+        given-names: Dongho
+      - family-names: Lee
+        given-names: Suehyun
+    title: >-
+      Development of a multi-encoder autoencoder model for ECG
+      noise source separation and denoising
+    year: 2026
+    notes: >-
+      Conference manuscript v1.0, submitted 2026-09-06. Venue and
+      page numbers to be filled in once accepted. README section 9
+      maps its equations, tables and figures onto this repository.
   - type: article
     authors:
       - family-names: Webster
@@ -45,3 +80,6 @@ references:
     journal: Neurocomputing
     year: 2025
     doi: 10.1016/j.neucom.2025.131008
+
+# Funded by the National Research Foundation of Korea (NRF) grant
+# funded by the Korea government (MSIT), RS-2026-25494690.
