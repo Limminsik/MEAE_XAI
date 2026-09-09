@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEAE 연구 대시보드</title>
+<style>
+  :root{--paper:#F7F8F6;--card:#fff;--ink:#1B2A33;--mute:#5F6E76;--rule:#D4DBD8;--grid:#E9EEEC;--head:#FBFCFB;
+    --teal:#1F6F6A;--teal-bg:#E3F0EE;--amber:#9A6A12;--amber-bg:#F7EEDA;--red:#A8352E;--red-bg:#F6E4E2;
+    --blue:#0F5F8A;--blue-bg:#E0EDF5;--code:#EDF1EF;--gray:#9AA6AB}
+  @media (prefers-color-scheme:dark){:root{--paper:#141A1D;--card:#1B2327;--ink:#E4EAE8;--mute:#94A3A6;--rule:#2E393D;--grid:#252F33;--head:#1F282C;
+    --teal:#6FC8BE;--teal-bg:#153230;--amber:#D9AC5A;--amber-bg:#33280F;--red:#E8938B;--red-bg:#37211F;--blue:#7DBEE0;--blue-bg:#122A36;--code:#232D31;--gray:#5C6A70}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;font-size:15px;line-height:1.6}
+  header{border-bottom:2px solid var(--ink);padding:22px 0 14px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 18px}
+  .ver{font-size:12.5px;color:var(--mute);letter-spacing:.02em} .ver b{color:var(--ink);font-size:20px;display:block;margin-top:2px;letter-spacing:0}
+  h1{font-size:20px;line-height:1.35;margin:10px 0 4px;text-wrap:balance}
+  header p{margin:0;color:var(--mute);font-size:13.5px}
+  nav{position:sticky;top:0;background:var(--paper);border-bottom:1px solid var(--rule);z-index:5}
+  nav .wrap{display:flex;gap:4px;overflow-x:auto;padding:6px 18px}
+  nav a{font-size:13px;color:var(--mute);text-decoration:none;padding:6px 10px;border-radius:4px;white-space:nowrap}
+  nav a:hover,nav a:focus-visible{background:var(--code);color:var(--ink);outline:none}
+  main{padding:8px 0 60px}
+  h2{font-size:16px;margin:34px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:10px}
+  h2 small{font-weight:400;color:var(--mute);font-size:12.5px}
+  .sec{background:var(--card);border:1px solid var(--rule);margin-bottom:12px}
+  .sec-h{padding:10px 12px;border-bottom:1px solid var(--grid);background:var(--head);font-weight:700;font-size:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .sec-h small{font-weight:400;color:var(--mute);font-size:12.5px}
+  .sec-b{padding:10px 12px}
+  .row{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:9px 12px;border-bottom:1px solid var(--grid);font-size:13.5px}
+  .row:last-child{border-bottom:none} .row .k{color:var(--mute);font-size:12.5px;padding-top:2px}
+  .t{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:3px;font-weight:600;white-space:nowrap;vertical-align:middle}
+  .ok{background:var(--teal-bg);color:var(--teal)} .pr{background:var(--amber-bg);color:var(--amber)} .tbd{background:var(--red-bg);color:var(--red)} .nw{background:var(--blue-bg);color:var(--blue)}
+  code{background:var(--code);padding:1px 5px;border-radius:3px;font-size:12.5px;font-family:Consolas,"SFMono-Regular",monospace}
+  .tw{overflow-x:auto} table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--grid);vertical-align:top;white-space:nowrap}
+  th{color:var(--mute);font-weight:600;font-size:12.5px} td.num,th.num{text-align:right}
+  tr.ours td{font-weight:700;color:var(--teal)} tr.dl td{color:var(--amber)} tr.dl td:first-child::before{content:"● ";font-size:9px;vertical-align:middle}
+  tr.ours td:first-child::before{content:"● ";font-size:9px;vertical-align:middle}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .fig{background:var(--card);border:1px solid var(--rule)} .fig img{display:block;width:100%;height:auto;background:#fff}
+  .fig figcaption{padding:8px 10px;font-size:12.5px;color:var(--mute);border-top:1px solid var(--grid)}
+  .fig .ttl{color:var(--ink);font-weight:600}
+  .chip{font-size:12px;padding:2px 8px;border:1px solid var(--rule);border-radius:12px;color:var(--mute);background:var(--card);cursor:pointer}
+  .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  ol.q{counter-reset:q;margin:0;padding:0;list-style:none} ol.q li{counter-increment:q;padding:8px 0 8px 30px;position:relative;border-bottom:1px dashed var(--rule);font-size:14px}
+  ol.q li::before{content:"Q"counter(q);position:absolute;left:0;top:8px;font-size:12px;font-weight:700;color:var(--red)} ol.q li:last-child{border-bottom:none}
+  ul.plain{margin:0;padding-left:18px} ul.plain li{margin:4px 0;font-size:14px}
+  .notice{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber);padding:10px 12px;font-size:13px;margin:12px 0}
+  .muted{color:var(--mute);font-size:12.5px}
+  svg text{font-family:inherit}
+  a{color:var(--blue)}
+  @media (max-width:600px){.row{grid-template-columns:76px 1fr}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="ver">MEAE · 연구 대시보드 <b id="ver">—</b></div>
+  <h1 id="title">—</h1>
+  <p id="subtitle">—</p>
+  <p class="muted" id="src" style="margin-top:6px"></p>
+</div></header>
+<nav><div class="wrap">
+  <a href="#overview">개요</a><a href="#core">핵심 결과</a><a href="#runs">run별 표</a><a href="#sqi">신호 품질·형태</a>
+  <a href="#figs">피규어</a><a href="#paper">원고·참고문헌</a><a href="#progress">진행·결정</a>
+</div></nav>
+<main><div class="wrap">
+  <div id="notice"></div>
+
+  <h2 id="overview">개요 <small>연구 논리 위계와 고도화 범위</small></h2>
+  <div class="sec"><div class="row"><div class="k">논리 위계</div><div id="logic"></div></div>
+    <div class="row"><div class="k">고도화 범위</div><div><ol id="scope" style="margin:0;padding-left:18px"></ol></div></div>
+    <div class="row"><div class="k">파이프라인</div><div id="pipe"></div></div></div>
+
+  <h2 id="core">핵심 결과 — 디노이징 비교 <small>test 1,620분절 · 기준 x_clean · 분절 중앙값</small></h2>
+  <div class="sec"><div class="sec-h">Table 4 후보 — run 폴더에서 자동으로 모은다 <small id="core-src"></small></div>
+    <div class="sec-b"><div id="core-chart"></div><div class="tw" id="core-table"></div>
+    <p class="muted" id="core-check" style="margin:8px 0 0"></p></div></div>
+
+  <h2 id="runs">run별 표 <small>results/04_masked_denoising/&lt;run&gt;/test/</small></h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="run-chips"></div>
+  <div id="run-detail"></div>
+
+  <h2 id="sqi">신호 품질·임상 형태 지표 <small>results/06_ablation/&lt;run&gt;/test/ · 참값 없는 층과 있는 층</small></h2>
+  <div id="sqi-block"></div>
+
+  <h2 id="figs">피규어 <small>저장소 results/ 의 PNG 를 그대로 보여준다</small></h2>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="fig-chips"></div>
+  <div class="grid" id="fig-grid"></div>
+
+  <h2 id="paper">원고 · 참고문헌</h2>
+  <div class="sec"><div class="sec-h">원고 파일</div><div id="ms"></div></div>
+  <div class="sec"><div class="sec-h">참고문헌 <small>원고 번호 · 코드 · 쓰임</small></div><div class="tw" id="refs"></div></div>
+
+  <h2 id="progress">진행 · 결정</h2>
+  <div class="sec"><div class="sec-h">확정된 것</div><div class="sec-b"><ul class="plain" id="decided"></ul></div></div>
+  <div class="sec"><div class="sec-h">결정 필요</div><div class="sec-b"><ol class="q" id="open"></ol></div></div>
+  <div class="sec"><div class="sec-h">변경 이력</div><div class="tw" id="log"></div></div>
+  <p class="muted" style="margin-top:20px">갱신: <code>docs/data/site.json</code> 을 고치고 push 한다. 표·그림은 저장소의 <code>results/</code> 를 직접 읽으므로 실험을 다시 내고 push 하면 자동으로 바뀐다. 로컬에서 볼 때는 <code>python -m http.server -d docs 8000</code> 후 <code>localhost:8000</code>.</p>
+</div></main>
+
+<script>
+(async function(){
+const $=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let SITE, SNAP={csv:{},figures:[]};
+try{ SITE=await (await fetch('data/site.json')).json(); }
+catch(e){ $('#notice').innerHTML='<div class="notice">data/site.json 을 읽지 못했습니다. file:// 로 직접 열면 브라우저가 막습니다 — <code>python -m http.server -d docs 8000</code> 으로 띄우거나 GitHub Pages 에서 여세요.</div>'; return; }
+try{ SNAP=await (await fetch('data/snapshot.json')).json(); }catch(e){}
+const R=SITE.repo, RAW=`https://raw.githubusercontent.com/${R.owner}/${R.name}/${R.branch}/`;
+const usedSrc=new Set();
+let rawDead=false;
+async function get(u,ms){ const c=new AbortController(), t=setTimeout(()=>c.abort(),ms); try{ const r=await fetch(u,{signal:c.signal}); return r.ok?await r.text():null; }catch(e){ return null; } finally{ clearTimeout(t); } }
+async function text(path){
+  let t=await get(`../${path}`,2500); if(t!=null){usedSrc.add('저장소(상대)'); return t;}
+  if(!rawDead){ t=await get(RAW+path,4000); if(t!=null){usedSrc.add('GitHub raw'); return t;} rawDead=true; }
+  if(SNAP.csv[path]){usedSrc.add('스냅샷'); return SNAP.csv[path];}
+  return null;
+}
+function csv(t){ if(!t) return null; const L=t.replace(/^﻿/,'').trim().split(/\r?\n/); const h=L[0].split(','); return L.slice(1).map(l=>{const v=l.split(','); const o={}; h.forEach((k,i)=>o[k]=v[i]); return o;}); }
+const num=v=>{const x=parseFloat(v); return isNaN(x)?null:x;}, f=(v,d=2)=>v==null?'—':v.toFixed(d);
+const status=s=>({'확정':'ok','값 확보':'ok','실행 중':'nw','실행 대기':'tbd','재실행 대기':'tbd','무효':'tbd'}[s]||'pr');
+
+// ---- header · overview
+$('#ver').textContent=SITE.version; $('#title').textContent=SITE.title; $('#subtitle').textContent=SITE.subtitle;
+$('#src').innerHTML=`저장소 <a href="https://github.com/${R.owner}/${R.name}/tree/${R.branch}">${R.owner}/${R.name} · ${R.branch}</a>`;
+$('#logic').innerHTML=`<b>${esc(SITE.logic)}</b> — 이 위계를 벗어난 서술은 원고에 반영하지 않는다.`;
+$('#scope').innerHTML=SITE.scope.map(s=>`<li>${esc(s.text)} <span class="t ${status(s.status)}">${esc(s.status)}</span></li>`).join('');
+$('#pipe').innerHTML=pipeline();
+
+// ---- runs → core table
+const runs=SITE.runs, tw={};
+await Promise.all(runs.map(async r=>{ tw[r.id]=csv(await text(`results/04_masked_denoising/${r.id}/test/three_ways.csv`)); }));
+const have=runs.filter(r=>tw[r.id]);
+$('#core-src').textContent=[...usedSrc].join(' · ')||'—';
+const rows=[]; // {label, kind, status, m}
+const base=have[0]&&tw[have[0].id];
+if(base){ for(const c of SITE.classical){ const m=base.find(x=>x['방식']===c); if(m) rows.push({label:c,kind:'classic',m}); } }
+for(const r of have){ const m=tw[r.id].find(x=>x['방식']===r.row); if(m) rows.push({label:r.label,kind:r.kind,status:r.status,m,id:r.id}); }
+const cols=[['SNR_dB','SNR (dB)',4],['dSNR_vs_입력','ΔSNR',4],['PRD','PRD (%)',4],['corr','corr',4],['RMSE','RMSE (mV)',4],['SSD','SSD',2],['MAD','MAD',4],['CosSim','CosSim',4]];
+$('#core-table').innerHTML=rows.length?`<table><tr><th>방식</th><th>run</th>${cols.map(c=>`<th class="num">${c[1]}</th>`).join('')}<th>상태</th></tr>`+
+  rows.map(r=>`<tr class="${r.kind==='meae'?'ours':(r.kind==='classic'?'':'dl')}"><td>${esc(r.label)}</td><td class="muted">${r.id?`<code>${r.id}</code>`:'고전 · 학습 없음'}</td>${cols.map(c=>`<td class="num">${f(num(r.m[c[0]]),c[2])}</td>`).join('')}<td>${r.status?`<span class="t ${status(r.status)}">${esc(r.status)}</span>`:''}</td></tr>`).join('')+'</table>':'<p class="muted">three_ways.csv 를 찾지 못했다.</p>';
+// checksum
+if(base){ const bad=SITE.checks.filter(c=>{const m=base.find(x=>x['방식']===c.row); return !m||Math.abs(num(m.SNR_dB)-c.SNR_dB)>5e-4||Math.abs(num(m.PRD)-c.PRD)>5e-4;});
+  const per=have.map(r=>{const t=tw[r.id]; const ok=SITE.checks.every(c=>{const m=t.find(x=>x['방식']===c.row); return m&&Math.abs(num(m.SNR_dB)-c.SNR_dB)<5e-4;}); return `${r.id.replace('_seed42','')} ${ok?'✓':'✗'}`;});
+  $('#core-check').innerHTML=`검산 — 입력·고전 3종이 모든 run 에서 같은 값이어야 같은 파이프라인이다: ${per.join(' · ')}${bad.length?' <span class="t tbd">불일치</span>':' <span class="t ok">통과</span>'}`; }
+$('#core-chart').innerHTML=chart(rows);
+
+// ---- run chips + detail
+const chips=$('#run-chips'); have.forEach((r,i)=>{const b=document.createElement('button'); b.className='chip'+(i?'':' on'); b.textContent=r.label; b.onclick=()=>{[...chips.children].forEach(c=>c.classList.remove('on')); b.classList.add('on'); detail(r);}; chips.appendChild(b);});
+if(have[0]) detail(have[0]);
+async function detail(r){
+  const t=tw[r.id], b=csv(await text(`results/04_masked_denoising/${r.id}/test/breakdown.csv`)), h=csv(await text(`results/02_model/${r.id}/history.csv`));
+  let html=`<div class="sec"><div class="sec-h">${esc(r.label)} <small><code>${r.id}</code> · ${esc(r.note||'')}</small> <span class="t ${status(r.status)}">${esc(r.status)}</span></div>
+  <div class="sec-b"><div class="tw"><table><tr><th>방식</th><th>구분</th>${cols.map(c=>`<th class="num">${c[1]}</th>`).join('')}</tr>${t.map(m=>`<tr class="${m['방식']===r.row&&r.kind==='meae'?'ours':(m['방식']===r.row?'dl':'')}"><td>${esc(m['방식'])}</td><td class="muted">${esc(m['구분']||'')}</td>${cols.map(c=>`<td class="num">${f(num(m[c[0]]),c[2])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  if(b){ const bands=[...new Set(b.filter(x=>x['구간'].startsWith('SNR')).map(x=>x['구간']))], ways=[...new Set(b.map(x=>x['방식']))];
+    html+=`<p class="muted" style="margin:12px 0 4px">입력 SNR 구간별 SNR (dB) — "언제 유효한가"</p><div class="tw"><table><tr><th>구간</th><th class="num">n</th>${ways.map(w=>`<th class="num">${esc(w)}</th>`).join('')}</tr>${bands.map(g=>{const rr=b.filter(x=>x['구간']===g); return `<tr><td>${esc(g)}</td><td class="num">${rr[0]['분절수']}</td>${ways.map(w=>{const m=rr.find(x=>x['방식']===w); return `<td class="num">${m?f(num(m.SNR_dB)):'—'}</td>`;}).join('')}</tr>`;}).join('')}</table></div>`; }
+  if(h&&h.length){ const best=h.reduce((a,x)=>num(x.val)<num(a.val)?x:a,h[0]); html+=`<p class="muted" style="margin:12px 0 0">학습 이력 — ${h.length}에폭 · 선정 에폭 ${best.epoch} (val ${f(num(best.val),2)}) · 에폭당 ${f(num(h[0].sec),1)}초</p>${spark(h)}`; }
+  $('#run-detail').innerHTML=html+'</div></div>';
+}
+
+// ---- 06 SQI
+{ let html=''; for(const r of have){ const s=csv(await text(`results/06_ablation/${r.id}/test/sqi_summary.csv`)), m=csv(await text(`results/06_ablation/${r.id}/test/metric_summary.csv`)); if(!s) continue;
+  const keys=['basSQI','pSQI','kSQI','bSQI','ECGMeanCoef'];
+  html+=`<div class="sec"><div class="sec-h">${esc(r.label)} <small>SQI 5종 (분절 중앙값) · 참값 불필요</small></div><div class="tw"><table><tr><th>계열</th>${keys.map(k=>`<th class="num">${k}</th>`).join('')}</tr>${s.map(x=>`<tr><td>${esc(x['계열'])}</td>${keys.map(k=>`<td class="num">${f(num(x[k]),4)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  if(m&&m[0]){ const ks=Object.keys(m[0]).filter(k=>k!=='지표'); html+=`<div class="tw" style="margin-top:8px"><table><tr>${Object.keys(m[0]).map(k=>`<th class="${k==='지표'?'':'num'}">${esc(k)}</th>`).join('')}</tr>${m.map(x=>`<tr>${Object.keys(x).map(k=>`<td class="${k==='지표'?'':'num'}">${k==='지표'?esc(x[k]):f(num(x[k]),4)}</td>`).join('')}</tr>`).join('')}</table></div>`; }
+  html+='</div>'; }
+  $('#sqi-block').innerHTML=html||'<p class="muted">06 결과를 찾지 못했다.</p>'; }
+
+// ---- figures
+{ const groups=[...new Set(SITE.figures.map(x=>x.group))], fc=$('#fig-chips'); let cur='전체';
+  const render=()=>{$('#fig-grid').innerHTML=SITE.figures.filter(x=>cur==='전체'||x.group===cur).map(x=>`<figure class="fig" style="margin:0"><img loading="lazy" src="../${x.path}" onerror="if(!this.dataset.r){this.dataset.r=1;this.src='${RAW}${x.path}'}" alt="${esc(x.title)}"><figcaption><span class="ttl">${esc(x.title)}</span><br><code>${x.path}</code>${x.caption?'<br>'+esc(x.caption):''}</figcaption></figure>`).join('');};
+  ['전체',...groups].forEach((g,i)=>{const b=document.createElement('button'); b.className='chip'+(i?'':' on'); b.textContent=g; b.onclick=()=>{cur=g;[...fc.children].forEach(c=>c.classList.remove('on')); b.classList.add('on'); render();}; fc.appendChild(b);}); render(); }
+
+// ---- manuscript · refs · progress
+$('#ms').innerHTML=SITE.manuscript.map(m=>`<div class="row"><div class="k">${m.url?`<a href="${m.url}">열기</a>`:'링크 없음'}</div><div><b>${esc(m.label)}</b><br><span class="muted">${esc(m.note||'')}</span></div></div>`).join('');
+$('#refs').innerHTML=`<table><tr><th>#</th><th style="white-space:normal">문헌</th><th>코드</th><th>쓰임</th></tr>${SITE.references.map(r=>`<tr><td>${r.n||'—'}</td><td style="white-space:normal">${esc(r.text)}</td><td>${r.code?`<a href="${r.code}">github</a>`:''}</td><td style="white-space:normal">${esc(r.use||'')}</td></tr>`).join('')}</table>`;
+$('#decided').innerHTML=SITE.decided.map(d=>`<li>${esc(d)} <span class="t ok">확정</span></li>`).join('');
+$('#open').innerHTML=SITE.open.map(d=>`<li>${esc(d)}</li>`).join('');
+$('#log').innerHTML=`<table><tr><th>버전</th><th style="white-space:normal">내용</th></tr>${SITE.changelog.map(c=>`<tr><td>${esc(c.v)}</td><td style="white-space:normal">${esc(c.text)}</td></tr>`).join('')}</table>`;
+
+// ---- drawings
+function chart(rows){ if(!rows.length) return ''; const W=900,H=26*rows.length+40,px=250,bw=W-px-70; const snr=rows.map(r=>num(r.m.SNR_dB)), lo=Math.min(0,...snr), hi=Math.max(...snr)*1.05||1, x=v=>px+(v-lo)/(hi-lo)*bw;
+  const col=r=>r.kind==='meae'?'var(--teal)':(r.kind==='classic'?'var(--gray)':'var(--amber)');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="방식별 SNR"><text x="${px}" y="14" font-size="12" fill="var(--mute)">SNR (dB) · 높을수록 좋다</text>${[0,2,4,6,8].filter(v=>v<=hi).map(v=>`<line x1="${x(v)}" x2="${x(v)}" y1="20" y2="${H-14}" stroke="var(--grid)"/><text x="${x(v)}" y="${H-2}" font-size="11" fill="var(--mute)" text-anchor="middle">${v}</text>`).join('')}${rows.map((r,i)=>{const y=28+i*26,v=snr[i]; return `<text x="${px-8}" y="${y+13}" font-size="12.5" fill="var(--ink)" text-anchor="end">${esc(r.label)}</text><rect x="${x(Math.min(0,v))}" y="${y}" width="${Math.abs(x(v)-x(0))}" height="17" fill="${col(r)}" rx="2"/><text x="${x(Math.max(0,v))+6}" y="${y+13}" font-size="12" fill="var(--ink)">${f(v)}</text>`;}).join('')}</svg>`; }
+function spark(h){ const W=900,Hh=90,v=h.map(x=>num(x.val)),lo=Math.min(...v),hi=Math.max(...v),X=i=>40+i/(h.length-1||1)*(W-60),Y=y=>Hh-12-(y-lo)/((hi-lo)||1)*(Hh-30);
+  return `<svg viewBox="0 0 ${W} ${Hh}" width="100%"><path d="${v.map((y,i)=>(i?'L':'M')+X(i)+','+Y(y)).join(' ')}" fill="none" stroke="var(--teal)" stroke-width="1.5"/><text x="4" y="${Y(hi)+4}" font-size="10" fill="var(--mute)">${f(hi,0)}</text><text x="4" y="${Y(lo)+4}" font-size="10" fill="var(--mute)">${f(lo,0)}</text><text x="${W-4}" y="${Hh-2}" font-size="10" fill="var(--mute)" text-anchor="end">val 손실 · 에폭 1→${h.length}</text></svg>`; }
+function pipeline(){ const box=(x,y,w,t,c)=>`<rect x="${x}" y="${y}" width="${w}" height="34" rx="3" fill="${c||'var(--card)'}" stroke="var(--rule)"/><text x="${x+w/2}" y="${y+21}" font-size="11.5" text-anchor="middle" fill="var(--ink)">${t}</text>`;
+  const arr=(x1,y1,x2,y2)=>`<path d="M${x1},${y1} L${x2},${y2}" stroke="var(--mute)" stroke-width="1.2" marker-end="url(#a)"/>`;
+  return `<svg viewBox="0 0 900 190" width="100%" role="img" aria-label="파이프라인"><defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--mute)"/></marker></defs>
+  ${box(10,78,150,'공통 데이터 · 잡음 주입','var(--teal-bg)')}${box(170,78,120,'기록 단위 분할','var(--teal-bg)')}
+  ${arr(160,95,170,95)}${arr(290,95,320,42)}${arr(290,95,320,95)}${arr(290,95,320,148)}
+  ${box(320,25,170,'02 C16_seed42 (제안)','var(--teal-bg)')}${box(500,25,110,'03 성분↔참조')}${box(620,25,270,'04 · 05 · 06 → results/…/C16_seed42/')}
+  ${box(320,78,170,'02 DeepFilter (창 3종)','var(--amber-bg)')}${box(500,78,110,'03 없음 (성분 없음)')}${box(620,78,270,'04 · 05 · 06 → results/…/DeepFilter_*/')}
+  ${box(320,131,170,'02 DeScoD (박동 창)','var(--amber-bg)')}${box(500,131,110,'03 없음 (성분 없음)')}${box(620,131,270,'04 · 05 · 06 → results/…/DeScoD_*/')}
+  ${arr(490,42,500,42)}${arr(610,42,620,42)}${arr(490,95,500,95)}${arr(610,95,620,95)}${arr(490,148,500,148)}${arr(610,148,620,148)}
+  <text x="450" y="182" font-size="11.5" fill="var(--mute)" text-anchor="middle">같은 데이터 · 같은 지표 · 같은 집계 — 바뀌는 것은 디노이징 기법(과 그 기법이 설계된 입력 창)뿐이다</text></svg>`; }
+})();
+</script>
+</body>
+</html>
