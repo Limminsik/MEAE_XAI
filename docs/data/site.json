@@ -1,61 +1,193 @@
 {
-  "repo": {"owner": "Limminsik", "name": "MEAE_XAI", "branch": "version5"},
+  "repo": {
+    "owner": "Limminsik",
+    "name": "MEAE_XAI",
+    "branch": "version5"
+  },
   "title": "다중 인코더 오토인코더 기반 심전도 잡음 성분 분리 및 디노이징",
   "subtitle": "학술대회 원고 → 저널 원고 고도화 · 딥러닝 디노이징 비교 평가",
   "version": "v0.16_260909",
   "logic": "재구성이 목표 → 성분 분리는 부산물 → 판별이 기여",
-
   "scope": [
-    {"n": 1, "text": "방법 — 데이터셋 설명 및 잡음 주입·혼재 신호 구성의 구체화", "status": "값 확보"},
-    {"n": 2, "text": "방법 — 모델 아키텍처 및 손실 함수 등 개발 부분의 구체화", "status": "값 확보"},
-    {"n": 3, "text": "결과 — 딥러닝 디노이징 기법 추가 및 성능 비교", "status": "실행 중"}
+    {
+      "n": 1,
+      "text": "방법 — 데이터셋 설명 및 잡음 주입·혼재 신호 구성의 구체화",
+      "status": "값 확보"
+    },
+    {
+      "n": 2,
+      "text": "방법 — 모델 아키텍처 및 손실 함수 등 개발 부분의 구체화",
+      "status": "값 확보"
+    },
+    {
+      "n": 3,
+      "text": "결과 — 딥러닝 디노이징 기법 추가 및 성능 비교",
+      "status": "실행 중"
+    }
   ],
-
   "runs": [
-    {"id": "C16_seed42", "label": "제안 모델 (C16)", "short": "B 심장직접", "kind": "meae",
-     "row": "B 심장직접", "status": "확정", "note": "다중 인코더 오토인코더 K=4 · dilation [1,1,4,32] · 수용영역 9.21초"},
-    {"id": "DeepFilter_seed42", "label": "DeepFilter · 3,600표본 그대로", "short": "DeepFilter full", "kind": "deepfilter",
-     "row": "DeepFilter (재학습)", "status": "재실행 대기", "note": "Keras 기본값 보정(v0.16) 전 값 — 새 코드로 다시 돌린다"},
-    {"id": "DeepFilter_tile512_seed42", "label": "DeepFilter · 512 타일", "short": "DeepFilter tile", "kind": "deepfilter",
-     "row": "DeepFilter (재학습)", "status": "실행 대기", "note": "512표본 비중첩 8창, 마지막 창 끝 정렬"},
-    {"id": "DeepFilter_beat512_seed42", "label": "DeepFilter · 박동 512", "short": "DeepFilter beat", "kind": "deepfilter",
-     "row": "DeepFilter (재학습)", "status": "실행 대기", "note": "R-피크 중심 512표본 · 저자 박동 단위 대응"},
-    {"id": "DeScoD_seed42", "label": "DeScoD-ECG · 3,600표본 (1차)", "short": "DeScoD full", "kind": "descod",
-     "row": "DeScoD-ECG (재학습)", "status": "무효", "note": "val 채점 잡음으로 선정 무효 — 재실행"},
-    {"id": "DeScoD_beat512_seed42", "label": "DeScoD-ECG · 박동 512", "short": "DeScoD beat", "kind": "descod",
-     "row": "DeScoD-ECG (재학습)", "status": "실행 대기", "note": "400에폭 완주 · 평가 draw 고정 · 10회 표집 평균"}
+    {
+      "id": "C16_seed42",
+      "label": "제안 모델 (C16)",
+      "short": "B 심장직접",
+      "kind": "meae",
+      "row": "B 심장직접",
+      "status": "확정",
+      "note": "다중 인코더 오토인코더 K=4 · dilation [1,1,4,32] · 수용영역 9.21초"
+    },
+    {
+      "id": "DeepFilter_seed42",
+      "label": "DeepFilter · 3,600표본 그대로",
+      "short": "DeepFilter full",
+      "kind": "deepfilter",
+      "row": "DeepFilter (재학습)",
+      "status": "재실행 대기",
+      "note": "Keras 기본값 보정(v0.16) 전 값 — 새 코드로 다시 돌린다"
+    },
+    {
+      "id": "DeepFilter_tile512_seed42",
+      "label": "DeepFilter · 512 타일",
+      "short": "DeepFilter tile",
+      "kind": "deepfilter",
+      "row": "DeepFilter (재학습)",
+      "status": "실행 대기",
+      "note": "512표본 비중첩 8창, 마지막 창 끝 정렬"
+    },
+    {
+      "id": "DeepFilter_beat512_seed42",
+      "label": "DeepFilter · 박동 512",
+      "short": "DeepFilter beat",
+      "kind": "deepfilter",
+      "row": "DeepFilter (재학습)",
+      "status": "실행 대기",
+      "note": "R-피크 중심 512표본 · 저자 박동 단위 대응"
+    },
+    {
+      "id": "DeScoD_seed42",
+      "label": "DeScoD-ECG · 3,600표본 (1차)",
+      "short": "DeScoD full",
+      "kind": "descod",
+      "row": "DeScoD-ECG (재학습)",
+      "status": "무효",
+      "note": "val 채점 잡음으로 선정 무효 — 재실행"
+    },
+    {
+      "id": "DeScoD_beat512_seed42",
+      "label": "DeScoD-ECG · 박동 512",
+      "short": "DeScoD beat",
+      "kind": "descod",
+      "row": "DeScoD-ECG (재학습)",
+      "status": "실행 대기",
+      "note": "400에폭 완주 · 평가 draw 고정 · 10회 표집 평균"
+    }
   ],
-  "classical": ["a 입력 x_noisy", "대역통과 0.5-40Hz", "웨이블릿 임계값", "웨이블릿+기저선제거"],
-
+  "classical": [
+    "a 입력 x_noisy",
+    "대역통과 0.5-40Hz",
+    "웨이블릿 임계값",
+    "웨이블릿+기저선제거"
+  ],
   "checks": [
-    {"row": "a 입력 x_noisy", "SNR_dB": 0.3053, "PRD": 96.5458},
-    {"row": "대역통과 0.5-40Hz", "SNR_dB": 3.9777, "PRD": 63.2581},
-    {"row": "웨이블릿 임계값", "SNR_dB": 0.3757, "PRD": 95.7665},
-    {"row": "웨이블릿+기저선제거", "SNR_dB": 4.8768, "PRD": 57.0372}
+    {
+      "row": "a 입력 x_noisy",
+      "SNR_dB": 0.3053,
+      "PRD": 96.5458
+    },
+    {
+      "row": "대역통과 0.5-40Hz",
+      "SNR_dB": 3.9777,
+      "PRD": 63.2581
+    },
+    {
+      "row": "웨이블릿 임계값",
+      "SNR_dB": 0.3757,
+      "PRD": 95.7665
+    },
+    {
+      "row": "웨이블릿+기저선제거",
+      "SNR_dB": 4.8768,
+      "PRD": 57.0372
+    }
   ],
-
   "figures": [
-    {"group": "04 복원 비교", "title": "C16 — 처리 전/후 겹침", "path": "results/04_masked_denoising/C16_seed42/test/figures/three_ways_overlay.png"},
-    {"group": "04 복원 비교", "title": "C16 — 다섯 상태 적층", "path": "results/04_masked_denoising/C16_seed42/test/figures/three_ways.png"},
-    {"group": "04 복원 비교", "title": "DeepFilter (full) — 처리 전/후 겹침", "path": "results/04_masked_denoising/DeepFilter_seed42/test/figures/three_ways_overlay.png"},
-    {"group": "06 신호 품질·형태", "title": "C16 — SQI 방법 비교", "path": "results/06_ablation/C16_seed42/test/figures/sqi_method_vbox.png"},
-    {"group": "06 신호 품질·형태", "title": "C16 — 임상 형태 지표 오차 비교", "path": "results/06_ablation/C16_seed42/test/figures/error_method_vbox.png"},
-    {"group": "03 성분 대응", "title": "C16 — 인코더 × 참조 대응", "path": "results/02_model/C16_seed42/metrics/figures/correspondence.png"}
+    {
+      "group": "04 복원 비교",
+      "title": "C16 — 처리 전/후 겹침",
+      "path": "results/04_masked_denoising/C16_seed42/test/figures/three_ways_overlay.png"
+    },
+    {
+      "group": "04 복원 비교",
+      "title": "C16 — 다섯 상태 적층",
+      "path": "results/04_masked_denoising/C16_seed42/test/figures/three_ways.png"
+    },
+    {
+      "group": "04 복원 비교",
+      "title": "DeepFilter (full) — 처리 전/후 겹침",
+      "path": "results/04_masked_denoising/DeepFilter_seed42/test/figures/three_ways_overlay.png"
+    },
+    {
+      "group": "06 신호 품질·형태",
+      "title": "C16 — SQI 방법 비교",
+      "path": "results/06_ablation/C16_seed42/test/figures/sqi_method_vbox.png"
+    },
+    {
+      "group": "06 신호 품질·형태",
+      "title": "C16 — 임상 형태 지표 오차 비교",
+      "path": "results/06_ablation/C16_seed42/test/figures/error_method_vbox.png"
+    },
+    {
+      "group": "03 성분 대응",
+      "title": "C16 — 인코더 × 참조 대응",
+      "path": "results/02_model/C16_seed42/metrics/figures/correspondence.png"
+    }
   ],
-
   "manuscript": [
-    {"label": "MEAE_원고_v0.2_260908.docx", "note": "저널 구조 국문 초고 · Table 1·2 골격 · Table 4 딥러닝 행 자리", "url": ""},
-    {"label": "v1.0_260906_최종.hwp", "note": "학술대회 제출 원본 — 수식·그림 보관용 (Drive 「(자유연제_…)」)", "url": ""},
-    {"label": "진행현황 아티팩트", "note": "Claude 진행현황 HTML (MEAE_v버전_YYMMDD)", "url": ""}
+    {
+      "label": "MEAE_원고_v0.2_260908.docx",
+      "note": "저널 구조 국문 초고 · Table 1·2 골격 · Table 4 딥러닝 행 자리",
+      "url": ""
+    },
+    {
+      "label": "v1.0_260906_최종.hwp",
+      "note": "학술대회 제출 원본 — 수식·그림 보관용 (Drive 「(자유연제_…)」)",
+      "url": ""
+    },
+    {
+      "label": "진행현황 아티팩트",
+      "note": "Claude 진행현황 HTML (MEAE_v버전_YYMMDD)",
+      "url": ""
+    }
   ],
-
   "references": [
-    {"n": 9, "key": "deepfilter", "text": "Perdigón-Romero F, et al. DeepFilter: an ECG baseline wander removal filter using deep learning techniques. Biomed Signal Process Control. 2021;70:102992.", "code": "https://github.com/fperdigon/DeepFilter", "use": "비교 기법 ① · Methods II-4"},
-    {"n": 11, "key": "descod", "text": "Li H, Ditzler G, Roveda J, Li A. DeScoD-ECG: Deep score-based diffusion model for ECG baseline wander and noise removal. IEEE J Biomed Health Inform. 2024;28(11):5081-5091.", "code": "https://github.com/huayuLiArizona/Score-based-ECG-Denoising", "use": "비교 기법 ② · Methods II-4"},
-    {"n": 0, "key": "mitdb", "text": "Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. IEEE Eng Med Biol Mag. 2001;20(3):45-50.", "code": "", "use": "데이터 · II-1"},
-    {"n": 0, "key": "nstdb", "text": "Moody GB, Muldrow WE, Mark RG. A noise stress test for arrhythmia detectors. Comput Cardiol. 1984;11:381-384.", "code": "", "use": "잡음 · II-1"}
+    {
+      "n": 9,
+      "key": "deepfilter",
+      "text": "Perdigón-Romero F, et al. DeepFilter: an ECG baseline wander removal filter using deep learning techniques. Biomed Signal Process Control. 2021;70:102992.",
+      "code": "https://github.com/fperdigon/DeepFilter",
+      "use": "비교 기법 ① · Methods II-4"
+    },
+    {
+      "n": 11,
+      "key": "descod",
+      "text": "Li H, Ditzler G, Roveda J, Li A. DeScoD-ECG: Deep score-based diffusion model for ECG baseline wander and noise removal. IEEE J Biomed Health Inform. 2024;28(11):5081-5091.",
+      "code": "https://github.com/huayuLiArizona/Score-based-ECG-Denoising",
+      "use": "비교 기법 ② · Methods II-4"
+    },
+    {
+      "n": 0,
+      "key": "mitdb",
+      "text": "Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. IEEE Eng Med Biol Mag. 2001;20(3):45-50.",
+      "code": "",
+      "use": "데이터 · II-1"
+    },
+    {
+      "n": 0,
+      "key": "nstdb",
+      "text": "Moody GB, Muldrow WE, Mark RG. A noise stress test for arrhythmia detectors. Comput Cardiol. 1984;11:381-384.",
+      "code": "",
+      "use": "잡음 · II-1"
+    }
   ],
-
   "decided": [
     "비교선은 확정 모델 표에 행으로 끼우지 않고 같은 파이프라인 위의 별개 run 으로 — 폴더 배치가 곧 대조군",
     "저자 사전학습 가중치가 아니라 본 연구 train 분할로 재학습. 데이터·분할·잡음 주입·지표·집계는 그대로",
@@ -71,15 +203,76 @@
     "DeScoD batch 를 저자 값(96)에서 낮췄다면 그 값을 원고 어디에 적을지",
     "05·06 의 비교선 결과를 원고 어디에 실을지"
   ],
-
   "changelog": [
-    {"v": "v0.16_260909", "text": "두 비교선 이식 검수 — DeepFilter Keras 기본값 4건 보정, beat 창 기준선 오프셋 오류 수정, 창 100 % 덮음, 창 단위 batch. 세 판 재실행"},
-    {"v": "v0.15_260909", "text": "DeepFilter 로컬 첫 실행 — 고전 2종보다 낮음. 수용영역(177표본=0.49초) 진단, --window 추가. DeScoD 1차 무효(val 채점 잡음)"},
-    {"v": "v0.14_260909", "text": "DeScoD-ECG 추가, BaselineDenoiser 인터페이스로 일반화"},
-    {"v": "v0.13_260909", "text": "비교선을 파이프라인 위의 별개 run 으로 재구성. 스모크 검산 3종 통과"},
-    {"v": "v0.11_260909", "text": "DeepFilter PyTorch 이식, config baselines 절"},
-    {"v": "v0.10_260908", "text": "version5 저장소 조사 · 원고 정정 필요 5건 도출"},
-    {"v": "v0.09_260908", "text": "고도화 범위 세 가지 확정"},
-    {"v": "v0.01_260907", "text": "초판"}
+    {
+      "v": "v0.16_260909",
+      "text": "두 비교선 이식 검수 — DeepFilter Keras 기본값 4건 보정, beat 창 기준선 오프셋 오류 수정, 창 100 % 덮음, 창 단위 batch. 세 판 재실행"
+    },
+    {
+      "v": "v0.15_260909",
+      "text": "DeepFilter 로컬 첫 실행 — 고전 2종보다 낮음. 수용영역(177표본=0.49초) 진단, --window 추가. DeScoD 1차 무효(val 채점 잡음)"
+    },
+    {
+      "v": "v0.14_260909",
+      "text": "DeScoD-ECG 추가, BaselineDenoiser 인터페이스로 일반화"
+    },
+    {
+      "v": "v0.13_260909",
+      "text": "비교선을 파이프라인 위의 별개 run 으로 재구성. 스모크 검산 3종 통과"
+    },
+    {
+      "v": "v0.11_260909",
+      "text": "DeepFilter PyTorch 이식, config baselines 절"
+    },
+    {
+      "v": "v0.10_260908",
+      "text": "version5 저장소 조사 · 원고 정정 필요 5건 도출"
+    },
+    {
+      "v": "v0.09_260908",
+      "text": "고도화 범위 세 가지 확정"
+    },
+    {
+      "v": "v0.01_260907",
+      "text": "초판"
+    }
+  ],
+  "title_en": "Multi-Encoder Autoencoder for ECG Noise-Component Separation and Denoising",
+  "updated": "2026-09-09",
+  "summary": [
+    {
+      "k": "문제",
+      "h": "잡음이 섞인 심전도에서 무엇이 잡음인지 가려내어 복원한다",
+      "p": "기저선 변동(bw)·근전도(ma)·전극 움직임(em)이 동시에 섞인 10초 분절에서, 성분을 인코더별로 분리하고 잡음 인코딩만 꺼서 신호를 되살린다."
+    },
+    {
+      "k": "방법",
+      "h": "다중 인코더 오토인코더 · 인코더 4개, 디코더 1개",
+      "p": "인코더마다 참조 한 종(x_clean·bw·ma·em)을 지도한다. 복원은 잡음 인코딩 3개를 0으로 치환한 재구성 B = D(z_clean, 0, 0, 0). dilation [1,1,4,32]로 수용영역 9.21초."
+    },
+    {
+      "k": "데이터",
+      "h": "MIT-BIH 46기록 · NSTDB 잡음 · 기록 단위 분할",
+      "p": "MLII 360 Hz, 10초 3,600표본 비중첩. 잡음 3종 상시 주입, 분절마다 SNR 0–12 dB 독립 추첨. train 32 / val 5 / test 9 기록, test 1,620분절."
+    },
+    {
+      "k": "평가",
+      "h": "같은 데이터·같은 지표로 고전 3종과 딥러닝 2종을 견준다",
+      "p": "SNR·PRD·corr·RMSE(04), SQI 5종과 임상 형태 지표(06), 외부 3소스(07). 비교선은 별개 run으로 세워 폴더 배치가 곧 대조군이 되게 한다."
+    }
+  ],
+  "links": [
+    {
+      "label": "저장소",
+      "url": "https://github.com/Limminsik/MEAE_XAI/tree/version5"
+    },
+    {
+      "label": "README (방법·결과)",
+      "url": "https://github.com/Limminsik/MEAE_XAI/blob/version5/README.md"
+    },
+    {
+      "label": "RESEARCH_DESIGN",
+      "url": "https://github.com/Limminsik/MEAE_XAI/blob/version5/RESEARCH_DESIGN.md"
+    }
   ]
 }
