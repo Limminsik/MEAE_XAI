@@ -1,0 +1,9 @@
+[DeepFilter_tile512_seed42] 딥러닝 비교선 deepfilter — device=cuda · 파라미터 68,719개
+  데이터 train 5760분절 / val 900분절 (확정 모델과 같은 기록 분할·같은 잡음 주입)
+  기법 설정(원 논문 그대로) 손실 ssd_mad · batch 128 · lr 0.001 · seed 42 · 스케줄러 plateau · 입력 창 tile(512표본, 분절당 약 8창 → 스텝당 16분절)
+  선정 val 손실 최소 · 조기종료 10에폭 (min_delta 0.05, 절대)
+  epoch   1  train       503.7684  val        75.2513  lr 1.00e-03     7.8s  *
+  epoch   2  train        95.2759  val        72.3048  lr 1.00e-03     7.5s  *
+  epoch   3  train        82.7426  val        58.4827  lr 1.00e-03     7.4s  *
+  epoch   4  train        79.5392  val        56.6943  lr 1.00e-03     7.4s  *
+  epoch   5  train        77.1608  val        55.8526  lr 1.00e-03     7.7s  *

@@ -1,0 +1,14 @@
+DeepFilter_seed42 — 딥러닝 비교선 (DeepFilter (재학습))
+
+원 구현  fperdigon/DeepFilter · deepFilter/dl_models.py
+         deep_filter_model_I_LANL_dilated (Keras) → PyTorch 이식
+         학습 파라미터 68,719개
+학습     본 연구 train 분할 (x_noisy → x_clean). 저자 사전학습 가중치 미사용
+         손실·옵티마이저·스케줄러·선정은 원 논문 코드 방식 그대로 (ssd_mad)
+설정     batch 128 · lr 0.001 · seed 42
+입력 창  full
+선정     val 손실 최소 — 에폭 30 · val 256.165119
+
+데이터·기록 분할·잡음 주입은 확정 모델과 같은 것을 읽는다.
+바뀐 것은 디노이징 기법 하나뿐이다.
+03(성분 ↔ 참조 대응)은 돌리지 않는다 — 인코더가 하나뿐이다.

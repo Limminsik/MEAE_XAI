@@ -1,0 +1,14 @@
+DeScoD_seed42 — 딥러닝 비교선 (DeScoD-ECG (재학습))
+
+원 구현  huayuLiArizona/Score-based-ECG-Denoising
+         denoising_model_small.ConditionalModel + main_model.DDPM
+         추론 10회 표집 평균 × 50스텝
+         학습 파라미터 1,926,321개
+학습     본 연구 train 분할 (x_noisy → x_clean). 저자 사전학습 가중치 미사용
+         손실·옵티마이저·스케줄러·선정은 원 논문 코드 방식 그대로 (l1_sum)
+설정     batch 96 · lr 0.001 · seed 42
+선정     val 손실 최소 — 에폭 49 · val 23089.928307
+
+데이터·기록 분할·잡음 주입은 확정 모델과 같은 것을 읽는다.
+바뀐 것은 디노이징 기법 하나뿐이다.
+03(성분 ↔ 참조 대응)은 돌리지 않는다 — 인코더가 하나뿐이다.

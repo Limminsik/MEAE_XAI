@@ -405,6 +405,8 @@ $$\text{ratio}_b = \frac{\sum_{f \in b} P(f)}{\sum_{f \in [0.05,\,40)} P(f)}$$
 | 대역통과 0.5–40 Hz | Butterworth 4차 + filtfilt, 입력 평균 복원 | 비교 (고전) |
 | 웨이블릿 임계값 | sym8 level 5, universal threshold 소프트 | 비교 (고전) |
 | 웨이블릿+기저선제거 | sym8 level 7, 근사계수 제거 + 임계값 | 비교 (고전) |
+| DeepFilter (재학습) | Multibranch LANLD | 비교 (딥러닝) · 별개 run |
+| DeScoD-ECG (재학습) | 조건부 확산, 10회 표집 평균 | 비교 (딥러닝) · 별개 run |
 | A | `x_noisy − ŝ_bw − ŝ_ma − ŝ_em` | 보조 (성분 추정 검증) |
 | ⓑ | M0 = `D(z₁,z₂,z₃,z₄)` | 참고 |
 
@@ -418,6 +420,59 @@ $$\text{ratio}_b = \frac{\sum_{f \in b} P(f)}{\sum_{f \in [0.05,\,40)} P(f)}$$
 >    **입력의 평균**을 되돌린다 — 참값을 쓰지 않으므로 누수가 없다.
 > 2. **웨이블릿 임계값 단독은 bw 를 못 없앤다.** 임계값이 세부계수(고주파)만 건드리는데
 >    기저선 변동은 근사계수에 있다. 근사계수를 함께 버린 변형을 따로 싣는다.
+
+> **딥러닝 비교선 — 기법만 바꾼다**
+>
+> 데이터·분할·잡음 주입·평가 지표·집계는 위와 똑같이 두고 디노이징 방법만 공개 기법으로
+> 갈아 끼운다. 그래야 차이를 기법의 차이로 읽을 수 있다. 두 기법 모두
+> `BaselineDenoiser` 인터페이스(`loss` 하나, `denoise` 하나)만 약속한다.
+>
+> - **① DeepFilter** — Multibranch LANLD (Perdigón-Romero et al., *Biomed Signal
+>   Process Control* 70:102992, 2021). 원 구현은 Keras(`deepFilter/dl_models.py`
+>   `deep_filter_model_I_LANL_dilated`)이고 커널·채널·드롭아웃·배치정규화 배치를 그대로
+>   PyTorch 로 옮겼다. 학습 파라미터 68,719개로 원본과 같다. 완전합성곱이라 원 논문의
+>   512 샘플 대신 우리 3,600 샘플을 그대로 받는다.
+> - **② DeScoD-ECG** — 조건부 확산 모델 (Li et al., *IEEE J Biomed Health Inform*
+>   28(11):5081–5091, 2024). 원 구현이 이미 PyTorch 라
+>   (`denoising_model_small.ConditionalModel` + `main_model.DDPM`) 구조·잡음 스케줄·
+>   손실·다중 표본 평균을 그대로 옮겼고, 경로만 우리 데이터로 바꿨다. 학습 파라미터
+>   1,926,321개로 원본과 같고, 잡음 예측망 출력과 스케줄 버퍼는 원본과 **비트 단위로
+>   일치**한다. x_noisy 를 조건으로 x_clean 을 복원하며, 표집이 확률적이라 저자와 같이
+>   10회 복원해 평균한다 — 복원 1회가 50스텝이므로 분절당 500회 통과다. 비용이 다른 것은
+>   기법의 성질이라 줄이지 않는다. 재현을 위해 표집 시드만 고정했다.
+> - **학습** 저자 사전학습 가중치를 쓰지 않고 **본 연구 train 분할로 재학습**한다
+>   (`x_noisy → x_clean`, val 분할로 선정). 학습 데이터가 다르면 성능 차이가 기법 탓인지
+>   데이터 탓인지 갈리지 않는다.
+> - **손실·콜백은 저자 설정 그대로** — SSD+MAD 결합 손실, Adam lr 1e-3, batch 128,
+>   ReduceLROnPlateau(0.5·2에폭), EarlyStopping(10에폭). 이것도 기법의 일부라 우리 학습
+>   설정(batch 256 등)으로 바꾸지 않는다.
+> - **DC 복원이 없다.** 고전 비교선과 달리 오프셋까지 학습으로 맞춘다.
+> - **별개 run 으로 올린다.** 확정 모델 표에 행으로 끼우지 않고, 같은 파이프라인 위에
+>   기법마다 run(`DeepFilter_seed42` · `DeScoD_seed42`)을 세운다 — `results/02_model/<run>/`
+>   에 학습 산출물이 서고, 04·05·06 을 `--run <run>` 으로 부르면 단계별 결과
+>   폴더가 따로 생긴다. 그 표에는 마스킹이 없으므로 B·A·C·ⓑ 대신 **ⓐ 입력 · 고전 3종 ·
+>   DeepFilter** 가 선다. 폴더가 곧 대조군이라 무엇이 바뀌었는지 배치로 읽힌다.
+> - **입력 창은 저자 설계 길이로 맞출 수 있다.** 두 기법 모두 **512 표본** 입력으로
+>   설계·보고됐는데 우리 분절은 3,600 표본이다. DeepFilter 의 수용영역은 177 표본
+>   (0.49초)뿐이라 2~20초 주기의 기저선 변동을 창 안에서 볼 수 없다 — 우리 확정 모델이
+>   dilation 으로 9.21초를 확보한 바로 그 지점이다. `--window` 로 창만 바꾼다:
+>   `full`(3,600 그대로) · `tile`(512 비중첩) · `beat`(R-피크 중심 512, 저자 박동 단위에
+>   대응). **잡음 규약은 어느 쪽이든 우리 것 그대로다**(bw·ma·em, SNR 0–12 dB) —
+>   바꾸는 것은 데이터셋이 아니라 창뿐이다. beat 창은 저자처럼 양끝 평균을 빼 기준선을
+>   맞추고 복원 뒤 되돌리며, 겹치는 구간은 평균, 창이 닿지 않는 가장자리(약 2%)는 입력
+>   그대로 둔다. 저자는 QT Database 주석으로 박동을 자르지만 우리에겐 R-피크가 있으므로
+>   R-피크 중심 창으로 대응했다 — 이것이 유일한 각색이고 원고에 그대로 적는다.
+> - **이식 검수(260909)에서 맞춘 것.** DeepFilter: Keras 기본값대로 BatchNorm eps 1e-3 ·
+>   momentum 0.99, Conv 초기화 glorot_uniform + 0 편향, Adam eps 1e-7, ReduceLROnPlateau 의
+>   Keras/PyTorch patience 셈법 차이(1) 보정. 창: tile 은 마지막 창을 끝에 맞춰 반사 패딩
+>   없이 100 % 실제 표본으로 덮고, beat 는 양끝 창을 항상 넣어 100 % 덮는다. beat 의
+>   기준선 오프셋은 **입력에서 한 번 재어 학습 목표에도 같은 값**을 쓴다(각자 빼면 목표가
+>   어긋난다). 저자의 batch 는 박동 수이므로 창 모드에서는 스텝당 분절 수를 줄여 창 수를
+>   batch 에 맞춘다. DeScoD: 평가에서만 확산 시점·잡음을 고정 시드로 뽑고(학습은 저자
+>   그대로), 저자에 없던 조기종료를 빼 400에폭을 완주한다.
+> - **03 은 돌리지 않는다.** 인코더가 하나뿐이라 성분 ↔ 참조 대응표가 성립하지 않는다.
+> - **체크포인트 선정 기준만은 같을 수 없다.** 확정 모델은 `argmin L_sup^val`(성분 지도
+>   손실)인데 비교선에는 그 손실이 없다. 원 논문 코드대로 val 손실 최소로 고른다.
 
 ---
 
@@ -1036,7 +1091,7 @@ analysis.ipynb                           분절별 그림·지표를 대화형�
 | 파일 | 내용 |
 |---|---|
 | `assignment_diagonal.csv` | 배정 쌍의 주 지표 4종 + 누출비 + r_QRS(clean 행) |
-| `three_ways.csv` | 7상태 × 지표 8종 (고전 비교선 포함) |
+| `three_ways.csv` | 8상태 × 지표 8종 (고전 비교선 포함). 비교선 run 이면 5상태 |
 | `breakdown.csv` | 입력 SNR 구간별·기록별 재집계 — 04·06 양쪽 |
 | `sqi_summary.csv` | SQI 5종 — 계열별 중앙값·평균 |
 | `metric_summary.csv` | 임상 지표 4종 × 오차·편향·개선 비율 |
@@ -1148,6 +1203,16 @@ python 02_model.py --k 4 --seed 42 --gamma 50 \
 
 # 2) 확정 모델 학습 — results/ 로 (config 기본값이 곧 확정 설정이다)
 python 02_model.py --k 4 --seed 42 --tag C16_seed42 --out-root results
+
+# 2b) 딥러닝 비교선 학습 — 확정 모델과 나란한 별개 run 으로 선다
+python 02_model.py --baseline deepfilter        # results/02_model/DeepFilter_seed42/
+python 02_model.py --baseline descod            # results/02_model/DeScoD_seed42/
+
+# 2c) 비교선 run 으로 04·05·06 — 03 은 건너뛴다 (성분이 없다)
+python 04_masked_denoising.py --run DeepFilter_seed42 --split test --three-ways
+python 05_figure.py          --run DeepFilter_seed42 --split test
+python 06_ablation.py        --run DeepFilter_seed42 --split test
+#   DeScoD_seed42 도 --run 만 바꿔 같은 세 줄을 돌린다 (표집이 무거워 04 가 오래 걸린다)
 
 # 3~8) 확정 모델로 (03~06 은 test, 07 은 외부, 08 은 하류 과제)
 python 03_bss.py --run C16_seed42 --split test --final

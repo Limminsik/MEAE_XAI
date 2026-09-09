@@ -1,0 +1,46 @@
+[DeepFilter_seed42] 딥러닝 비교선 deepfilter — device=cuda · 파라미터 68,719개
+  데이터 train 5760분절 / val 900분절 (확정 모델과 같은 기록 분할·같은 잡음 주입)
+  기법 설정(원 논문 그대로) 손실 ssd_mad · batch 128 · lr 0.001 · seed 42 · 스케줄러 plateau · 입력 창 full
+  선정 val 손실 최소 · 조기종료 10에폭 (min_delta 0.05, 절대)
+  epoch   1  train      6295.1053  val      5951.0839  lr 1.00e-03     7.9s  *
+  epoch   2  train      2802.3790  val      1074.4652  lr 1.00e-03     7.4s  *
+  epoch   3  train      1765.1644  val       445.9252  lr 1.00e-03     7.4s  *
+  epoch   4  train      1193.0610  val       355.2606  lr 1.00e-03     7.2s  *
+  epoch   5  train       855.1164  val       339.1301  lr 1.00e-03     7.2s  *
+  epoch   6  train       655.9662  val       336.2076  lr 1.00e-03     7.2s  *
+  epoch   7  train       536.8447  val       347.4455  lr 1.00e-03     7.2s
+  epoch   8  train       465.6789  val       333.4959  lr 1.00e-03     7.4s  *
+  epoch   9  train       420.6661  val       352.4108  lr 1.00e-03     7.3s
+  epoch  10  train       393.0592  val       314.5144  lr 1.00e-03     7.3s  *
+  epoch  11  train       375.6937  val       312.2337  lr 1.00e-03     7.5s  *
+  epoch  12  train       363.1684  val       311.3505  lr 1.00e-03     8.0s  *
+  epoch  13  train       358.3197  val       305.5219  lr 1.00e-03     8.0s  *
+  epoch  14  train       351.8885  val       284.9584  lr 1.00e-03     8.0s  *
+  epoch  15  train       347.6154  val       292.2206  lr 1.00e-03     8.0s
+  epoch  16  train       345.5118  val       282.5535  lr 1.00e-03     8.0s  *
+  epoch  17  train       341.9553  val       276.3174  lr 1.00e-03     7.5s  *
+  epoch  18  train       339.1602  val       274.9597  lr 1.00e-03     7.2s  *
+  epoch  19  train       338.5530  val       273.4899  lr 1.00e-03     7.2s  *
+  epoch  20  train       335.7471  val       265.7183  lr 1.00e-03     7.3s  *
+  epoch  21  train       332.9496  val       282.3117  lr 1.00e-03     7.2s
+  epoch  22  train       331.4882  val       265.6317  lr 1.00e-03     7.2s  *
+  epoch  23  train       330.3142  val       263.9941  lr 1.00e-03     7.2s  *
+  epoch  24  train       326.9124  val       270.7959  lr 1.00e-03     7.2s
+  epoch  25  train       326.3148  val       261.8741  lr 1.00e-03     7.2s  *
+  epoch  26  train       325.4904  val       265.9788  lr 1.00e-03     7.2s
+  epoch  27  train       321.7696  val       261.1934  lr 1.00e-03     7.2s  *
+  epoch  28  train       320.5872  val       267.1561  lr 1.00e-03     7.2s
+  epoch  29  train       320.3402  val       262.1659  lr 5.00e-04     7.2s
+  epoch  30  train       317.7485  val       256.1651  lr 5.00e-04     7.2s  *
+  epoch  31  train       315.8615  val       258.2832  lr 5.00e-04     7.2s
+  epoch  32  train       315.5850  val       257.6327  lr 2.50e-04     7.5s
+  epoch  33  train       315.4396  val       277.0296  lr 2.50e-04     7.2s
+  epoch  34  train       313.2965  val       256.5487  lr 1.25e-04     7.3s
+  epoch  35  train       313.0758  val       262.9423  lr 1.25e-04     8.0s
+  epoch  36  train       313.1802  val       261.0930  lr 6.25e-05     7.9s
+  epoch  37  train       310.9133  val       264.5516  lr 6.25e-05     7.9s
+  epoch  38  train       312.2217  val       268.5522  lr 3.13e-05     7.9s
+  epoch  39  train       311.6604  val       263.3392  lr 3.13e-05     8.0s
+  epoch  40  train       311.6507  val       263.8389  lr 1.56e-05     8.0s
+  조기 종료 (val 10에폭 정체)
+[DeepFilter_seed42] 최종 — 에폭 30 · val 256.165119 → results\02_model\DeepFilter_seed42

@@ -4,6 +4,8 @@
 가중치를 다시 학습하지 않는 **추론 시점 조작**이다.
 
     python 04_masked_denoising.py --run C16_seed42 --split test --three-ways
+    python 04_masked_denoising.py --run DeepFilter_seed42 --split test --three-ways
+    python 04_masked_denoising.py --run DeScoD_seed42 --split test --three-ways
 
 ────────────────────────────────────────────────────────────────────────
 비교 대상 — 기준은 x_clean, **mV 원단위**(표준화하지 않는다)
@@ -22,6 +24,12 @@
 
 a·b 를 두는 이유: 개선량 중 어디까지가 재구성 자체의 몫이고 어디부터가 마스킹의 몫인지
 갈라야 한다.
+
+**딥러닝 비교선은 별개 run 이다** — `--run <비교선 run>` 으로 부르면 같은 데이터·같은
+지표·같은 집계로 `results/04_masked_denoising/DeepFilter_seed42/<split>/` 에 자기 표를
+낸다. 그 표에는 마스킹이 없으므로 B·A·C·b 대신 **입력 · 고전 3종 · DeepFilter** 가 선다.
+확정 모델 표와 나란히 놓으면 바뀐 것이 디노이징 기법 하나뿐임이 폴더로 드러난다.
+비교선의 학습은 02 에서 한다 — `python 02_model.py --baseline deepfilter`.
 
 **고전 비교선 두 가지 주의**
   1. DC 오프셋을 되돌린다. 0.5 Hz 고역통과와 근사계수 제거는 x_clean 이 가진 기저
@@ -72,7 +80,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src import metrics
+from src import core, metrics
 from src.core import load_ckpt
 from src.data.build import load_cfg
 from src.data.dataset import load
@@ -85,6 +93,8 @@ NOISE_REFS = ("bw", "ma", "em")
 ROLE = {"B 심장직접": "주 결과", "a 입력 x_noisy": "기준선",
         "대역통과 0.5-40Hz": "비교 (고전)", "웨이블릿 임계값": "비교 (고전)",
         "웨이블릿+기저선제거": "비교 (고전)",
+        "DeepFilter (재학습)": "비교 (딥러닝)",
+        "DeScoD-ECG (재학습)": "비교 (딥러닝)",
         "A 성분차감": "보조 (성분 추정 검증)", "C 마스킹디코드": "B 와 동일 연산 확인",
         "b M0 재구성": "참고 (x_noisy 재구성용)"}
 # 입력 SNR 구간 — test 는 −5.8 ~ 10.4 dB 에 퍼져 있어 그 범위에 맞춰 나눈다
@@ -335,38 +345,55 @@ def three_ways(config="configs/default.yaml", run="C16_seed42", split="val",
     outdir = outdir or os.path.join("results", "04_masked_denoising", run, split)
     os.makedirs(os.path.join(outdir, "figures"), exist_ok=True)
 
-    model, ck = load_ckpt(cfg, run)
+    # run 하나로 두 갈래를 받는다 — 확정 모델(meae)이거나 딥러닝 비교선이거나.
+    kind, model, ck = core.load_run(cfg, run)
     model = model.to(device)
     ds = load(cfg, split)
     idx = np.arange(len(ds) if n is None else min(n, len(ds)))
-    sup = list(cfg["loss"]["supervise"])
-    k_clean = sup.index("x_clean")
-    k_noise = [k for k in range(model.n_encoders) if k != k_clean]
-
-    pad, batch = model.pad_each, 100
-    # 고전적 비교선 3종을 같은 test 데이터에 그대로 적용해 나란히 싣는다
+    batch = 100
+    # 고전적 비교선 3종을 같은 데이터에 그대로 적용해 어느 표에나 나란히 싣는다
     classic = ["대역통과 0.5-40Hz", "웨이블릿 임계값", "웨이블릿+기저선제거"]
-    ways = (["B 심장직접", "a 입력 x_noisy"] + classic
-            + ["A 성분차감", "C 마스킹디코드", "b M0 재구성"])
-    est = {w: np.zeros((len(idx), ds.x_noisy.shape[1])) for w in ways}
-    for s in range(0, len(idx), batch):
-        j = idx[s:s + batch]
-        x = meae.pad(ds.tensor(j).to(device), pad)
-        with torch.no_grad():
-            # [version5] 모델이 정의한 경로만 쓴다 — 잔차 연결이 있으면 성분·재구성·마스킹
-            # 모두 그 경로가 잔차를 같은 규칙으로 처리한다.
-            cut = lambda y: meae.crop(y, pad).squeeze(1).cpu().numpy().astype(np.float64)
-            comp = {k: cut(model.component(x, k)) for k in range(model.n_encoders)}
-            recon = cut(model(x)[0])
-            masked = cut(model.masked_reconstruct(x, k_noise))
-        raw = ds.x_noisy[j].astype(np.float64)
-        est["A 성분차감"][s:s + len(j)] = raw - sum(comp[k] for k in k_noise)
-        est["B 심장직접"][s:s + len(j)] = comp[k_clean]
-        est["C 마스킹디코드"][s:s + len(j)] = masked
-        est["a 입력 x_noisy"][s:s + len(j)] = raw
-        est["b M0 재구성"][s:s + len(j)] = recon
-        for nm, v in metrics.classical_denoise(raw, cfg["data"]["fs"]).items():
-            est[nm][s:s + len(j)] = v
+
+    if kind != "meae":
+        # ---- 딥러닝 비교선 run. 마스킹이 없으므로 출력이 하나뿐이다.
+        bcfg = core.baseline_cfg(cfg, kind)
+        main_key = bcfg["label"]
+        ROLE.setdefault(main_key, "비교 (딥러닝)")
+        ways = [main_key, "a 입력 x_noisy"] + classic
+        raw = ds.x_noisy[idx].astype(np.float64)
+        print(f"[04] 비교선 복원 — {kind} · {len(idx)}분절")
+        est = {"a 입력 x_noisy": raw,
+               main_key: core.baseline_restore(
+                   model, ds, device, idx, int(bcfg.get("infer_batch", 32)),
+                   progress=200, spec=ck.get("window"))}
+        est.update(metrics.classical_denoise(raw, cfg["data"]["fs"]))
+    else:
+        main_key = "B 심장직접"
+        sup = list(cfg["loss"]["supervise"])
+        k_clean = sup.index("x_clean")
+        k_noise = [k for k in range(model.n_encoders) if k != k_clean]
+        pad = model.pad_each
+        ways = (["B 심장직접", "a 입력 x_noisy"] + classic
+                + ["A 성분차감", "C 마스킹디코드", "b M0 재구성"])
+        est = {w: np.zeros((len(idx), ds.x_noisy.shape[1])) for w in ways}
+        for s in range(0, len(idx), batch):
+            j = idx[s:s + batch]
+            x = meae.pad(ds.tensor(j).to(device), pad)
+            with torch.no_grad():
+                # [version5] 모델이 정의한 경로만 쓴다 — 잔차 연결이 있으면 성분·재구성·
+                # 마스킹 모두 그 경로가 잔차를 같은 규칙으로 처리한다.
+                cut = lambda y: meae.crop(y, pad).squeeze(1).cpu().numpy().astype(np.float64)
+                comp = {k: cut(model.component(x, k)) for k in range(model.n_encoders)}
+                recon = cut(model(x)[0])
+                masked = cut(model.masked_reconstruct(x, k_noise))
+            raw = ds.x_noisy[j].astype(np.float64)
+            est["A 성분차감"][s:s + len(j)] = raw - sum(comp[k] for k in k_noise)
+            est["B 심장직접"][s:s + len(j)] = comp[k_clean]
+            est["C 마스킹디코드"][s:s + len(j)] = masked
+            est["a 입력 x_noisy"][s:s + len(j)] = raw
+            est["b M0 재구성"][s:s + len(j)] = recon
+            for nm, v in metrics.classical_denoise(raw, cfg["data"]["fs"]).items():
+                est[nm][s:s + len(j)] = v
 
     clean = ds.refs["x_clean"][idx].astype(np.float64)
     snr_in = metrics.snr_db_vec(clean, est["a 입력 x_noisy"])
@@ -415,25 +442,36 @@ def three_ways(config="configs/default.yaml", run="C16_seed42", split="val",
     pd.DataFrame(br).round(4).to_csv(f"{outdir}/breakdown.csv", index=False,
                                      encoding="utf-8-sig")
     print("")
-    print(f"[복원 세 방식] {run} (에폭 {ck['epoch']}) · {split} {len(idx)}분절 · "
+    head = ("[복원 세 방식]" if kind == "meae" else "[딥러닝 비교선]")
+    print(f"{head} {run} (에폭 {ck['epoch']}) · {split} {len(idx)}분절 · "
           "기준 x_clean, mV 원단위")
     print(tab.to_string(index=False))
-    bc = float(np.abs(est["B 심장직접"] - est["C 마스킹디코드"]).max())
-    print(f"  B와 C의 최대 절대차 = {bc:.3e}   (같은 계산이면 0에 가깝다)")
+    if kind == "meae":
+        bc = float(np.abs(est["B 심장직접"] - est["C 마스킹디코드"]).max())
+        print(f"  B와 C의 최대 절대차 = {bc:.3e}   (같은 계산이면 0에 가깝다)")
+        defs = ["A 성분차감      x_noisy - s_bw - s_ma - s_em",
+                "B 심장직접      s_clean = D(z1,0,0,0)",
+                "C 마스킹디코드   잡음 인코딩 3개를 0으로 치환한 재구성",
+                "a 입력          x_noisy (처리 전)",
+                "b M0 재구성      마스킹 없이 재구성만 거친 상태",
+                "",
+                "B와 C는 K=4 에서 같은 연산이다(하나만 남기기 = 나머지 셋 0으로 치환).",
+                f"실측 최대 절대차 {bc:.3e}."]
+    else:
+        defs = ["a 입력          x_noisy (처리 전)",
+                f"{main_key}   DeepFilter(Multibranch LANLD)를 본 연구 train 분할로",
+                "                재학습한 비교선. 마스킹이 없어 출력이 하나뿐이다.",
+                "",
+                "데이터·기록 분할·잡음 주입·지표·집계는 확정 모델 표와 같다.",
+                "바뀐 것은 디노이징 기법 하나뿐이라 두 폴더를 그대로 견주면 된다."]
 
-    fig_three(est, clean, ds, idx, f"{outdir}/figures/three_ways.png", run, split, tab)
+    fig_three(est, clean, ds, idx, f"{outdir}/figures/three_ways.png", run, split, tab,
+              ways, main_key)
     with open(f"{outdir}/three_ways_note.txt", "w", encoding="utf-8") as f:
         f.write(NL.join([
-            f"04 — 복원 세 방식.  {run} (에폭 {ck['epoch']}) · {split} {len(idx)}분절",
+            f"04 — {head[1:-1]}.  {run} (에폭 {ck['epoch']}) · {split} {len(idx)}분절",
             "",
-            "A 성분차감      x_noisy - s_bw - s_ma - s_em",
-            "B 심장직접      s_clean = D(z1,0,0,0)",
-            "C 마스킹디코드   잡음 인코딩 3개를 0으로 치환한 재구성",
-            "a 입력          x_noisy (처리 전)",
-            "b M0 재구성      마스킹 없이 재구성만 거친 상태",
-            "",
-            "B와 C는 K=4 에서 같은 연산이다(하나만 남기기 = 나머지 셋 0으로 치환).",
-            f"실측 최대 절대차 {bc:.3e}.",
+        ] + defs + [
             "",
             "지표는 x_clean 대비. corr 은 분절 간 평균, 나머지는 중앙값이다.",
             "SSD/RMSE/MAD/PRD 는 낮을수록, corr/CosSim/SNR 은 높을수록 유사하다.",
@@ -444,30 +482,35 @@ def three_ways(config="configs/default.yaml", run="C16_seed42", split="val",
     return tab
 
 
-def fig_three(est, clean, ds, idx, out, run, split, tab):
-    """복원 세 방식 + 기준선 2종을 한 분절에 겹쳐 본다. 분절은 corr 중앙값 근처."""
+def fig_three(est, clean, ds, idx, out, run, split, tab, ways=None,
+              main_key="B 심장직접"):
+    """복원 방식들을 한 분절에 겹쳐 본다. 분절은 **처리 후** corr 중앙값 근처."""
     c0 = clean - clean.mean(-1, keepdims=True)
-    y0 = est["B 심장직접"] - est["B 심장직접"].mean(-1, keepdims=True)
+    y0 = est[main_key] - est[main_key].mean(-1, keepdims=True)
     r = np.abs((c0 * y0).sum(-1) /
                np.maximum(np.sqrt((c0 ** 2).sum(-1) * (y0 ** 2).sum(-1)), 1e-30))
     i = int(np.argsort(r)[len(r) // 2])          # 중앙값 분절 — 대표 사례로 고른다
     m = ds.meta[int(idx[i])]
     t = np.arange(clean.shape[1]) / ds.meta[0].get("fs", 360)
 
-    order = ["a 입력 x_noisy", "b M0 재구성", "A 성분차감", "B 심장직접", "C 마스킹디코드"]
+    full = ["a 입력 x_noisy", "b M0 재구성", "A 성분차감", "B 심장직접", "C 마스킹디코드"]
+    # 확정 모델 run 이면 마스킹 계열을, 비교선 run 이면 입력과 그 출력을 쌓는다
+    order = [w for w in full if w in est] or []
+    if main_key not in order:
+        order = ["a 입력 x_noisy", main_key]
     fig, ax = plt.subplots(len(order) + 1, 1, figsize=(13, 1.5 * (len(order) + 1)),
                            sharex=True, sharey=True)
     # 겹침 그림과 같은 색 규칙 — 참조는 검정, 마스킹 복원(A·B·C)은 빨강, 기준선은 파랑
     ax[0].plot(t, clean[i], lw=1.0, color="#000")
     ax[0].set_ylabel("x_clean", fontsize=8)
+    red = {"A 성분차감", "B 심장직접", "C 마스킹디코드", main_key}
     for a, w in zip(ax[1:], order):
-        a.plot(t, est[w][i], lw=.9, color="#d62728" if w.startswith(("A", "B", "C"))
-               else "#1f77b4")
+        a.plot(t, est[w][i], lw=.9, color="#d62728" if w in red else "#1f77b4")
         a.set_ylabel(w, fontsize=8)
     for a in ax:
         a.grid(alpha=.3, lw=.4); a.tick_params(labelsize=7)
     ax[-1].set_xlabel("시간 (초)", fontsize=8)
-    head = (f"[복원 세 방식] {run} · {split} · 분절 "
+    head = (f"[복원 비교] {run} · {split} · 분절 "
             f"{m['record_id']}_{m['seg_idx']:04d} — B의 corr 중앙값 분절" + NL
             + " | ".join(f"{r0['방식']} corr {r0['corr']:.3f}"
                          for _, r0 in tab.iterrows()))
@@ -476,10 +519,11 @@ def fig_three(est, clean, ds, idx, out, run, split, tab):
     fig.savefig(out, bbox_inches="tight", dpi=130)
     plt.close(fig)
     fig_overlay_clean(est, clean, i, t, out.replace(".png", "_overlay.png"),
-                      run, split, m, tab)
+                      run, split, m, tab, main_key)
 
 
-def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab):
+def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab,
+                      main_key="B 심장직접"):
     """[겹침 그림] **처리 전과 처리 후**를 x_clean 위에 각각 올린다.
 
     비교 대상은 두 세트다 — (x_clean, x_noisy) 와 (x_clean, **B 재구성**). 같은 분절·같은
@@ -494,8 +538,9 @@ def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab):
     # 참조(x_clean)는 **검정**으로 깔고, 비교 대상을 그 위에 색으로 얹는다.
     # 처리 전은 파랑(x_noisy), 처리 후는 빨강(B). 참조를 먼저 그려야 겹치는 구간에서
     # 색선이 위로 오고, 어긋나는 구간에서만 검정이 드러난다 — 차이가 눈에 잡힌다.
+    after = ("B 재구성 (잡음 인코딩 마스킹)" if main_key == "B 심장직접" else main_key)
     panes = [("처리 전", "a 입력 x_noisy", "x_noisy", "#1f77b4"),
-             ("처리 후", "B 심장직접", "B 재구성 (잡음 인코딩 마스킹)", "#d62728")]
+             ("처리 후", main_key, after, "#d62728")]
     lim = max(np.abs(clean[i]).max(),
               *[np.abs(est[k][i]).max() for _, k, _, _ in panes]) * 1.08
     fig, ax = plt.subplots(len(panes) * 2, 1, figsize=(13, 2.4 * len(panes) * 2),
@@ -527,6 +572,9 @@ def fig_overlay_clean(est, clean, i, t, out, run, split, m, tab):
 
 def main(config="configs/default.yaml", run="C16_seed42", split="val", n=None, outdir=None):
     cfg = load_cfg(config)
+    if core.run_kind(run) != "meae":
+        raise SystemExit(f"[04] {run} 은 딥러닝 비교선이라 마스킹 전수 조합이 없다. "
+                         "--three-ways 로 부른다")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     outdir = outdir or os.path.join("results", "04_masked_denoising", run, split)
     figdir = os.path.join(outdir, "figures")
@@ -642,7 +690,9 @@ def main(config="configs/default.yaml", run="C16_seed42", split="val", n=None, o
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/default.yaml")
-    p.add_argument("--run", default="C16_seed42")
+    p.add_argument("--run", default="C16_seed42",
+                   help="results/02_model/<run>/ 의 실행 이름. 확정 모델 또는 "
+                        "딥러닝 비교선(DeepFilter_seed42)")
     p.add_argument("--split", default="val")
     p.add_argument("--n", type=int, default=None)
     p.add_argument("--outdir", default=None)

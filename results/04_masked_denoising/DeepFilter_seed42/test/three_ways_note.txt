@@ -1,0 +1,14 @@
+04 — 딥러닝 비교선.  DeepFilter_seed42 (에폭 30) · test 1620분절
+
+a 입력          x_noisy (처리 전)
+DeepFilter (재학습)   DeepFilter(Multibranch LANLD)를 본 연구 train 분할로
+                재학습한 비교선. 마스킹이 없어 출력이 하나뿐이다.
+
+데이터·기록 분할·잡음 주입·지표·집계는 확정 모델 표와 같다.
+바뀐 것은 디노이징 기법 하나뿐이라 두 폴더를 그대로 견주면 된다.
+
+지표는 x_clean 대비. corr 은 분절 간 평균, 나머지는 중앙값이다.
+SSD/RMSE/MAD/PRD 는 낮을수록, corr/CosSim/SNR 은 높을수록 유사하다.
+mV 원단위이며 표준화하지 않는다.
+
+값에 대한 해석과 판정은 붙이지 않는다.

@@ -1,6 +1,7 @@
 """06 — 활용 효과. 두 층으로 본다.
 
     python 06_ablation.py --run C16_seed42 --split test
+    python 06_ablation.py --run DeepFilter_seed42 --split test   # 딥러닝 비교선 run (DeScoD_seed42 도 같다)
 
 파형이 닮았다는 것과 진단값이 맞는다는 것은 다르다. 파형 지표(|r|·RMSE·SNR)는 04·05 에
 있고, 여기서는 **신호 품질**과 **임상에서 실제로 재는 값**을 본다.
@@ -101,6 +102,7 @@ import pandas as pd
 import torch
 
 from src import metrics
+from src import core
 from src.core import load_ckpt
 from src.data.build import load_cfg
 from src.data.dataset import load
@@ -572,7 +574,10 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
     outdir = outdir or os.path.join("results", "06_ablation", run, split)
     os.makedirs(os.path.join(outdir, "figures"), exist_ok=True)
 
-    model, ck = load_ckpt(cfg, run)
+    # run 하나로 두 갈래 — 확정 모델(마스킹 복원)이거나 딥러닝 비교선(단일 출력)이거나
+    kind, model, ck = core.load_run(cfg, run)
+    if kind != "meae":
+        SERIES = (SERIES[0], SERIES[1], core.baseline_cfg(cfg, kind)["label"])
     model = model.to(device).eval()
     ds = load(cfg, split)
     idx = np.arange(len(ds) if n is None else min(n, len(ds)))
@@ -585,10 +590,15 @@ def main(config="configs/default.yaml", run="C16_seed42", split="test", n=None,
         picked = {pos[s]: b for s, b in want.items() if s in pos}
         print(f"[06] 05 선정 분절 {len(idx)}개만 평가한다 ({from05})")
 
-    sup = list(cfg["loss"]["supervise"])
-    k_clean = sup.index("x_clean")
-    k_noise = [k for k in range(model.n_encoders) if k != k_clean]
-    rest = restore(model, ds, device, idx, k_clean, k_noise, method=method)
+    if kind != "meae":
+        rest = core.baseline_restore(model, ds, device, idx,
+                                     int(core.baseline_cfg(cfg, kind).get("infer_batch", 32)),
+                                     progress=200, spec=ck.get("window"))
+    else:
+        sup = list(cfg["loss"]["supervise"])
+        k_clean = sup.index("x_clean")
+        k_noise = [k for k in range(model.n_encoders) if k != k_clean]
+        rest = restore(model, ds, device, idx, k_clean, k_noise, method=method)
 
     # 고전 비교선 — **방법 비교는 여기서 한다.** 참값이 있어야 "어느 쪽이 참값에 더
     # 가까운가"를 말할 수 있고, 그 참값은 06 에만 있다(07 에는 없다). 04 와 같은 함수다.

@@ -70,6 +70,7 @@ import torch
 
 from scipy.signal import welch
 
+from src import core
 from src.core import (aggregate, component_bank, enc_names, load_ckpt,
                       mad_matrix, pearson, reconstruct, rmse_norm_matrix)
 from src.data.build import load_cfg
@@ -287,6 +288,167 @@ def select(history, ratio):
     lo = min(h["val_sup"] for h in ev)
     C = [h for h in ev if h["val_sup"] <= ratio * lo]
     return min(C, key=lambda h: h["val_sup"]), C
+
+
+def train_baseline(cfg, name=core.BASELINE_KIND, tag: str = "", max_epoch: int = None,
+                   batch: int = None, window: str = None, out_root: str = "results"):
+    """딥러닝 비교선을 **확정 모델과 같은 파이프라인 위의 별개 run** 으로 학습한다.
+
+        python 02_model.py --baseline deepfilter
+        python 02_model.py --baseline descod
+
+    산출은 확정 모델과 같은 자리에 같은 모양으로 선다 —
+    `results/02_model/<run>/<run>.pt · history.csv · console.log · note.txt`.
+    그 다음 04·05·06 을 `--run <run>` 으로 돌리면 단계별 결과 폴더가 따로 생긴다.
+    03 은 돌리지 않는다 — 인코더가 하나뿐이라 성분 ↔ 참조 대응표가 성립하지 않는다.
+
+    **바뀌는 것은 디노이징 기법 하나뿐이다.** 데이터·기록 분할·잡음 주입은 확정 모델과
+    같은 것을 그대로 읽는다. 손실·옵티마이저·스케줄러·기울기 절단·체크포인트 선정은
+    **각 원 논문 코드 방식 그대로** 둔다 — 확정 모델의 argmin L_sup^val 은 성분 지도
+    손실이라 인코더가 하나인 여기서는 성립하지 않는다. 이 차이는 원고 Methods 에 적는다.
+    """
+    b = core.baseline_cfg(cfg, name)
+    run = tag or b["run"]
+    base = os.path.basename(run)
+    out = os.path.join(out_root, "02_model", run)
+    os.makedirs(out, exist_ok=True)
+    log = open(os.path.join(out, "console.log"), "w", encoding="utf-8")
+
+    def say(msg):
+        print(msg, flush=True)
+        log.write(msg + "\n")
+        log.flush()
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    max_epoch = max_epoch or int(b["max_epoch"])
+    batch = batch or int(b["batch"])
+    seed = int(b["seed"])
+    set_seed(seed)
+
+    spec = core.window_spec(cfg, name)
+    if window:
+        spec["mode"] = window
+    train_set = Segments(cfg, "train", with_refs=True)
+    val_set = load(cfg, "val")
+    model = core.build_baseline(cfg, name).to(device)
+
+    def batch_loss(ds, j):
+        """저자 입력 창으로 잘라 학습한다 — 잡음 규약은 우리 것 그대로다.
+        beat 창의 기준선 오프셋은 입력에서 한 번 재어 목표에도 같은 값을 쓴다."""
+        x = ds.tensor(j).to(device)
+        y = ds.ref_tensor("x_clean", j).to(device)
+        pk = [ds.rpeaks[int(g)] for g in j] if spec["mode"] == "beat" else None
+        xw, meta = core.cut_windows(x, spec, pk)
+        yw, _ = core.cut_windows(y, spec, pk, base=None if meta is None else meta["base"])
+        return model.loss(xw, yw)
+
+    # 저자의 batch 는 **창(박동) 수**다. 창 모드에서는 분절 하나가 여러 창이 되므로,
+    # 한 스텝에 넣는 분절 수를 줄여 창 수가 저자 batch 에 가깝게 한다.
+    wps = {"full": 1, "tile": -(-train_set.x_noisy.shape[1] // int(spec["length"])),
+           "beat": int(np.median([len(r) for r in train_set.rpeaks])) + 2}[spec["mode"]]
+    seg_batch = max(1, batch // wps)
+    opt = torch.optim.Adam(model.parameters(), lr=float(b["lr"]),
+                           eps=float(b.get("adam_eps", 1e-8)))
+    if b["scheduler"] == "plateau":
+        # Keras 는 정체 patience 회에 감소, PyTorch 는 patience+1 회 — 1 을 빼 Keras 에 맞춘다
+        sched = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            opt, mode="min", factor=float(b["plateau_factor"]),
+            patience=max(0, int(b["plateau_patience"]) - 1), threshold=float(b["min_delta"]),
+            threshold_mode="abs", min_lr=float(b["min_lr"]))
+        step_on_val = True
+    elif b["scheduler"] == "step":
+        sched = torch.optim.lr_scheduler.StepLR(
+            opt, step_size=int(b["lr_step_size"]), gamma=float(b["lr_gamma"]))
+        step_on_val = False
+    else:
+        raise ValueError(f"알 수 없는 스케줄러: {b['scheduler']}")
+    clip = b.get("grad_clip")
+
+    npar = sum(p.numel() for p in model.parameters())
+    say(f"[{run}] 딥러닝 비교선 {name} — device={device} · 파라미터 {npar:,}개")
+    say(f"  데이터 train {len(train_set)}분절 / val {len(val_set)}분절 "
+        "(확정 모델과 같은 기록 분할·같은 잡음 주입)")
+    say(f"  기법 설정(원 논문 그대로) 손실 {b['loss']} · batch {batch} · "
+        f"lr {float(b['lr']):g} · seed {seed} · 스케줄러 {b['scheduler']}"
+        + f" · 입력 창 {spec['mode']}"
+        + (f"({spec['length']}표본, 분절당 약 {wps}창 → 스텝당 {seg_batch}분절)"
+           if spec["mode"] != "full" else "")
+        + (f" · grad clip {clip}" if clip else ""))
+    say(f"  선정 val 손실 최소 · " + (f"조기종료 {b['early_stop_patience']}에폭 "
+        f"(min_delta {float(b['min_delta']):g}, 절대)" if b.get("early_stop_patience")
+        else f"조기종료 없음 — {max_epoch}에폭 끝까지 (저자 그대로)"))
+
+    ckpt_path = os.path.join(out, f"{base}.pt")
+    rng = np.random.default_rng(seed)
+    hist, best, best_epoch, bad = [], np.inf, 0, 0
+    for epoch in range(1, max_epoch + 1):
+        t0 = time.time()
+        model.train()
+        order = rng.permutation(len(train_set))
+        tot = nb = 0.0
+        for s in range(0, len(order), seg_batch):
+            j = order[s:s + seg_batch]
+            loss = batch_loss(train_set, j)
+            opt.zero_grad(set_to_none=True)
+            loss.backward()
+            if clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), float(clip))
+            opt.step()
+            tot += float(loss.detach()) * len(j)
+            nb += len(j)
+        model.eval()
+        with torch.no_grad():
+            vt = vn = 0.0
+            for s in range(0, len(val_set), seg_batch):
+                j = np.arange(s, min(s + seg_batch, len(val_set)))
+                vt += float(batch_loss(val_set, j)) * len(j)
+                vn += len(j)
+        trl, val = tot / nb, vt / vn
+        sched.step(val) if step_on_val else sched.step()
+        hist.append({"epoch": epoch, "train": trl, "val": val,
+                     "lr": opt.param_groups[0]["lr"], "sec": time.time() - t0})
+        star = ""
+        if val < best:
+            bad = 0 if val < best - float(b["min_delta"]) else bad + 1
+            best, best_epoch, star = val, epoch, "  *"
+            torch.save({"kind": name, "model": model.state_dict(), "epoch": epoch,
+                        "val": val, "seed": seed, "cfg": cfg, "baseline": b,
+                        "batch": batch, "window": spec}, ckpt_path)
+        else:
+            bad += 1
+        say(f"  epoch {epoch:3d}  train {trl:14.4f}  val {val:14.4f}  "
+            f"lr {opt.param_groups[0]['lr']:.2e}  {time.time() - t0:6.1f}s{star}")
+        if b.get("early_stop_patience") and bad >= int(b["early_stop_patience"]):
+            say(f"  조기 종료 (val {b['early_stop_patience']}에폭 정체)")
+            break
+    pd.DataFrame(hist).round(6).to_csv(os.path.join(out, "history.csv"),
+                                       index=False, encoding="utf-8-sig")
+    say(f"[{run}] 최종 — 에폭 {best_epoch} · val {best:.6f} → {out}")
+
+    src = {"deepfilter": ["원 구현  fperdigon/DeepFilter · deepFilter/dl_models.py",
+                          "         deep_filter_model_I_LANL_dilated (Keras) → PyTorch 이식"],
+           "descod": ["원 구현  huayuLiArizona/Score-based-ECG-Denoising",
+                      "         denoising_model_small.ConditionalModel + main_model.DDPM",
+                      f"         추론 {b.get('shots')}회 표집 평균 × {b.get('num_steps')}스텝"]}
+    with open(os.path.join(out, "note.txt"), "w", encoding="utf-8") as f:
+        f.write("\n".join([
+            f"{run} — 딥러닝 비교선 ({b['label']})",
+            "",
+        ] + src.get(name, []) + [
+            f"         학습 파라미터 {npar:,}개",
+            "학습     본 연구 train 분할 (x_noisy → x_clean). 저자 사전학습 가중치 미사용",
+            f"         손실·옵티마이저·스케줄러·선정은 원 논문 코드 방식 그대로 ({b['loss']})",
+            f"설정     batch {batch} · lr {float(b['lr']):g} · seed {seed}",
+            f"입력 창  {spec['mode']}" + ("" if spec["mode"] == "full"
+                                          else f" · {spec['length']}표본 (저자 설계 길이)"),
+            f"선정     val 손실 최소 — 에폭 {best_epoch} · val {best:.6f}",
+            "",
+            "데이터·기록 분할·잡음 주입은 확정 모델과 같은 것을 읽는다.",
+            "바뀐 것은 디노이징 기법 하나뿐이다.",
+            "03(성분 ↔ 참조 대응)은 돌리지 않는다 — 인코더가 하나뿐이다.",
+        ]) + "\n")
+    log.close()
+    return out
 
 
 def train(cfg, n_encoders: int, seed: int, tag: str = "", plot_every: int = 1,
@@ -724,10 +886,22 @@ if __name__ == "__main__":
                         "모델 하나 전용이다. 확정 후에만 --out-root results 로 돌린다")
     p.add_argument("--group", default="",
                    help="results/02_model/<group>/<run>/ 로 묶는다")
+    p.add_argument("--baseline", default=None, choices=["deepfilter", "descod"],
+                   help="딥러닝 비교선을 별개 run 으로 학습한다 (results/02_model/<run>/)")
+    p.add_argument("--window", default=None, choices=["full", "tile", "beat"],
+                   help="저자 설계 입력 창. full=3,600표본 그대로 · tile=512표본 비중첩 · "
+                        "beat=R-피크 중심 512표본. 잡음 규약은 우리 것 그대로다")
+    p.add_argument("--batch", type=int, default=None,
+                   help="비교선 학습 배치 크기 오버라이드. 3,600샘플이라 메모리가 "
+                        "모자라면 낮춘다 — 낮춘 값은 원고에 적는다")
     p.add_argument("--no-eval", dest="no_eval", action="store_true",
                    help="학습 후 정량 지표 자동 산출을 건너뛴다")
     a = p.parse_args()
-    if a.diagnose:
+    if a.baseline:
+        train_baseline(load_cfg(a.config), a.baseline, tag=a.tag,
+                       max_epoch=a.max_epoch, batch=a.batch, window=a.window,
+                       out_root="results" if a.out_root == "experiments" else a.out_root)
+    elif a.diagnose:
         diagnose(a.config, a.run, a.split, a.n)
     else:
         if a.k is None or a.seed is None:

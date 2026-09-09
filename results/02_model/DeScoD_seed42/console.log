@@ -1,0 +1,95 @@
+[DeScoD_seed42] 딥러닝 비교선 descod — device=cuda · 파라미터 1,926,321개
+  데이터 train 5760분절 / val 900분절 (확정 모델과 같은 기록 분할·같은 잡음 주입)
+  기법 설정(원 논문 그대로) 손실 l1_sum · batch 96 · lr 0.001 · seed 42 · 스케줄러 step · grad clip 1.0
+  선정 val 손실 최소 · 조기종료 40에폭 (min_delta 0, 절대)
+  epoch   1  train   4713764.8802  val    445858.1529  lr 1.00e-03    43.5s  *
+  epoch   2  train    293197.3441  val    182758.3868  lr 1.00e-03    43.0s  *
+  epoch   3  train    123508.8267  val     57688.8807  lr 1.00e-03    43.1s  *
+  epoch   4  train     75398.3803  val     94724.8805  lr 1.00e-03    43.0s
+  epoch   5  train     83108.6010  val     58356.1805  lr 1.00e-03    42.9s
+  epoch   6  train     75518.2503  val     47872.9051  lr 1.00e-03    42.9s  *
+  epoch   7  train     85908.0180  val     46713.5062  lr 1.00e-03    43.0s  *
+  epoch   8  train     70316.8410  val    120593.6228  lr 1.00e-03    42.9s
+  epoch   9  train     72804.8396  val     67648.5994  lr 1.00e-03    42.9s
+  epoch  10  train     56916.4253  val     52189.6305  lr 1.00e-03    42.9s
+  epoch  11  train     52152.5729  val     39515.9985  lr 1.00e-03    43.0s  *
+  epoch  12  train     65070.7387  val     48125.2081  lr 1.00e-03    42.9s
+  epoch  13  train     56469.4479  val     45091.3936  lr 1.00e-03    42.9s
+  epoch  14  train     50079.5085  val     39305.1237  lr 1.00e-03    43.0s  *
+  epoch  15  train     57225.1129  val     76453.1239  lr 1.00e-03    42.9s
+  epoch  16  train     62434.4405  val     38563.6042  lr 1.00e-03    43.0s  *
+  epoch  17  train     48799.3058  val     40613.1452  lr 1.00e-03    42.9s
+  epoch  18  train     45023.6601  val     46425.9723  lr 1.00e-03    42.9s
+  epoch  19  train     49695.4062  val     55654.1629  lr 1.00e-03    42.9s
+  epoch  20  train     50838.4095  val     40540.7662  lr 1.00e-03    42.9s
+  epoch  21  train     59992.5670  val     50614.1609  lr 1.00e-03    42.9s
+  epoch  22  train     49276.4616  val     49798.4509  lr 1.00e-03    42.9s
+  epoch  23  train     49937.2764  val     87150.4516  lr 1.00e-03    43.0s
+  epoch  24  train     39203.4818  val     60861.8984  lr 1.00e-03    42.9s
+  epoch  25  train     53866.6531  val     33140.4920  lr 1.00e-03    42.9s  *
+  epoch  26  train     40671.3344  val     36997.1778  lr 1.00e-03    42.9s
+  epoch  27  train     55551.2254  val     43143.0964  lr 1.00e-03    42.9s
+  epoch  28  train     48930.2964  val     55756.4102  lr 1.00e-03    42.9s
+  epoch  29  train     48261.4090  val     43184.5228  lr 1.00e-03    42.9s
+  epoch  30  train     46928.4621  val     50459.7261  lr 1.00e-03    42.9s
+  epoch  31  train     46365.8421  val     42448.3036  lr 1.00e-03    42.9s
+  epoch  32  train     45312.5716  val     52464.7089  lr 1.00e-03    42.9s
+  epoch  33  train     49230.6258  val     32519.1826  lr 1.00e-03    43.0s  *
+  epoch  34  train     51592.3179  val     63670.8087  lr 1.00e-03    42.9s
+  epoch  35  train     51017.1155  val     38530.2827  lr 1.00e-03    42.9s
+  epoch  36  train     45290.4798  val     33733.7632  lr 1.00e-03    42.9s
+  epoch  37  train     52264.3629  val     48070.4617  lr 1.00e-03    42.9s
+  epoch  38  train     51625.0387  val     45745.4310  lr 1.00e-03    42.9s
+  epoch  39  train     52056.1453  val     44996.1980  lr 1.00e-03    42.9s
+  epoch  40  train     44979.8025  val     53709.8376  lr 1.00e-03    42.9s
+  epoch  41  train    174581.5593  val    198452.3896  lr 1.00e-03    42.9s
+  epoch  42  train    414196.9837  val    104658.5707  lr 1.00e-03    42.9s
+  epoch  43  train    115236.5970  val     81009.4863  lr 1.00e-03    42.9s
+  epoch  44  train     72150.5607  val     82635.0076  lr 1.00e-03    42.9s
+  epoch  45  train     51024.4682  val     65483.4287  lr 1.00e-03    42.9s
+  epoch  46  train     43070.5368  val     36242.1618  lr 1.00e-03    42.9s
+  epoch  47  train     43541.1769  val     43195.4445  lr 1.00e-03    42.9s
+  epoch  48  train     47899.5244  val     28378.3180  lr 1.00e-03    43.0s  *
+  epoch  49  train     46683.1867  val     23089.9283  lr 1.00e-03    43.0s  *
+  epoch  50  train     41769.0854  val     46019.1241  lr 1.00e-03    42.9s
+  epoch  51  train     45990.6412  val     32866.6145  lr 1.00e-03    42.9s
+  epoch  52  train     42067.8281  val     47829.0099  lr 1.00e-03    43.0s
+  epoch  53  train     48851.7555  val     32056.4035  lr 1.00e-03    42.9s
+  epoch  54  train     46449.1202  val     33312.6079  lr 1.00e-03    42.9s
+  epoch  55  train     47526.3129  val     69355.5866  lr 1.00e-03    42.9s
+  epoch  56  train     39607.9910  val     37325.6576  lr 1.00e-03    42.9s
+  epoch  57  train     55331.5501  val     75374.2189  lr 1.00e-03    42.9s
+  epoch  58  train     48199.0488  val     37218.8444  lr 1.00e-03    42.9s
+  epoch  59  train     59807.5523  val     64667.5259  lr 1.00e-03    42.9s
+  epoch  60  train     41302.7511  val     35729.0475  lr 1.00e-03    42.9s
+  epoch  61  train     40627.8130  val     27583.3476  lr 1.00e-03    42.9s
+  epoch  62  train     45911.8355  val     41821.8113  lr 1.00e-03    42.9s
+  epoch  63  train     36294.0816  val     39098.3395  lr 1.00e-03    42.9s
+  epoch  64  train     44060.2598  val     50914.2255  lr 1.00e-03    42.9s
+  epoch  65  train     47834.6878  val     30856.1063  lr 1.00e-03    42.9s
+  epoch  66  train     47998.2969  val     48496.8921  lr 1.00e-03    42.9s
+  epoch  67  train     47891.2856  val     54026.2519  lr 1.00e-03    42.9s
+  epoch  68  train     48016.9405  val     43652.9478  lr 1.00e-03    42.9s
+  epoch  69  train     41904.9880  val     49699.4762  lr 1.00e-03    42.9s
+  epoch  70  train     42547.1011  val     61178.6772  lr 1.00e-03    42.9s
+  epoch  71  train     58625.9966  val     41788.0706  lr 1.00e-03    42.9s
+  epoch  72  train     40100.8001  val     35926.2336  lr 1.00e-03    42.9s
+  epoch  73  train     39557.8418  val     48731.5530  lr 1.00e-03    42.9s
+  epoch  74  train     42777.6701  val     31916.1415  lr 1.00e-03    42.9s
+  epoch  75  train     51397.7396  val     38745.9953  lr 1.00e-03    44.1s
+  epoch  76  train     33549.5019  val     38053.7019  lr 1.00e-03    46.1s
+  epoch  77  train     41923.1614  val     37170.4505  lr 1.00e-03    44.3s
+  epoch  78  train     44266.6934  val     30773.4684  lr 1.00e-03    46.4s
+  epoch  79  train     41994.3705  val     35350.9484  lr 1.00e-03    46.5s
+  epoch  80  train     43253.3587  val     30951.7040  lr 1.00e-03    46.5s
+  epoch  81  train     43666.7956  val     35020.8703  lr 1.00e-03    45.1s
+  epoch  82  train     43032.4252  val     34882.9235  lr 1.00e-03    43.5s
+  epoch  83  train     44761.4319  val     34270.0639  lr 1.00e-03    43.9s
+  epoch  84  train     46393.3788  val     34990.8652  lr 1.00e-03    45.9s
+  epoch  85  train     40241.8628  val     32852.9503  lr 1.00e-03    46.4s
+  epoch  86  train     31311.7820  val     43657.9316  lr 1.00e-03    46.5s
+  epoch  87  train     42231.5159  val     44346.4236  lr 1.00e-03    46.5s
+  epoch  88  train     58057.9490  val     42547.3771  lr 1.00e-03    43.8s
+  epoch  89  train     46262.2979  val     48159.3108  lr 1.00e-03    42.9s
+  조기 종료 (val 40에폭 정체)
+[DeScoD_seed42] 최종 — 에폭 49 · val 23089.928307 → results\02_model\DeScoD_seed42

@@ -153,3 +153,78 @@ external:
               fs_src: 249.89, unit: mV}
   galaxyppg: {root: "D:/data/GalaxyPPG/GalaxyPPG/Dataset", source: "Polar H10 ECG",  # ecg 열은 µV — 로더에서 /1000
               fs_src: 130, unit: uV}
+
+# ────────────────────────────────────────────────────────────────
+# 딥러닝 비교선 — **기법만 바꾼다**
+#   데이터·분할·잡음 주입·평가 지표·집계는 본 연구 설정을 그대로 쓰고 디노이징
+#   기법만 공개 기법으로 갈아 끼운다. 저자 사전학습 가중치를 쓰지 않고 **우리 train
+#   분할로 재학습**한다 — 학습 데이터가 다르면 성능 차이의 원인이 섞인다.
+#   확정 모델과 **같은 파이프라인 위에 별개의 run** 으로 올린다:
+#     02_model.py --baseline deepfilter   →  results/02_model/<run>/
+#     04·05·06 --run <run>                →  results/<단계>/<run>/<split>/
+#   03(성분 ↔ 참조 대응)은 돌리지 않는다 — 인코더가 하나뿐이라 대응표가 없다.
+# ────────────────────────────────────────────────────────────────
+baselines:
+  # ── ① DeepFilter — Multibranch LANLD (Biomed Signal Process Control 2021)
+  deepfilter:
+    run: "DeepFilter_seed42"       # results/02_model/<run>/ 폴더 이름 = run 이름
+    label: "DeepFilter (재학습)"   # three_ways.csv 의 방식 이름
+    seed: 42                       # 저장소 관례와 같은 시드
+    dropout: 0.4                   # 원 구현 dl_models.py 와 같다
+    # 아래 넷은 원 저자 설정(dl_pipeline.py)이다. 기법의 일부이므로 우리 학습
+    # 설정(batch 256 등)으로 바꾸지 않는다.
+    batch: 128
+    lr: 1.0e-3
+    max_epoch: 300                 # 원 구현은 1e5 + 조기종료. 상한만 현실화했다
+    loss: ssd_mad                  # max(d²)*50 + sum(d²) — 저자 combined_ssd_mad_loss
+    grad_clip: null                # 원 구현에 없다
+    adam_eps: 1.0e-7               # Keras Adam 기본 epsilon (PyTorch 는 1e-8)
+    infer_batch: 100               # 04·05·06 복원 시 배치
+    window:                        # 저자 설계 입력 창. 데이터셋이 아니라 창만 바꾼다
+      mode: full                   #   full | tile | beat  (CLI --window 로 덮어쓴다)
+      length: 512                  #   저자 입력 길이
+    # 콜백도 원 설정 그대로
+    scheduler: plateau             # ReduceLROnPlateau
+    plateau_factor: 0.5
+    plateau_patience: 2
+    min_lr: 1.0e-10
+    early_stop_patience: 10
+    min_delta: 0.05                # 절대 기준. 원 구현과 같다
+    # 체크포인트 선정도 **원 논문 코드 방식 그대로** — val 손실 최소.
+    # 확정 모델의 argmin L_sup^val 은 성분 지도 손실이라 여기서는 성립하지 않는다.
+
+  # ── ② DeScoD-ECG — 조건부 확산 모델 (IEEE JBHI 2024)
+  #    github.com/huayuLiArizona/Score-based-ECG-Denoising
+  #    원본이 이미 PyTorch 라 구조·스케줄·손실·다중 표본 평균을 그대로 옮겼다.
+  descod:
+    run: "DeScoD_seed42"
+    label: "DeScoD-ECG (재학습)"
+    seed: 42
+    # ---- 모델·확산 (저자 config/base.yaml)
+    feats: 80
+    num_steps: 50
+    beta_start: 1.0e-4
+    beta_end: 0.5
+    schedule: quad
+    shots: 10                      # 저자 multi-shot averaging. 복원 1회 = 50스텝이라
+                                   #   분절당 500회 통과다. 고전·DeepFilter 와 비용이
+                                   #   다른 것은 기법의 성질이므로 줄이지 않는다.
+    # ---- 학습 (저자 utils.train)
+    batch: 96                      # **원 저자 값**. 저자 입력은 512 샘플인데 우리는
+                                   #   3,600 샘플이라 메모리가 7배다. GPU 가 못 받으면
+                                   #   여기를 낮추고 **낮춘 값을 원고에 적는다**.
+    lr: 1.0e-3
+    max_epoch: 400
+    loss: l1_sum                   # nn.L1Loss(reduction='sum') — 예측 잡음 대 실제 잡음
+    grad_clip: 1.0
+    scheduler: step                # StepLR(step_size 150, gamma 0.1)
+    lr_step_size: 150
+    lr_gamma: 0.1
+    early_stop_patience: null      # **원 구현에 조기종료가 없다 — 400에폭을 끝까지 돈다.**
+                                   #   처음엔 40 을 두었는데 val 이 무작위 t 로 출렁여
+                                   #   89에폭에 헛되이 멈췄다(StepLR 150 도 못 미침). 뺐다
+    min_delta: 0.0
+    infer_batch: 16                # 04·05·06 복원 시 배치. 표집이 무거워 작게 잡는다
+    window:                        # 저자 설계 입력 창. 데이터셋이 아니라 창만 바꾼다
+      mode: full                   #   full | tile | beat  (CLI --window 로 덮어쓴다)
+      length: 512                  #   저자 입력 길이

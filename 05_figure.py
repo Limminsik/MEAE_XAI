@@ -1,6 +1,7 @@
 """05 — 보고용 겹침 그림.
 
     python 05_figure.py --run C16_seed42 --split test
+    python 05_figure.py --run DeepFilter_seed42 --split test   # 딥러닝 비교선 run (DeScoD_seed42 도 같다)
 
 **같은 분절**에 대해 두 장면을 한 그림에 둔다.
 
@@ -30,6 +31,7 @@ import pandas as pd
 import torch
 
 from src import metrics
+from src import core
 from src.core import load_ckpt
 from src.data.build import load_cfg
 from src.data.dataset import load
@@ -118,18 +120,25 @@ def main(config="configs/default.yaml", run="C16_seed42", split="val", n=None,
     outdir = outdir or os.path.join("results", "05_figure", run, split)
     os.makedirs(outdir, exist_ok=True)
 
-    model, ck = load_ckpt(cfg, run)
+    # run 하나로 두 갈래 — 확정 모델(마스킹 복원)이거나 딥러닝 비교선(단일 출력)이거나
+    kind, model, ck = core.load_run(cfg, run)
     model = model.to(device).eval()
     ds = load(cfg, split)
     idx = np.arange(len(ds) if n is None else min(n, len(ds)))
 
-    sup = list(cfg["loss"]["supervise"])
-    k_clean = sup.index("x_clean")
-    k_noise = [k for k in range(model.n_encoders) if k != k_clean]
-
     clean = ds.refs["x_clean"][idx].astype(np.float64)
     noisy = ds.x_noisy[idx].astype(np.float64)
-    rest = restore(model, ds, device, idx, k_clean, k_noise, method=method)
+    if kind != "meae":
+        bcfg = core.baseline_cfg(cfg, kind)
+        LABELS[method] = bcfg["label"]
+        rest = core.baseline_restore(model, ds, device, idx,
+                                     int(bcfg.get("infer_batch", 32)), progress=200,
+                                     spec=ck.get("window"))
+    else:
+        sup = list(cfg["loss"]["supervise"])
+        k_clean = sup.index("x_clean")
+        k_noise = [k for k in range(model.n_encoders) if k != k_clean]
+        rest = restore(model, ds, device, idx, k_clean, k_noise, method=method)
     r_a = _corr(clean, rest)          # 복원 신호와 x_clean 의 |r|
     t = np.arange(clean.shape[1]) / fs
 
